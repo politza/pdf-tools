@@ -1,0 +1,25 @@
+HAVE_POPPLER_INDEX_ITER
+0.12 poppler_index_iter_get_child
+0.12 poppler_index_iter_new
+0.12 poppler_index_iter_next
+
+HAVE_POPPLER_GET_TITLE
+0.12 poppler_document_get_title
+
+HAVE_POPPLER_GET_METADATA
+0.16 poppler_document_get_author
+0.16 poppler_document_get_creation_date
+0.16 poppler_document_get_creator
+0.16 poppler_document_get_keywords
+0.16 poppler_document_get_modification_date
+0.16 poppler_document_get_producer
+0.16 poppler_document_get_subject
+0.16 poppler_document_get_pdf_version_string
+
+HAVE_POPPLER_GET_TEXT
+0.16 poppler_page_get_selected_text
+
+HAVE_POPPLER_FIND_OPTS
+0.22 PopplerFindFlags
+0.22 poppler_page_find_text_with_options
+

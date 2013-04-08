@@ -1,0 +1,66 @@
+#+TITLE:     PDF Tools README
+#+AUTHOR:    Andreas Politz
+#+EMAIL:     politza@fh-trier.de
+
+* Prerequisites
+** GNU/Linux OS
+** poppler-glib
+   Any version will do, but some will do better.
+    * >= 0.12 :: Extracting outline and document title.
+    * >= 0.16 :: Extracting metadata and document text.
+    * >= 0.22 :: Searching case-sensitive.
+** glib
+   This is obviously a prerequisite for poppler-glib.  I don't know
+   the minimally required version at the moment.
+            
+* Building
+  This should be as simple as
+#+begin_src sh
+  ./configure && make
+#+end_src
+  , which compiles the c source and creates a ELPA package.
+
+* Installation
+  Assuming the epdfinfo server build correctly and a Emacs package was
+  created.  The next step is to install this package, either with make
+  via
+#+begin_src sh
+  make install
+#+end_src
+  or by hand from within Emacs via
+#+begin_src elisp
+  M-x package-install-file RET pdf-tools-${VERSION}.tar RET
+#+end_src
+
+  Now put
+#+begin_src elisp
+  (pdf-tools-install)
+#+end_src
+  in your .emacs and that's it.
+
+* Usage (in a nutshell):
+** Isearch
+   Press C-s to enter isearch, try it.  While in isearch mode, C-v
+   and C-M-v turn pages, C-b enters batch mode (try it), C-d enters
+   dark mode (try it).
+** Outline
+   Press o to enter the outline buffer, assuming the PDF has one.
+   Or use the menu-bar item 'PDF Outline', the tool bar or the imenu
+   command.
+** Links and the History
+   After DocView has converted the document, you should start to see
+   links underlined by some red pixel. (This is purely a visual
+   cue.)  Click on such a link to activate it, or press f and select
+   it with the keyboard. Press B to return to the original page and
+   N to move (again) to the page of the just followed link.
+** Miscellanous
+   Drag the mouse over a region, this kills the selected text.
+   Press C-w to copy the whole page.  M-s o invokes pdf-occur (but
+   no regexp). I displays some metainformation about the document, s
+   p and s w optimize the display to the page, respectively
+   window-width. C-c C-d enters dark mode, which influences the
+   color choices made (but not retroactively).
+
+# Local Variables:
+# mode: org
+# End:
