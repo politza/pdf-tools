@@ -1,5 +1,23 @@
 ;;; pdf-tools.el --- Support library for PDF documents. -*- lexical-binding:t -*-
 
+;; Copyright (C) 2013  Andreas Politz
+
+;; Author: Andreas Politz <politza@fh-trier.de>
+;; Keywords: files, pdf
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 ;;
 ;; * Installation:
@@ -40,7 +58,6 @@
 ;; window-width. C-c C-d enters dark mode, which influences the color
 ;; choices made (but not retroactively).
 ;; 
-;; EOC
 
 (require 'doc-view)
 (require 'pdf-util)
