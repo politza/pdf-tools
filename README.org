@@ -10,9 +10,9 @@
    Preferably with imagemagick support.
 ** poppler-glib
    Any version will do, but some will do better.
-    * >= 0.12 :: Extracting outline and document title.
-    * >= 0.16 :: Extracting metadata and document text.
-    * >= 0.22 :: Searching case-sensitive.
+    - >= 0.12 :: Extracting outline and document title.
+    - >= 0.16 :: Extracting metadata and document text.
+    - >= 0.22 :: Searching case-sensitive.
 ** glib
    This is obviously a prerequisite for poppler-glib.  I don't know
    the minimally required version at the moment.

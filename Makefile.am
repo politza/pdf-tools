@@ -3,7 +3,7 @@ LISP_PACKAGES = pdf-history.el pdf-info.el pdf-isearch.el		\
  pdf-links.el pdf-misc.el pdf-occur.el pdf-outline.el pdf-tools.el	\
  pdf-util.el
 LISP_FILES = $(addprefix lisp/,$(LISP_PACKAGES))
-EPKG_FILES = $(LISP_FILES) src/epdfinfo README
+EPKG_FILES = $(LISP_FILES) src/epdfinfo README.org
 EPKG_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
 EPKG_TAR_NAME = $(EPKG_NAME).tar
 README_FILE = lisp/pdf-tools.el
