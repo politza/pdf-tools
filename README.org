@@ -6,8 +6,8 @@
 ** GNU/Linux OS
 ** convert
    http://www.imagemagick.org
-** Emacs
-   Preferably with imagemagick support.
+** GNU Emacs 24 
+   Preferably with imagemagick support.  
 ** poppler-glib
    Any version will do, but some will do better.
     - >= 0.12 :: Extracting outline and document title.
@@ -22,21 +22,25 @@
 #+begin_src sh
   ./configure && make
 #+end_src
-  , which compiles the c source and creates a ELPA package.
+  which compiles the c source and creates a ELPA package.
 
 * Installation
   Assuming the epdfinfo server build correctly and a Emacs package was
-  created.  The next step is to install this package, either with make
+  created.  The next step is to install this package, with make
   via
 #+begin_src sh
   make install
 #+end_src
-  or by hand from within Emacs via
+  or
+#+begin_src sh
+  make EMACS=/path/to/emacs install
+#+end_src
+  
+  Alternatively from within Emacs via
 #+begin_src elisp
   M-x package-install-file RET pdf-tools-${VERSION}.tar RET
 #+end_src
-
-  Now put
+  Finally put
 #+begin_src elisp
   (pdf-tools-install)
 #+end_src
@@ -57,13 +61,13 @@
    cue.)  Click on such a link to activate it, or press f and select
    it with the keyboard. Press B to return to the original page and
    N to move (again) to the page of the just followed link.
-** Miscellanous
-   Drag the mouse over a region, this kills the selected text.
-   Press C-w to copy the whole page.  M-s o invokes pdf-occur (but
-   no regexp). I displays some metainformation about the document, s
-   p and s w optimize the display to the page, respectively
-   window-width. C-c C-d enters dark mode, which influences the
-   color choices made (but not retroactively).
+** Miscellaneous
+   Drag the mouse over a region, this kills the selected text.  Press
+   C-w to copy the whole page.  M-s o invokes pdf-occur (but no
+   regexp). The key I displays some meta-information about the
+   document, s p and s w optimize the display to the page,
+   respectively window-width. C-c C-d enters dark mode, which
+   influences the color choices made (but not retroactively).
 
 # Local Variables:
 # mode: org
