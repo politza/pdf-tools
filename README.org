@@ -4,6 +4,10 @@
 
 * Prerequisites
 ** GNU/Linux OS
+** convert
+   http://www.imagemagick.org
+** Emacs
+   Preferably with imagemagick support.
 ** poppler-glib
    Any version will do, but some will do better.
     * >= 0.12 :: Extracting outline and document title.
