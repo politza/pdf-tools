@@ -209,9 +209,6 @@ be toggled via \\[pdf-links-toggle-decoration].
     (pdf-links-cancel-conversion)))
   (doc-view-goto-page (doc-view-current-page)))
 
-(defadvice doc-view-reconvert-doc (after pdf-links activate)
-  (pdf-links-after-revert-hook))
-
 (defun pdf-links-toggle-decoration (&optional force-reconversion)
   "Decorate or undecorate links in the current document.
 
@@ -244,6 +241,9 @@ case."
   (setq pdf-links-page-alist nil
         pdf-links-image-map-alist nil)
   (pdf-links-schedule-conversion (current-buffer) t))
+
+(defadvice doc-view-reconvert-doc (after pdf-links activate)
+  (pdf-links-after-revert-hook))
 
 (defun pdf-links-temp-file ()
   (unless pdf-links-temp-file

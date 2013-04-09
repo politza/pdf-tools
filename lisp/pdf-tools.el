@@ -61,6 +61,7 @@
 
 (require 'doc-view)
 (require 'pdf-util)
+(require 'cus-edit)
 
 ;;; Code:
 

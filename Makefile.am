@@ -10,7 +10,8 @@ README_FILE = lisp/pdf-tools.el
 
 EXTRA_DIST = $(LISP_FILES)
 CLEANFILES = $(EPKG_TAR_NAME)
-
+TESTS_ENVIRONMENT = $(EMACS) -Q $(EPKG_TAR_NAME) -batch -l
+TESTS = tests/install-basic.el
 
 .PHONY: package
 
@@ -34,4 +35,5 @@ install: all
 	fi
 	$(EMACS) -Q --batch --eval "(package-install-file \
 	 	\"$$PWD/$(EPKG_TAR_NAME)\")"
+
 

@@ -22,6 +22,7 @@
 ;; 
 
 (require 'pdf-util)
+(require 'imenu)
 
 ;;; Code:
 
@@ -195,10 +196,13 @@ Leave a border of MARGIN."
 
 This tells `pdf-isearch-minor-mode' to use dark colors."
   nil nil nil
-  (when (and isearch-mode (featurep 'pdf-isearch))
-    (pdf-isearch-redisplay)
-    (pdf-isearch-message
-     (if pdf-misc-dark-mode "dark mode" "light mode"))))
+  ;; FIXME: This should really be run in a hook.
+  (with-no-warnings
+    (when (and (featurep 'pdf-isearch)
+               pdf-isearch-active-mode)
+      (pdf-isearch-redisplay)
+      (pdf-isearch-message
+       (if pdf-misc-dark-mode "dark mode" "light mode")))))
 
 
 

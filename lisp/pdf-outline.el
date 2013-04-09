@@ -24,6 +24,7 @@
 (require 'outline)
 (require 'pdf-links)
 (require 'cl-lib)
+(require 'imenu)
 
 ;;; Code:
 
