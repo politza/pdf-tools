@@ -159,26 +159,26 @@ static const char *poppler_action_type_strings[] =
     "javascript"
   };
 
-void err_handler (const gchar *err)
-{
-  /* FIXME: Handle glib errors. */
-}
-
 int main(int argc, char **argv)
 {
   ctxt_t ctx;
   char line[IN_BUF_LEN];
   size_t len = 0;
   ssize_t read;
-
-  if (argc != 1)
+  char *error_log = "/dev/null";
+  
+  if (argc > 2)
     {
-      fprintf(stderr, "usage: epdfinfo\n");
+      fprintf(stderr, "usage: epdfinfo [ERROR-LOGFILE]\n");
       exit (EXIT_FAILURE);
     }
+  if (argc == 2)
+    error_log = argv[1];
+  
+  if (! freopen (error_log, "w", stderr))
+    err (2, "Unable to redirect stderr");
 
   g_type_init ();
-  g_set_printerr_handler (err_handler);
                           
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
