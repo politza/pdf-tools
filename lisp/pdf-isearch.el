@@ -261,6 +261,8 @@ images have to be created."
 ;; * Isearch Interface
 ;;
 
+(defvar pdf-isearch-filter-matches-function nil)
+
 (defun pdf-isearch-search-function (string &rest _)
   "Search for STRING in the current PDF buffer.
 
@@ -274,6 +276,8 @@ This is a Isearch interface function."
       ;; bottom ,left to right,
       (unless isearch-forward
         (setq matches (reverse matches)))
+      (when pdf-isearch-filter-matches-function
+        (setq matches (funcall pdf-isearch-filter-matches-function matches)))
       ;; Where to go next ?
       (setq pdf-isearch-page (doc-view-current-page)
             pdf-isearch-matches matches
@@ -353,7 +357,6 @@ This is a Isearch interface function."
   (pdf-isearch-active-mode -1)
   (pdf-util-save-window-scroll
     (doc-view-goto-page (doc-view-current-page)))
-  (clear-image-cache)
   (pdf-util-cache-clear "pdf-isearch"))
 
 (defun pdf-isearch-mode-initialize ()
