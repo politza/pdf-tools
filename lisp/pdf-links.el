@@ -143,7 +143,8 @@ do something with it."
 
 (defvar pdf-links-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap (kbd "f") 'pdf-links-do-action)
+    (define-key kmap (kbd "f") 'pdf-links-isearch-link)
+    (define-key kmap (kbd "F") 'pdf-links-do-action)
     kmap))
 ;;
 ;; Internal Variables
@@ -626,6 +627,48 @@ See `pdf-links-do-action' for the interface."
 (defun pdf-links-read-link--clear-cache ()
   "Remove prepared image files for interactively reading links."
   (pdf-util-cache-clear "pdf-links-read-link"))
+
+(defun pdf-links-isearch-link ()
+  (interactive)
+  (let* (quit-p
+         (isearch-mode-end-hook
+          (cons (lambda nil
+                  (setq quit-p isearch-mode-end-hook-quit))
+                isearch-mode-end-hook))
+         (pdf-isearch-filter-matches-function
+          'pdf-links-isearch-link-filter-matches))
+    (isearch-forward)
+    (unless (or quit-p (null pdf-isearch-current-match))
+      (let* ((match  pdf-isearch-current-match)
+             (size (pdf-util-image-size))
+             (links (sort (remove-if (lambda (e)
+                                       (= 0 (pdf-utils-intersection-area (car e) match)))
+                                     (mapcar (lambda (l)
+                                               (cons (pdf-util-scale-edges
+                                                      (car l) size)
+                                                     (cdr l)))
+                                             (pdf-links-pagelinks)))
+                          (lambda (e1 e2)
+                            (> (pdf-utils-intersection-area (car e1) match)
+                               (pdf-utils-intersection-area (car e2) match))))))
+        (unless links
+          (error "No link found at this position"))
+        (pdf-links-do-action (cdar links))))))
+                   
+(defun pdf-links-isearch-link-filter-matches (matches)
+  (let ((links (pdf-util-scale-edges
+                (mapcar 'car (pdf-links-pagelinks))
+                (pdf-util-image-size))))
+    (cl-remove-if-not
+     (lambda (m)
+       (cl-some (lambda (l)
+                  (pdf-util-with-edges (l m)
+                    (let ((area (min (* l-width l-height)
+                                     (* m-width m-height))))
+                      (>  (/  (pdf-utils-intersection-area m l)
+                              (float area)) 0.5))))
+                links))
+     matches)))
 
 (provide 'pdf-links)
 
