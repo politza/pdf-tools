@@ -48,6 +48,7 @@ If this is non-nil, all communication with the epdfinfo programm
   will be logged to this buffer."
   :group 'pdf-info
   :type '(choice
+          (const "*pdf-info-log*")
           (string :tag "Buffer name")
           (const :tag "Logging deactivated" nil)))
 
