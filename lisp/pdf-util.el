@@ -19,7 +19,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
+;; FIXME:
+;; * Handle remote and locally cached documents.
 
 ;;; Code:
 (require 'cl-lib)
@@ -181,6 +183,24 @@ to the scale of the image in the current window."
             edges1-right)
         (>= (+ edges2-top epsilon)
             edges1-bot))))
+
+(defun pdf-utils-intersection (e1 e2)
+  (pdf-util-with-edges (edges1 e1 e2)
+    (let ((left (max e1-left e2-left))
+          (top (max e1-top e2-top))
+          (right (min e1-right e2-right))
+          (bot (min e1-bot e2-bot)))
+      (when (and (<= left right)
+                 (<= top bot))
+        (list left top right bot)))))
+
+(defun pdf-utils-intersection-area (e1 e2)
+  (let ((inters (pdf-utils-intersection e1 e2)))
+    (if (null inters)
+        0
+      (pdf-util-with-edges (inters)
+        (* inters-width inters-height)))))
+  
 
 ;;
 ;; Handling Images In Windows
@@ -530,6 +550,18 @@ colors, otherwise light."
         (make-directory dir))
       (expand-file-name file dir))))
 
+(defun pdf-util-cache-files (dir)
+  (interactive)
+  (let ((root (pdf-util-cache--get-root-dir)))
+    (when root
+      (let ((dir (file-name-as-directory
+                  (expand-file-name
+                   dir
+                   root))))
+        (when (file-exists-p dir)
+          (directory-files
+           dir t directory-files-no-dot-files-regexp))))))
+
 (defun pdf-util-cache-clear (dir)
   (interactive)
   (let ((root (pdf-util-cache--get-root-dir)))
@@ -539,6 +571,9 @@ colors, otherwise light."
                    dir
                    root))))
         (when (file-exists-p dir)
+          (mapc 'clear-image-cache
+                (directory-files
+                 dir t directory-files-no-dot-files-regexp t))
           (delete-directory dir t))))))
 
 (defun pdf-util-cache-clear-all ()
@@ -565,7 +600,7 @@ colors, otherwise light."
   (expand-file-name (format "page-%d.png"
                             (or page (doc-view-current-page)))
                     (doc-view-current-cache-dir)))
-  
+
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here
