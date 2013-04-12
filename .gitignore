@@ -27,4 +27,4 @@ src/config.h
 src/epdfinfo
 src/epdfinfo-epdfinfo.o
 src/stamp-h1
-
+specs/
