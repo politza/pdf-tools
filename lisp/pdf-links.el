@@ -636,7 +636,8 @@ See `pdf-links-do-action' for the interface."
                   (setq quit-p isearch-mode-end-hook-quit))
                 isearch-mode-end-hook))
          (pdf-isearch-filter-matches-function
-          'pdf-links-isearch-link-filter-matches))
+          'pdf-links-isearch-link-filter-matches)
+         (isearch-message-prefix-add "(Links)"))
     (isearch-forward)
     (unless (or quit-p (null pdf-isearch-current-match))
       (let* ((match  pdf-isearch-current-match)

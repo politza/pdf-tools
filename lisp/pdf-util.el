@@ -1,4 +1,4 @@
-;;; pdf-util.el --- PDF Utility functions.
+;;; pdf-util.el --- PDF Utility functions. -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2013  Andreas Politz
 
@@ -43,6 +43,17 @@
 ;; Doc View Buffers
 ;; 
 
+(defun pdf-util-docview-buffer-p (&optional buffer)
+  (and (or (null buffer)
+           (buffer-live-p buffer))
+       (save-current-buffer
+         (and buffer (set-buffer buffer))
+         (derived-mode-p 'doc-view-mode))))
+
+(defun pdf-util-assert-docview-buffer ()
+  (unless (pdf-util-docview-buffer-p)
+    (error "Buffer is not in DocView mode")))
+
 (defun pdf-util-pdf-buffer-p (&optional buffer)
   (and (or (null buffer)
            (buffer-live-p buffer))
@@ -53,11 +64,15 @@
 
 (defun pdf-util-assert-pdf-buffer ()
   (unless (pdf-util-pdf-buffer-p)
-    (error "Buffer is not in doc-view PDF mode")))
+    (error "Buffer is not in DocView PDF mode")))
 
-(defadvice doc-view-goto-page (after pdf-util activate)
+(defadvice doc-view-goto-page (around pdf-util activate)
   "Run `pdf-util-after-change-page-hook'."
-  (run-hooks 'pdf-util-after-change-page-hook))
+  (let ((pdf-util-current-page (doc-view-current-page)))
+    ad-do-it
+    (unless (eq pdf-util-current-page
+                (doc-view-current-page))
+      (run-hooks 'pdf-util-after-change-page-hook))))
   
 ;;
 ;; Handling Edges
@@ -343,10 +358,9 @@ to the scale of the image in the current window."
                  edges
                  (pdf-util-image-offset) t)))
     (pdf-util-with-edges (win edges)
-      (let* ((context-pixel 0;; (or context-pixel
-                            ;;     (* next-screen-context-lines
-                            ;;        edges-height))
-                            )
+      (let* ((context-pixel (or context-pixel
+                                (* next-screen-context-lines
+                                   edges-height)))
              ;;Be careful not to modify edges.
              (edges-top (- edges-top context-pixel))
              (edges-bot (+ edges-bot context-pixel)))

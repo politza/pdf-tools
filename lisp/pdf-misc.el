@@ -206,6 +206,43 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 
 
 
+;;
+;; Mode line
+;;
+
+(define-minor-mode pdf-misc-size-indication-minor-mode
+  "" nil nil nil
+  (pdf-util-assert-docview-buffer)
+  (cond
+   (pdf-misc-size-indication-minor-mode
+    (unless (assq 'pdf-misc-size-indication-minor-mode
+                  mode-line-position)
+      (setq mode-line-position
+            `((pdf-misc-size-indication-minor-mode 
+               (:eval (pdf-misc-size-indication)))
+              ,@mode-line-position))))
+   (t
+    (setq mode-line-position
+          (cl-remove 'pdf-misc-size-indication-minor-mode
+                     mode-line-position :key 'car-safe)))))
+
+(defun pdf-misc-size-indication ()
+  (let ((top (= (window-vscroll nil t) 0))
+        (bot (>= (+ (- (nth 3 (window-inside-pixel-edges))
+                       (nth 1 (window-inside-pixel-edges)))
+                    (window-vscroll nil t))
+                 (cdr (pdf-util-image-size t)))))
+    (cond
+     ((and top bot) " All")
+     (top " Top")
+     (bot " Bot")
+     (t (format
+         " %d%%%%"
+         (ceiling
+          (* 100 (/ (float (window-vscroll nil t))
+                    (cdr (pdf-util-image-size t))))))))))
+  
+
 ;; 
 ;; Menu Bar
 ;;
