@@ -24,6 +24,7 @@
 (require 'pdf-info)
 (require 'pdf-util)
 (require 'pdf-misc)
+(require 'pdf-isearch)
 
 ;;; Code:
 
@@ -642,7 +643,7 @@ See `pdf-links-do-action' for the interface."
     (unless (or quit-p (null pdf-isearch-current-match))
       (let* ((match  pdf-isearch-current-match)
              (size (pdf-util-image-size))
-             (links (sort (remove-if (lambda (e)
+             (links (sort (cl-remove-if (lambda (e)
                                        (= 0 (pdf-utils-intersection-area (car e) match)))
                                      (mapcar (lambda (l)
                                                (cons (pdf-util-scale-edges
