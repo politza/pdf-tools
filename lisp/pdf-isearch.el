@@ -20,6 +20,8 @@
 
 ;;; Commentary:
 ;;
+;; TODO:
+;; * Add the possibility to limit the search to a range of pages.
 
 (require 'doc-view)
 (require 'cl-lib)
@@ -39,7 +41,7 @@
   
 (defcustom pdf-isearch-convert-commands
   '("-fuzz" "30%%" "-region" "%g"
-    "-fill" "%b" "-draw" "color 0,0 replace")
+    "-fill" "%b" "-draw" "color %w,2 replace")
   "The commands  for the external convert program.
 
 This should be a list of strings, possibly containing special
@@ -444,7 +446,7 @@ right."
       (mapcar 'car (cdar (pdf-info-search
                           string nil page)))
       (pdf-util-image-size))
-     2 2)))
+     0 0)))
 
 (defun pdf-isearch-find-next-matching-page (string page &optional
                                                    forward-p interactive-p)
@@ -608,18 +610,17 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                     pdf-isearch-convert-commands
                     pdf-misc-dark-mode
                     pdf-isearch-batch-mode
-                    pdf-isearch-search-parameter)))
+                    pdf-isearch-search-parameter))
+         if-size)
     (cond
      ((file-exists-p out-file)
       (pdf-util-display-image out-file))
      ((and (pdf-util-page-displayed-p)
-           (ignore-errors
-             (pdf-util-pdf-image-size)))
+           (setq if-size (pdf-util-png-image-size)))
       (let* ((image (doc-view-current-image))
              (window (selected-window))
              (buffer (current-buffer))
              (size (pdf-util-image-size))
-             (if-size (pdf-util-pdf-image-size))
              (colors (pdf-isearch-current-colors))
              (in-file (pdf-util-current-image-file)))
         (let ((scale
