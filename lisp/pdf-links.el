@@ -319,7 +319,7 @@ accordingly."
       (let* ((links (pdf-links-pagelinks page))
              (id-fmt "pdf-link-%d")
              (pointer 'hand)
-             (size (pdf-util-pdf-image-size))
+             (size (pdf-util-png-image-size))
              (scale (if (fboundp 'imagemagick-types)
                         (cons width
                               (round (* (/ (float (cdr size))
@@ -364,7 +364,7 @@ accordingly."
                (file-readable-p (ad-get-arg 0))
                (setq ov (doc-view-current-overlay))
                (window-live-p (overlay-get ov 'window))
-               (ignore-errors (pdf-util-pdf-image-size)))
+               (pdf-util-png-image-size))
       (ad-set-args 1 (pdf-links-image-props
                       (doc-view-current-page)
                       (ad-get-args 1))))))
@@ -418,7 +418,7 @@ document."
                           (string-to-number (match-string 1 png))
                        (error "Invalid png filename: %s" png)))
                (links (mapcar 'car (pdf-links-pagelinks page)))
-               (size (pdf-util-pdf-image-size))
+               (size (pdf-util-png-image-size))
                (colors (pdf-util-face-colors
                         'pdf-links-link pdf-misc-dark-mode)))
           (setq pdf-links-convert-process
@@ -575,11 +575,11 @@ See `pdf-links-do-action' for the interface."
        :extra-formats (list (cons ?c (lambda () (pop key-strings)))
                             (cons ?P
                                   `(lambda ()
-                                     ,(max 1 (* (cdr (pdf-util-pdf-image-size))
+                                     ,(max 1 (* (cdr (pdf-util-png-image-size))
                                                 pdf-links-convert-pointsize-scale)))))
        :apply (pdf-util-scale-edges
                (mapcar 'car links)
-               (pdf-util-pdf-image-size))))
+               (pdf-util-png-image-size))))
     (unwind-protect
         (progn
           (pdf-util-display-image out-file)

@@ -34,7 +34,8 @@
 
 (defvar pdf-util-convert-program (executable-find "convert"))
 
-(defvar-local pdf-util-pdf-image-size nil)
+(defvar-local pdf-util-png-image-size-alist nil
+  "Alist of cached png image sizes.")
 
 (defvar pdf-util-after-change-page-hook nil
   "A hook ran after turning the page.")
@@ -406,36 +407,49 @@ to the scale of the image in the current window."
                (file-executable-p pdf-util-convert-program))
     (error "The pdf-util-convert-program is unset or non-executable")))
 
-(defun pdf-util-pdf-image-size ()
-  "Return the image size of PDF in the selected window."
+(defun pdf-util-png-image-size (&optional page)
+  "Return the image size of the image file of the current PAGE.
+
+This returns a cons \(WIDTH . HEIGHT\) or nil, if not
+available (e.g. because it does not exist or is currently written
+to)."
+
   (pdf-util-assert-convert-program)
   (pdf-util-assert-pdf-buffer)
-  (if (and pdf-util-pdf-image-size
-           (eq (car pdf-util-pdf-image-size)
-               doc-view-resolution))
-      (cdr pdf-util-pdf-image-size)
-    (let (err size)
-      (catch 'done
-        (dolist (file (directory-files
-                       (doc-view-current-cache-dir)
-                       t "page-[0-9]+\\.png" t))
-          (with-temp-buffer
-            (if (save-excursion
-                  (/= 0 (call-process
-                         pdf-util-convert-program
-                         nil (current-buffer) nil
-                         file "-format" "%w %h" "info:")))
-                (setq err (buffer-string))
-              (setq size (cons (read (current-buffer))
-                               (read (current-buffer))))
-              (throw 'done nil)))))
-      (unless size
-        (error "Getting file image-size failed :%s (%s)"
-               (file-name-nondirectory (buffer-file-name))
-               err))
-      (setq pdf-util-pdf-image-size
-            (cons doc-view-resolution size))
-      size)))
+  (unless page (setq page (ignore-errors
+                            (doc-view-current-page))))
+  (when page
+    (let ((entry
+           (cl-assoc page pdf-util-png-image-size-alist
+                     :test 'gnus-member-of-range)))
+      (if entry
+          (nth 2 entry)
+        (let ((page-size (pdf-info-pagesize page)))
+          (setq entry (car (cl-member page-size
+                                      pdf-util-png-image-size-alist
+                                      :key 'cadr :test 'equal)))
+          (unless entry
+            (let ((size (pdf-util-image-file-size
+                         (pdf-util-current-image-file page))))
+              (when size
+                (setq entry
+                      (list nil page-size size))
+                (push entry pdf-util-png-image-size-alist))))
+          (when entry
+            (setcar entry (gnus-range-add
+                           (car entry) (list page)))
+            (nth 2 entry)))))))
+        
+
+(defun pdf-util-image-file-size (image-file)
+  (with-temp-buffer
+    (when (save-excursion
+            (= 0 (call-process
+                  pdf-util-convert-program
+                  nil (current-buffer) nil
+                  image-file "-format" "%w %h" "info:")))
+      (let ((standard-input (current-buffer)))
+        (cons (read) (read))))))
 
 (defun pdf-util-convert-asynch (in-file out-file &rest spec-and-callback)
   (pdf-util-assert-pdf-buffer)
@@ -447,7 +461,7 @@ to the scale of the image in the current window."
       (setq spec spec-and-callback
             callback nil))
     (let* ((cmds (pdf-util-convert--create-commands
-                  (pdf-util-pdf-image-size)
+                  (pdf-util-png-image-size)
                   spec))
            (proc
             (apply 'start-process "pdf-util-convert"
@@ -462,7 +476,7 @@ to the scale of the image in the current window."
   (pdf-util-assert-pdf-buffer)
   (pdf-util-assert-convert-program)
   (let* ((cmds (pdf-util-convert--create-commands
-                (pdf-util-pdf-image-size)
+                (pdf-util-png-image-size)
                 spec))
          (status (apply 'call-process
                         pdf-util-convert-program nil
