@@ -119,10 +119,7 @@ The selection works as usual, e.g. like the region in Emacs."
                 (val (cdr d)))
             (cl-case key
               (keywords
-               (setq val (mapconcat 'identity val ", ")))
-              ((created modified)
-               (setq val (current-time-string
-                          (seconds-to-time val)))))
+               (setq val (mapconcat 'identity val ", "))))
             (let ((beg (+ (length (symbol-name key)) (point) 1))
                   (fill-prefix
                    (make-string (1+ pad) ?\s)))
