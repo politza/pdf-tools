@@ -275,8 +275,8 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
           (cons 'creator (pop md))
           (cons 'producer (pop md))
           (cons 'format (pop md))
-          (cons 'created (string-to-number (pop md)))
-          (cons 'modified (string-to-number (pop md)))))))
+          (cons 'created (pop md))
+          (cons 'modified (pop md))))))
     (gettext
      (or (caar response) ""))
     (supported-commands (mapcar 'intern (car response)))
