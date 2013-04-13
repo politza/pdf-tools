@@ -816,7 +816,7 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   gchar *md[6];
   gchar *title;
   int i;
-  struct tm *tmp;
+  char *time_str;
 
   OK_BEG ();
   
@@ -841,11 +841,11 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
     }
 
   date = poppler_document_get_creation_date (doc);
-  tmp = ctime (&date);
-  printf ("%s:", tmp ? tmp : "");
+  time_str = ctime (&date);
+  printf ("%s:", time_str ? time_str : "");
   date = poppler_document_get_modification_date (doc);
-  tmp = ctime (&date);
-  printf ("%s\n", tmp ? tmp : "");
+  time_str = ctime (&date);
+  printf ("%s\n", time_str ? time_str : "");
 #endif
   OK_END ();
 #else
