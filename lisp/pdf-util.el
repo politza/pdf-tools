@@ -27,7 +27,8 @@
 (require 'cl-lib)
 (require 'doc-view)
 (require 'format-spec)
-
+(require 'gnus-range)
+         
 ;;
 ;; Variables
 ;;
