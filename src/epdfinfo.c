@@ -67,6 +67,8 @@ static void cmd_npages (const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagelinks(const ctxt_t *ctx, const arg_t *args);
 static void cmd_gettext(const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagesize(const ctxt_t *ctx, const arg_t *args);
+static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
+
 
 
 /* command specs */
@@ -129,6 +131,12 @@ const args_spec_t cmd_pagesize_spec[] =
     ARG_NATNUM                  /* page number */
   };
 
+const args_spec_t cmd_getannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM                  /* page number */
+  };
+
 
 static const cmd_t cmds [] =
   {
@@ -141,7 +149,8 @@ static const cmd_t cmds [] =
     {"number-of-pages", cmd_npages, cmd_npages_spec, G_N_ELEMENTS (cmd_npages_spec)},
     {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec, G_N_ELEMENTS (cmd_pagelinks_spec)},
     {"gettext", cmd_gettext, cmd_gettext_spec, G_N_ELEMENTS (cmd_gettext_spec)},
-    {"pagesize", cmd_pagesize, cmd_pagesize_spec, G_N_ELEMENTS (cmd_pagesize_spec)}
+    {"pagesize", cmd_pagesize, cmd_pagesize_spec, G_N_ELEMENTS (cmd_pagesize_spec)},
+    {"getannot", cmd_getannot, cmd_getannot_spec, G_N_ELEMENTS (cmd_getannot_spec)}
   };
 
 static const char *poppler_action_type_strings[] =
@@ -158,6 +167,48 @@ static const char *poppler_action_type_strings[] =
     "ocg-state",
     "javascript"
   };
+
+static const char *poppler_annot_type_strings[] =
+  {
+    "unknown",
+    "text",
+    "link",
+    "free-text",
+    "line",
+    "square",
+    "circle",
+    "polygon",
+    "poly_line",
+    "highlight",
+    "underline",
+    "squiggly",
+    "strike-out",
+    "stamp",
+    "caret",
+    "ink",
+    "popup",
+    "file",
+    "sound",
+    "movie",
+    "widget",
+    "screen",
+    "printer-mark",
+    "trap_net",
+    "watermark",
+    "3d"
+  };
+
+static const char *poppler_annot_text_state_strings[] =
+  {
+    "marked",
+    "unmarked",
+    "accepted",
+    "rejected",
+    "cancelled",
+    "completed",
+    "none",
+    "unknown"
+  };  
 
 int main(int argc, char **argv)
 {
@@ -473,8 +524,10 @@ static void printf_error (const char *fmt, ...)
   puts ("\n.");
 }
 
+/* PDF Actions */
+
 static gboolean
-do_handle_action (PopplerAction *action)
+is_handled_action (PopplerAction *action)
 {
   if (! action)
     return FALSE;
@@ -494,7 +547,7 @@ do_handle_action (PopplerAction *action)
 static void
 print_action (PopplerDocument *doc, PopplerAction *action)
 {
-  if (! do_handle_action (action))
+  if (! is_handled_action (action))
     return;
 
   print_escaped (poppler_action_type_strings[action->any.type], FALSE);
@@ -597,6 +650,11 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
 
 /* command implementations */
 
+/* Name: open
+   Args: filename [password]
+   Returns: Nothing
+   Errors: Is file can't be opened or is no PDF document.
+*/
 static void
 cmd_open (const ctxt_t *ctx, const arg_t *args)
 {
@@ -632,6 +690,11 @@ cmd_open (const ctxt_t *ctx, const arg_t *args)
     }
 }
 
+/* Name: close
+   Args: filename
+   Returns: 1 if file was open, otherwise 0.
+   Errors: None
+*/
 static void
 cmd_close (const ctxt_t *ctx, const arg_t *args)
 {
@@ -643,12 +706,27 @@ cmd_close (const ctxt_t *ctx, const arg_t *args)
   OK_END ();
 }
 
+/* Name: closeall
+   Args: None
+   Returns: Nothing
+   Errors: None
+*/
 static void
 cmd_closeall (const ctxt_t *ctx, const arg_t *args)
 {
   release_documents (ctx, TRUE);
   OK ();
 }
+/* Name: search
+   Args: filename ignorecase firstpage lastpage searchstring
+   
+   firstpage and lastpage may be 0, in which they are taken to be the
+   first, respc. last, page of the document.
+   
+   Returns: A list of matches:
+       page edges matched-text
+   Errors:  None
+*/
 
 static void
 cmd_search(const ctxt_t *ctx, const arg_t *args)
@@ -715,6 +793,18 @@ cmd_search(const ctxt_t *ctx, const arg_t *args)
   OK_END ();
 }
 
+/* Name: metadata
+   Args: filename
+   Returns: PDF's metadata
+
+   title author subject keywords creator producer pdf-version create-date mod-date
+
+   Dates are in seconds since the epoche.  If poppler version is <
+   0.16, only the title is returned.
+
+   Errors: If poppler < 0.12, which is the minimal version for getting
+   the title.
+*/
 
 static void
 cmd_metadata (const ctxt_t *ctx, const arg_t *args)
@@ -775,7 +865,7 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
       if (! action)
         continue; 
       
-      if (do_handle_action (action))
+      if (is_handled_action (action))
         {
           printf ("%d:", depth);
           print_action (doc, action);
@@ -791,6 +881,19 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
     } while (poppler_index_iter_next (iter));
 }
 #endif
+
+/* Name: outline
+   Args: filename
+
+   Returns: The documents outline (or index) as a, possibly empty,
+   list of records:
+
+   tree-level ACTION
+
+   See cmd_pagelinks for how ACTION is constructed.  
+   
+   Errors: If poppler < 0.12 .
+*/
 
 static void
 cmd_outline (const ctxt_t *ctx, const arg_t *args)
@@ -809,6 +912,14 @@ cmd_outline (const ctxt_t *ctx, const arg_t *args)
 #endif
 }
 
+/* Name: quit
+   Args: None
+   Returns: Nothing
+   Errors: None
+
+   Close all documents and exit.
+*/
+
 static void
 cmd_quit (const ctxt_t *ctx, const arg_t *args)
 {
@@ -816,6 +927,12 @@ cmd_quit (const ctxt_t *ctx, const arg_t *args)
   OK ();
   exit (EXIT_SUCCESS);
 }
+
+/* Name: number-of-pages
+   Args: filename
+   Returns: The number of pages.
+   Errors: None
+*/
 
 static void
 cmd_npages (const ctxt_t *ctx, const arg_t *args)
@@ -825,6 +942,25 @@ cmd_npages (const ctxt_t *ctx, const arg_t *args)
   printf ("%d\n", npages);
   OK_END ();
 }
+
+/* Name: pagelinks
+   Args: filename page
+   Returns: A list of linkmaps:
+
+   edges ACTION ,
+
+   where ACTION is one of
+
+   'goto-dest' title page top
+   'goto-remote' title filename page top
+   'uri' title URI
+   'launch' title program arguments
+
+   top is desired vertical position, filename is the target PDF of the
+   `goto-remote' link.
+   
+   Errors: None
+*/
 
 static void
 cmd_pagelinks(const ctxt_t *ctx, const arg_t *args)
@@ -866,6 +1002,12 @@ cmd_pagelinks(const ctxt_t *ctx, const arg_t *args)
   poppler_page_free_link_mapping (link_map);
 }
 
+/* Name: gettext
+   Args: filename page edges
+   Returns: The selection's text.
+   Errors: If page is out of range.
+*/
+
 static void
 cmd_gettext(const ctxt_t *ctx, const arg_t *args)
 {
@@ -878,7 +1020,7 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
   double y2 = args[5].value.edge;
   PopplerPage *page;
   double width, height;
-  char *text;
+  gchar *text;
   PopplerRectangle r;
   
   if (pn < 0 || pn > poppler_document_get_n_pages (doc))
@@ -906,6 +1048,12 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
 #endif
 }
 
+/* Name: pagesize
+   Args: filename page
+   Returns: width height
+   Errors: If page is out of range.
+*/
+
 static void
 cmd_pagesize(const ctxt_t *ctx, const arg_t *args)
 {
@@ -926,6 +1074,167 @@ cmd_pagesize(const ctxt_t *ctx, const arg_t *args)
   
   OK_BEG ();
   printf ("%f:%f\n", width, height);
+  OK_END ();
+}
+
+/* Annotations */
+
+/* Name: getannot
+   Args: filename page
+   Returns: The list of annotations of this page.
+
+   For non markup annotations
+   
+       edges type name flags color contents mod-date
+
+   ,where
+       
+       flags is PopplerAnnotFlag bitmask,
+       color is 3-byte RGB hex number ,
+
+   Additionally for markup annotations:
+
+   label subject opacity popup-edges popup-is-open create-date 
+
+   Additionally for text annotations:
+
+       text-icon text-state
+   
+   Errors: If page is out of range.
+*/
+
+static void
+cmd_getannot(const ctxt_t *ctx, const arg_t *args)
+{
+  PopplerDocument *doc = args[0].value.doc->pdf;
+  int pn = args[1].value.natnum;
+  PopplerPage *page;
+  gdouble height, width;
+  GList *annots;
+  GList *list;
+  
+  if (pn < 1 || pn > poppler_document_get_n_pages (doc))
+    {
+      printf_error ("No such page %d", pn);
+      return;
+    }
+
+  page = poppler_document_get_page (doc, pn - 1);
+  annots = poppler_page_get_annot_mapping (page);
+  poppler_page_get_size (page, &width, &height);
+
+  OK_BEG ();
+  for (list = annots; list; list = list->next)
+    {
+      PopplerAnnotMapping *m = (PopplerAnnotMapping *)list->data;
+      PopplerAnnot *a = m->annot;
+      PopplerAnnotMarkup *ma;
+      PopplerAnnotText *ta;
+      PopplerRectangle r;
+      PopplerColor *color;
+      gchar *text;
+      time_t time;
+      gdouble opacity;
+      GDate *date;
+      
+      r.x1 = m->area.x1;
+      r.x2 = m->area.x2;
+      r.y1 = height - m->area.y2;
+      r.y2 = height - m->area.y1;
+
+      printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
+              , r.x2 / width, r.y2 / height); 
+      
+      printf ("%s:", poppler_annot_type_strings[poppler_annot_get_annot_type (a)]);
+      text = poppler_annot_get_name (a);
+      print_escaped (text, FALSE);
+      g_free (text);
+
+      printf ("%d:", poppler_annot_get_flags (a));
+
+      color = poppler_annot_get_color (a);
+      if (color)
+        {
+          /* Reduce 2 Byte to 1 Byte color space  */
+          printf ("%.2x%.2x%.2x", (color->red >> 8)
+                  , (color->green >> 8)
+                  , (color->blue >> 8));
+          g_free (color);
+        }
+
+      putchar (':');
+
+      text = poppler_annot_get_contents (a);
+      print_escaped (text, FALSE);
+      g_free (text);
+
+      text = poppler_annot_get_modified (a);
+      if (poppler_date_parse (text, &time))
+        {
+          char *time_str = ctime (&time);
+          print_escaped (strchomp (time_str)
+                         , ! POPPLER_IS_ANNOT_MARKUP (a));
+        }
+      else
+        print_escaped (text, ! POPPLER_IS_ANNOT_MARKUP (a));
+      g_free (text);
+
+      if (! POPPLER_IS_ANNOT_MARKUP (a))
+        continue;
+
+      ma = POPPLER_ANNOT_MARKUP (a);
+      text = poppler_annot_markup_get_label (ma);
+      print_escaped (text, FALSE);
+      g_free (text);
+
+      text = poppler_annot_markup_get_subject (ma);
+      print_escaped (text, FALSE);
+      g_free (text);
+
+      opacity = poppler_annot_markup_get_opacity (ma);
+      printf ("%f:", opacity);
+
+      if (poppler_annot_markup_has_popup (ma)
+          && poppler_annot_markup_get_popup_rectangle (ma, &r))
+        {
+          gdouble tmp = r.y1;
+          r.y1 = height - r.y2;
+          r.y2 = height - tmp;
+          printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
+                  , r.x2 / width, r.y2 / height
+                  , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
+          
+        }
+      else
+        printf ("::");
+
+      date = poppler_annot_markup_get_date (ma);
+      if (date)
+        {
+          struct tm tm_time;
+          char *time_str;
+          g_date_to_struct_tm (date, &tm_time);
+          time_str = asctime (&tm_time);
+          print_escaped (strchomp (time_str), ! POPPLER_IS_ANNOT_TEXT (a));
+          g_free (date);
+        }
+      else
+        {
+          printf ("%s", POPPLER_IS_ANNOT_TEXT (a) ? ":" : "\n");
+        }
+
+      if (! POPPLER_IS_ANNOT_TEXT (a))
+        continue;
+
+      ta = POPPLER_ANNOT_TEXT (a);
+      text = poppler_annot_text_get_icon (ta);
+      print_escaped (text, FALSE);
+      g_free (text);
+      text = (gchar*) poppler_annot_text_state_strings[poppler_annot_text_get_state (ta)];
+      printf ("%s\n", text);
+    }
+
+  poppler_page_free_annot_mapping (annots);
   OK_END ();
 }
 
