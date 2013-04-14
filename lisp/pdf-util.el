@@ -75,7 +75,23 @@
     (unless (eq pdf-util-current-page
                 (doc-view-current-page))
       (run-hooks 'pdf-util-after-change-page-hook))))
+
+(defun pdf-util-page-displayed-p ()
+  (consp (ignore-errors
+           (doc-view-current-image))))
+
+(defun pdf-util-page-displayable-p (&optional page)
+  (unless page (setq page (doc-view-current-page)))
+  (file-readable-p
+   (expand-file-name
+    (format "page-%d.png" page)
+    (doc-view-current-cache-dir))))
   
+
+(defun pdf-util-current-image-file (&optional page)
+  (expand-file-name (format "page-%d.png"
+                            (or page (doc-view-current-page)))
+                    (doc-view-current-cache-dir)))
 ;;
 ;; Handling Edges
 ;; 
@@ -201,7 +217,7 @@ to the scale of the image in the current window."
         (>= (+ edges2-top epsilon)
             edges1-bot))))
 
-(defun pdf-utils-intersection (e1 e2)
+(defun pdf-utils-edges-intersection (e1 e2)
   (pdf-util-with-edges (edges1 e1 e2)
     (let ((left (max e1-left e2-left))
           (top (max e1-top e2-top))
@@ -211,8 +227,8 @@ to the scale of the image in the current window."
                  (<= top bot))
         (list left top right bot)))))
 
-(defun pdf-utils-intersection-area (e1 e2)
-  (let ((inters (pdf-utils-intersection e1 e2)))
+(defun pdf-utils-edges-intersection-area (e1 e2)
+  (let ((inters (pdf-utils-edges-intersection e1 e2)))
     (if (null inters)
         0
       (pdf-util-with-edges (inters)
@@ -261,69 +277,6 @@ to the scale of the image in the current window."
          (y1 (min (cdr isize)
                   (+ y0 (- (nth 3 edges) (nth 1 edges))))))
     (list x0 y0 x1 y1)))
-
-(defun pdf-util-page-displayed-p ()
-  (consp (ignore-errors
-           (doc-view-current-image))))
-
-(defmacro pdf-util-save-window-scroll (&rest body)
-  (declare (indent 0) (debug t))
-  (let ((hscroll (make-symbol "hscroll"))
-        (vscroll (make-symbol "vscroll")))
-    `(let ((,hscroll (window-hscroll))
-           (,vscroll (window-vscroll)))
-       (unwind-protect
-           (progn ,@body)
-         (image-set-window-hscroll ,hscroll)
-         (image-set-window-vscroll ,vscroll)))))
-
-(defun pdf-util-page-displayable-p (&optional page)
-  (unless page (setq page (doc-view-current-page)))
-  (file-readable-p
-   (expand-file-name
-    (format "page-%d.png" page)
-    (doc-view-current-cache-dir))))
-
-(defun pdf-util-tooltip-in-window (text x y &optional window)
-  (let* ((we (window-inside-absolute-pixel-edges window))
-         (dx (round (+ x (nth 0 we))))
-         (dy (round (+ y (nth 1 we))))
-         (tooltip-frame-parameters
-          `((left . ,dx)
-            (top . ,dy)
-            ,@tooltip-frame-parameters)))
-    (tooltip-show text)))
-
-(defun pdf-util-tooltip-arrow (image-top &optional timeout)
-  (when (floatp image-top)
-    (setq image-top
-          (round (* image-top (cdr (pdf-util-image-size))))))
-  (let* (x-gtk-use-system-tooltips      ;allow for images in tooltip
-         (dx (+ (or (car (window-margins)) 0)
-                (car (window-fringes))))
-         (dy image-top)
-         (pos (list dx dy dx (+ dy (* 2 (frame-char-height)))))
-         (vscroll
-          (pdf-util-required-vscroll pos))
-         (tooltip-frame-parameters
-          `((border-width . 0)
-            (internal-border-width . 0)
-            ,@tooltip-frame-parameters))
-         (tooltip-hide-delay (or timeout (* 60 60))))
-    (when vscroll
-      (pdf-util-set-window-pixel-vscroll vscroll))
-    (setq dy (max 0 (- dy
-                       (cdr (pdf-util-image-offset))
-                       (window-vscroll nil t))))
-    (pdf-util-tooltip-in-window
-     (propertize
-      " " 'display (propertize
-		    "\u2192" ;;right arrow
-		    'display '(height 2)
-		    'face '(:foreground
-                            "orange red"
-                            :background "white")))
-     dx dy)))
 
 
 (defun pdf-util-required-hscroll (edges &optional eager-p context-pixel)
@@ -376,6 +329,17 @@ to the scale of the image in the current window."
                    (if eager-p
                        edges-top
                      (- edges-bot win-height)))))))))
+
+(defmacro pdf-util-save-window-scroll (&rest body)
+  (declare (indent 0) (debug t))
+  (let ((hscroll (make-symbol "hscroll"))
+        (vscroll (make-symbol "vscroll")))
+    `(let ((,hscroll (window-hscroll))
+           (,vscroll (window-vscroll)))
+       (unwind-protect
+           (progn ,@body)
+         (image-set-window-hscroll ,hscroll)
+         (image-set-window-vscroll ,vscroll)))))
 
 (defun pdf-util-display-image (file)
   (if (null file)
@@ -524,38 +488,6 @@ to)."
                  (push (format-spec fmt alist) result))))))))
     (nreverse result)))
 
-(defvar pdf-util-face-colors--cache (make-hash-table))
-  
-(defun pdf-util-face-colors (face &optional dark-p)
-  "Return both colors of FACE as a cons.
-
-Look also in inherited faces.  If DARK-P is non-nil, return dark
-colors, otherwise light."
-  (let* ((bg (if dark-p 'dark 'light))
-         (spec (list (get face 'face-defface-spec)
-                     (get face 'theme-face)
-                     (get face 'customized-face)))
-         (cached (gethash face pdf-util-face-colors--cache)))
-    (cl-destructuring-bind (&optional cspec color-alist)
-        cached
-      (or (and color-alist
-               (equal cspec spec)
-               (cdr (assq bg color-alist)))
-          (let* ((this-bg (frame-parameter nil 'background-mode))
-                 (frame-background-mode bg)
-                 (f (and (not (eq bg this-bg))
-                         (x-create-frame-with-faces '((visibility . nil))))))
-            (with-selected-frame (or f (selected-frame))
-              (unwind-protect
-                  (let ((colors
-                         (cons (face-attribute face :foreground nil 'default)
-                               (face-attribute face :background nil 'default))))
-                    (puthash face `(,(mapcar 'copy-sequence spec)
-                                    ((,bg . ,colors) ,@color-alist))
-                             pdf-util-face-colors--cache)
-                    colors)
-                (when (and f (frame-live-p f))
-                  (delete-frame f)))))))))
 
 ;;
 ;; Caching Converted Images
@@ -619,12 +551,85 @@ colors, otherwise light."
         (make-directory dir)
         (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t))
       dir)))
-  
 
-(defun pdf-util-current-image-file (&optional page)
-  (expand-file-name (format "page-%d.png"
-                            (or page (doc-view-current-page)))
-                    (doc-view-current-cache-dir)))
+;;
+;; Various Functions
+;; 
+
+(defun pdf-util-tooltip-in-window (text x y &optional window)
+  (let* ((we (window-inside-absolute-pixel-edges window))
+         (dx (round (+ x (nth 0 we))))
+         (dy (round (+ y (nth 1 we))))
+         (tooltip-frame-parameters
+          `((left . ,dx)
+            (top . ,dy)
+            ,@tooltip-frame-parameters)))
+    (tooltip-show text)))
+
+(defun pdf-util-tooltip-arrow (image-top &optional timeout)
+  (when (floatp image-top)
+    (setq image-top
+          (round (* image-top (cdr (pdf-util-image-size))))))
+  (let* (x-gtk-use-system-tooltips ;allow for display property in tooltip
+         (dx (+ (or (car (window-margins)) 0)
+                (car (window-fringes))))
+         (dy image-top)
+         (pos (list dx dy dx (+ dy (* 2 (frame-char-height)))))
+         (vscroll
+          (pdf-util-required-vscroll pos))
+         (tooltip-frame-parameters
+          `((border-width . 0)
+            (internal-border-width . 0)
+            ,@tooltip-frame-parameters))
+         (tooltip-hide-delay (or timeout (* 60 60))))
+    (when vscroll
+      (pdf-util-set-window-pixel-vscroll vscroll))
+    (setq dy (max 0 (- dy
+                       (cdr (pdf-util-image-offset))
+                       (window-vscroll nil t))))
+    (pdf-util-tooltip-in-window
+     (propertize
+      " " 'display (propertize
+		    "\u2192" ;;right arrow
+		    'display '(height 2)
+		    'face '(:foreground
+                            "orange red"
+                            :background "white")))
+     dx dy)))
+
+(defvar pdf-util-face-colors--cache (make-hash-table))
+  
+(defun pdf-util-face-colors (face &optional dark-p)
+  "Return both colors of FACE as a cons.
+
+Look also in inherited faces.  If DARK-P is non-nil, return dark
+colors, otherwise light."
+  (let* ((bg (if dark-p 'dark 'light))
+         (spec (list (get face 'face-defface-spec)
+                     (get face 'theme-face)
+                     (get face 'customized-face)))
+         (cached (gethash face pdf-util-face-colors--cache)))
+    (cl-destructuring-bind (&optional cspec color-alist)
+        cached
+      (or (and color-alist
+               (equal cspec spec)
+               (cdr (assq bg color-alist)))
+          (let* ((this-bg (frame-parameter nil 'background-mode))
+                 (frame-background-mode bg)
+                 (f (and (not (eq bg this-bg))
+                         (x-create-frame-with-faces '((visibility . nil))))))
+            (with-selected-frame (or f (selected-frame))
+              (unwind-protect
+                  (let ((colors
+                         (cons (face-attribute face :foreground nil 'default)
+                               (face-attribute face :background nil 'default))))
+                    (puthash face `(,(mapcar 'copy-sequence spec)
+                                    ((,bg . ,colors) ,@color-alist))
+                             pdf-util-face-colors--cache)
+                    colors)
+                (when (and f (frame-live-p f))
+                  (delete-frame f)))))))))
+
 
 (provide 'pdf-util)
 
