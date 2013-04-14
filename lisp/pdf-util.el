@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 ;;
-;; FIXME:
+;; TODO:
 ;; * Handle remote and locally cached documents.
 
 ;;; Code:
@@ -274,9 +274,8 @@ to the scale of the image in the current window."
            (,vscroll (window-vscroll)))
        (unwind-protect
            (progn ,@body)
-         (progn
-           (when ,hscroll (image-set-window-hscroll ,hscroll))
-           (when ,vscroll (image-set-window-vscroll ,vscroll)))))))
+         (image-set-window-hscroll ,hscroll)
+         (image-set-window-vscroll ,vscroll)))))
 
 (defun pdf-util-page-displayable-p (&optional page)
   (unless page (setq page (doc-view-current-page)))
@@ -415,8 +414,6 @@ This returns a cons \(WIDTH . HEIGHT\) or nil, if not
 available (e.g. because it does not exist or is currently written
 to)."
 
-  (pdf-util-assert-convert-program)
-  (pdf-util-assert-pdf-buffer)
   (unless page (setq page (ignore-errors
                             (doc-view-current-page))))
   (when page
@@ -443,6 +440,7 @@ to)."
         
 
 (defun pdf-util-image-file-size (image-file)
+  (pdf-util-assert-convert-program)
   (with-temp-buffer
     (when (save-excursion
             (= 0 (call-process
@@ -453,7 +451,6 @@ to)."
         (cons (read) (read))))))
 
 (defun pdf-util-convert-asynch (in-file out-file &rest spec-and-callback)
-  (pdf-util-assert-pdf-buffer)
   (pdf-util-assert-convert-program)
   (let ((callback (car (last spec-and-callback)))
         spec)
@@ -474,7 +471,6 @@ to)."
       proc)))
 
 (defun pdf-util-convert (in-file out-file &rest spec)
-  (pdf-util-assert-pdf-buffer)
   (pdf-util-assert-convert-program)
   (let* ((cmds (pdf-util-convert--create-commands
                 (pdf-util-png-image-size)
