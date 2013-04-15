@@ -137,7 +137,7 @@ is unavailable or invalid."
   (interactive
    (list (and current-prefix-arg
               (prefix-numeric-value current-prefix-arg))))
-  (unless margin (setq margin 15))
+  (unless margin (setq margin 50))
   (let ((bb (doc-view-get-bounding-box)))
     (cond
      ((not bb)
@@ -182,6 +182,28 @@ Leave a border of MARGIN."
   (doc-view-fit-page-to-window)
   (set-window-hscroll nil 0)
   (set-window-vscroll nil 0))
+
+(define-minor-mode pdf-misc-auto-fit-minor-mode
+  "Automatically resize the PDF to it's window."
+  nil nil nil
+  (pdf-util-assert-docview-buffer)
+  (cond
+   (pdf-misc-auto-fit-minor-mode
+    (pdf-misc-auto-fit-maybe)
+    (add-hook 'window-configuration-change-hook
+              'pdf-misc-auto-fit-maybe t t))
+   (t
+    (remove-hook 'window-configuration-change-hook
+                 'pdf-misc-auto-fit-maybe t))))
+
+(defun pdf-misc-auto-fit-maybe ()
+  (let ((width (window-parameter nil 'pdf-misc-auto-fit-width)))
+    (unless (or (and width (= width (window-width)))
+                (not (pdf-util-page-displayed-p)))
+      (doc-view-fit-width-to-window)
+      (set-window-parameter nil 'pdf-misc-auto-fit-width
+                            (window-width))
+      (pdf-util-set-window-pixel-vscroll 0))))
 
 
 ;;
