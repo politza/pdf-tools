@@ -21,6 +21,7 @@ lisp/pdf-occur.elc
 lisp/pdf-outline.elc
 lisp/pdf-tools.elc
 lisp/pdf-util.elc
+lisp/pdf-render.elc
 src/.deps/
 src/Makefile
 src/config.h
@@ -29,3 +30,4 @@ src/epdfinfo-epdfinfo.o
 src/stamp-h1
 specs/
 aux/
+pdf-tools-*.tar
