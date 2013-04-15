@@ -27,19 +27,17 @@
 (defvar pdf-render-layer-functions nil
   "A list of functions determining what to render.
 
-:before-redraw
-:after-redraw
+:before-render
+:after-render
 :updated-p
-:redraw-page
+:render-page
 ")
 
 (defvar-local pdf-render-intialized-p nil)
 (defvar-local pdf-render-state-alist nil)
 (defvar-local pdf-render-redraw-process nil)
-(defvar-local pdf-render-redraw-canceled-p nil)
 (defvar-local pdf-render-redraw-timer nil)
 (defvar-local pdf-render-temp-file nil)
-
 
 (defun pdf-render-initialize (&optional force)
   (unless (and pdf-render-intialized-p
@@ -159,11 +157,13 @@
                  in-file pdf-render-temp-file
                  `(,@cmds
                    ,(lambda (_proc status)
-                      (when (equal status "finished\n")
-                        (pdf-render-set-state page cmds)
-                        (copy-file pdf-render-temp-file out-file t)
-                        (clear-image-cache out-file)
-                        (pdf-render-redraw--1 (cdr jobs) buffer))))))))))))
+                      (when (and (equal status "finished\n")
+                                 (buffer-live-p buffer))
+                        (with-current-buffer buffer
+                          (pdf-render-set-state page cmds)
+                          (copy-file pdf-render-temp-file out-file t)
+                          (clear-image-cache out-file)
+                          (pdf-render-redraw--1 (cdr jobs) buffer)))))))))))))
 
 (defun pdf-render-redraw-document (&optional buffer)
   (interactive)
