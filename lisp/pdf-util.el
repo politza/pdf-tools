@@ -41,6 +41,9 @@
 (defvar pdf-util-after-change-page-hook nil
   "A hook ran after turning the page.")
 
+(defvar pdf-util-after-reconvert-hook nil
+  "A hook ran after the document was reconverted.")
+
 ;;
 ;; Doc View Buffers
 ;; 
@@ -75,6 +78,9 @@
     (unless (eq pdf-util-current-page
                 (doc-view-current-page))
       (run-hooks 'pdf-util-after-change-page-hook))))
+
+(defadvice doc-view-reconvert-doc (after pdf-links activate)
+  (run-hooks 'pdf-util-after-reconvert-hook))
 
 (defun pdf-util-page-displayed-p ()
   (consp (ignore-errors
@@ -494,11 +500,13 @@ to)."
 ;;
 
 (defun pdf-util-cache-make-filename (dir &optional extension &rest keys)
+  (unless (stringp dir)
+    (setq dir (symbol-name dir)))
   (let ((root (pdf-util-cache--get-root-dir)))
     (unless root
       (error "The DocView cache directory is n/a"))
     (let ((file (format "%s.%s" (sha1 (format "%S" keys))
-                        extension))
+                        (or extension "png")))
           (dir  (file-name-as-directory
                  (expand-file-name
                   dir
@@ -552,6 +560,9 @@ to)."
         (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t))
       dir)))
 
+
+;;
+;; 
 ;;
 ;; Various Functions
 ;; 
