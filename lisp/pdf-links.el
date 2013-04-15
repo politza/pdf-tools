@@ -24,6 +24,7 @@
 (require 'pdf-info)
 (require 'pdf-util)
 (require 'pdf-misc)
+(require 'pdf-render)
 (require 'pdf-isearch)
 
 ;;; Code:
@@ -151,6 +152,9 @@ do something with it."
 ;; Internal Variables
 ;; 
 
+(defvar-local pdf-links-decorated-p nil
+  "Indicate whether links are decorated in this buffer.")
+  
 (defvar-local pdf-links-page-alist nil
   "Alist of pages and corresponding links.")
 
@@ -159,15 +163,6 @@ do something with it."
 
 The keys are \(PAGE . WIDTH\), where WIDTH is the corresponding
 image width of the image map.")
-
-(defvar-local pdf-links-temp-file nil
-  "A temporary file for the convert program.")
-
-(defvar-local pdf-links-convert-process nil
-  "The process of the convert program.")
-
-(defvar-local pdf-links-schedule-timer nil
-  "The timer used to schedule a document conversion.")
 
 (defvar pdf-links-id-counter 0
   "A counter for unique image :map mappings.")
@@ -195,105 +190,33 @@ be toggled via \\[pdf-links-toggle-decoration].
   (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-links-minor-mode
-    (cond
-     ((and pdf-links-decorate-p
-           (not (pdf-links-already-converted-p)))
-      (pdf-links-schedule-conversion nil t))
-     ((and (not pdf-links-decorate-p)
-           (pdf-links-already-converted-p))
-      (set (make-local-variable 'pdf-links-decorate-p) t)))
+    (make-local-variable 'pdf-links-decorate-p)
+    (setq pdf-links-decorated-p nil)
     (add-hook 'kill-buffer-hook 'pdf-links-read-link--clear-cache nil t)
-    (add-hook 'pdf-util-after-change-page-hook
-              'pdf-links-after-change-page-hook nil t))
+    (add-hook 'pdf-render-layer-functions 'pdf-links-render-function nil t))
    (t
-    (remove-hook 'pdf-util-after-change-page-hook
-                 'pdf-links-after-change-page-hook t)
-    (pdf-links-cancel-conversion)))
+    (remove-hook 'pdf-render-layer-functions 'pdf-links-render-function t)))
   (doc-view-goto-page (doc-view-current-page)))
 
-(defun pdf-links-toggle-decoration (&optional force-reconversion)
-  "Decorate or undecorate links in the current document.
-
-If FORCE-RECONVERSION is non-nil, reconvert the document in any
-case."
-  (interactive "P")
+(defun pdf-links-toggle-decoration ()
+  "Decorate or undecorate links in the current document." 
+  (interactive)
   (pdf-util-assert-pdf-buffer)
   (unless pdf-links-minor-mode
     (pdf-links-minor-mode 1))
   (setq pdf-links-decorate-p (not pdf-links-decorate-p))
-  (when (and force-reconversion
-             (pdf-links-already-converted-p))
-    (delete-file (pdf-links-already-converted-file-name)))
-  (when (and (null pdf-links-decorate-p)
-             pdf-links-convert-process)
-    (pdf-links-cancel-conversion)
-    (setq force-reconversion t))
-  (if (or force-reconversion
-          (and (not pdf-links-decorate-p)
-               (pdf-links-already-converted-p)))
-      (doc-view-revert-buffer)
-    (if (and pdf-links-decorate-p
-             (not (pdf-links-already-converted-p)))
-        (pdf-links-schedule-conversion))))
+  (pdf-render-redraw-document))
 
-(defun pdf-links-after-revert-hook ()
-  (let ((file (pdf-links-already-converted-file-name)))
-    (when (file-exists-p file)
-      (delete-file file)))
+(defun pdf-links-after-reconvert-hook ()
   (setq pdf-links-page-alist nil
-        pdf-links-image-map-alist nil)
-  (pdf-links-schedule-conversion (current-buffer) t))
+        pdf-links-image-map-alist nil))
 
-(defadvice doc-view-reconvert-doc (after pdf-links activate)
-  (pdf-links-after-revert-hook))
-
-(defun pdf-links-temp-file ()
-  (unless pdf-links-temp-file
-    (setq pdf-links-temp-file
-          (make-temp-file "pdf-links" nil ".png")))
-  pdf-links-temp-file)
   
-(defun pdf-links-cancel-conversion ()
-  "Cancel a pending or active decoration conversion."
-  (when (processp pdf-links-convert-process)
-    (delete-process pdf-links-convert-process))
-  (when (timerp pdf-links-schedule-timer)
-    (cancel-timer pdf-links-schedule-timer))
-  (pdf-links-convert-cleanup)
-  (setq pdf-links-schedule-timer nil
-        pdf-links-convert-process nil))
-  
-(defun pdf-links-schedule-conversion (&optional buffer not-now-p)
-  "Schedule a conversion of BUFFER, decorating links.
-
-BUFFER defaults to the current buffer.  Non-nil NOT-NOW-P,
-inhibits a immediate conversion.
-
-This considers a conversion if `pdf-links-decorate-p' is non-nil,
-`pdf-links-minor-mode' is active and the document has not already
-been converted for displaying links.
-
-In this case reconvert the document, as soon as DocView is
-finished converting it."
-
-  (unless buffer (setq buffer (current-buffer)))
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (pdf-links-cancel-conversion)
-      (when (and pdf-links-minor-mode
-                 pdf-links-decorate-p
-                 (not (pdf-links-already-converted-p)))
-        (if (and (not not-now-p)
-                 (doc-view-already-converted-p))
-            (pdf-links-convert buffer)
-          (run-with-timer
-           1 nil 'pdf-links-schedule-conversion buffer nil))))))
-  
-(defun pdf-links-after-change-page-hook ()
-  "Delete the annoying tooltip."
-  (let ((ov (doc-view-current-overlay)))
-    (when (and ov (stringp (overlay-get ov 'help-echo)))
-      (overlay-put ov 'help-echo nil))))
+;; (defun pdf-links-after-change-page-hook ()
+;;   "Delete the annoying tooltip."
+;;   (let ((ov (doc-view-current-overlay)))
+;;     (when (and ov (stringp (overlay-get ov 'help-echo)))
+;;       (overlay-put ov 'help-echo nil))))
 
 (defun pdf-links-pagelinks (&optional page)
   "Return the cached links for page PAGE.
@@ -369,85 +292,27 @@ accordingly."
                       (doc-view-current-page)
                       (ad-get-args 1))))))
 
-(defun pdf-links-already-converted-p ()
-  "Return non-nil, if the document should have decorated links."
-  (file-exists-p (pdf-links-already-converted-file-name)))
-   
-(defun pdf-links-already-converted-file-name ()
-  (expand-file-name
-   ".pdf-links-converted"
-   (doc-view-current-cache-dir)))
-
-(defun pdf-links-convert (&optional buffer)
-  "Convert BUFFER's document.
-
-This function assumes, that DocView is finished converting the
-document."
-  (save-current-buffer
-    (and buffer (set-buffer buffer))
-    (let ((pngs (directory-files
-                 (doc-view-current-cache-dir)
-                 t "\\`page-[0-9]+\.png\\'")))
-      (pdf-links-convert-1 pngs buffer)))
-  nil)
-
-(defun pdf-links-convert-cleanup ()
-  "Reset the mode-line and remove temporary files."
-  (setq mode-line-process
-        (cl-remove 'pdf-links-convert-process
-                   mode-line-process
-                   :key 'car-safe))
-  (when (and pdf-links-temp-file
-             (file-exists-p pdf-links-temp-file))
-    (delete-file pdf-links-temp-file)))
-  
-(defun pdf-links-convert-1 (pngs buffer)
-  "Convert image-files PNGS belonging to BUFFER asynchronously."
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (cond
-       ((null pngs)
-        (pdf-links-convert-cleanup)
-        (when (file-writable-p (pdf-links-already-converted-file-name))
-          (write-region
-           "" nil (pdf-links-already-converted-file-name) nil 'no-msg)))
-       (t
-        (let* ((png (car pngs))
-               (page (if (string-match
-                          "page-\\([0-9]+\\)\\.png\\'" png)
-                          (string-to-number (match-string 1 png))
-                       (error "Invalid png filename: %s" png)))
-               (links (mapcar 'car (pdf-links-pagelinks page)))
-               (size (pdf-util-png-image-size))
-               (colors (pdf-util-face-colors
-                        'pdf-links-link pdf-misc-dark-mode)))
-          (setq pdf-links-convert-process
-                (pdf-util-convert-asynch
-                 png (pdf-links-temp-file)
-                 :foreground (car colors)
-                 :background (cdr colors)
-                 :commands pdf-links-convert-commands
-                 :apply (pdf-util-scale-edges links size)
-                 (lambda (_ event)
-                   (let (png)
-                     (if (or (not (equal event "finished\n"))
-                             (not (buffer-live-p buffer))
-                             (not (setq png
-                                        (buffer-local-value
-                                         'pdf-links-temp-file buffer)))
-                             (not (file-exists-p png)))
-                         (message "Decorating PDF links aborted in buffer %s"
-                                  (buffer-name buffer))
-                       (copy-file png (car pngs) t)
-                       (clear-image-cache (car pngs))
-                       (if pngs
-                           (pdf-links-convert-1
-                            (cdr pngs) buffer)
-                         (pdf-links-convert-cleanup)))))))
-          (setq mode-line-process
-                (list (cons 'pdf-links-convert-process
-                            (list (format ":Decorating (%d left)"
-                                          (length pngs))))))))))))
+(defun pdf-links-render-function (action &rest args)
+  (case action
+    (:updated-p
+     (not (eq pdf-links-decorate-p
+              pdf-links-decorated-p)))
+    (:after-render
+     (setq pdf-links-decorated-p
+           pdf-links-decorate-p))
+    (:render-page
+     (when pdf-links-decorate-p
+       (let* ((page (car args))
+              (links (mapcar 'car (pdf-links-pagelinks page)))
+              (size (pdf-util-png-image-size))
+              (colors (pdf-util-face-colors
+                       'pdf-links-link pdf-misc-dark-mode)))
+         (when size
+           `(:foreground
+             ,(car colors)
+             :background ,(cdr colors)
+             :commands ,pdf-links-convert-commands
+             :apply ,(pdf-util-scale-edges links size))))))))
 
 (defun pdf-links-action-to-string (action)
   "Return a string representation of ACTION."
