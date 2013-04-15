@@ -34,18 +34,22 @@
 ")
 
 (defvar-local pdf-render-intialized-p nil)
-
-(defun pdf-render-initialize (&optional force)
-  (unless (or pdf-render-intialized-p force)
-    (pdf-render-state-load)
-    (add-hook 'kill-buffer-hook 'pdf-render-state-save nil t)
-    (add-hook 'pdf-util-after-reconvert-hook 'pdf-render-state-load nil t)
-    (setq pdf-render-intialized-p t)))
-
 (defvar-local pdf-render-state-alist nil)
 (defvar-local pdf-render-redraw-process nil)
 (defvar-local pdf-render-redraw-canceled-p nil)
 (defvar-local pdf-render-redraw-timer nil)
+(defvar-local pdf-render-temp-file nil)
+
+
+(defun pdf-render-initialize (&optional force)
+  (unless (and pdf-render-intialized-p
+               (not force))
+    (unless pdf-render-temp-file
+      (setq pdf-render-temp-file (make-temp-file "pdf-render")))
+    (pdf-render-state-load)
+    (add-hook 'kill-buffer-hook 'pdf-render-state-save nil t)
+    (add-hook 'pdf-util-after-reconvert-hook 'pdf-render-state-load nil t)
+    (setq pdf-render-intialized-p t)))
 
 (defun pdf-render-state-load ()
   (let ((default-directory (pdf-render-cache-directory)))
@@ -121,7 +125,7 @@
   (setq mode-line-process nil)
   nil)
 
-(defun pdf-render-redraw--1 (jobs &optional buffer tmp-file)
+(defun pdf-render-redraw--1 (jobs &optional buffer)
   "Only used internally."
   ;; Assumes no conversion (DocView + pdf-render) in progress.
   (save-current-buffer
@@ -137,11 +141,8 @@
            (page (car job))
            (cmds (cdr job)))
       ;; FIXME: Cleanup temp files, if rendering is cancelled.
-      (unless tmp-file (setq tmp-file (make-temp-file "pdf-render")))
       (cond
        ((null jobs)
-        (when (file-exists-p tmp-file)
-          (delete-file tmp-file))
         (setq pdf-render-redraw-process nil
               mode-line-process nil)
         (run-hook-with-args 'pdf-render-layer-functions :after-render))
@@ -155,15 +156,14 @@
           (setq pdf-render-redraw-process
                 (apply
                  'pdf-util-convert-asynch
-                 in-file tmp-file
+                 in-file pdf-render-temp-file
                  `(,@cmds
                    ,(lambda (_proc status)
-                      (when (and (equal status "finished\n")
-                                 (file-exists-p out-file))
+                      (when (equal status "finished\n")
                         (pdf-render-set-state page cmds)
-                        (copy-file tmp-file out-file t)
+                        (copy-file pdf-render-temp-file out-file t)
                         (clear-image-cache out-file)
-                        (pdf-render-redraw--1 (cdr jobs) buffer tmp-file))))))))))))
+                        (pdf-render-redraw--1 (cdr jobs) buffer))))))))))))
 
 (defun pdf-render-redraw-document (&optional buffer)
   (interactive)
