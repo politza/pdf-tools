@@ -19,6 +19,9 @@ HAVE_POPPLER_GET_METADATA
 HAVE_POPPLER_GET_TEXT
 0.16 poppler_page_get_selected_text
 
+HAVE_POPPLER_WRITE_PDF
+0.19.4 solves bug 49080, which corrupts some PDF files.
+
 HAVE_POPPLER_FIND_OPTS
 0.22 PopplerFindFlags
 0.22 poppler_page_find_text_with_options
