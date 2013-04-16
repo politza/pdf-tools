@@ -152,9 +152,6 @@ do something with it."
 ;; Internal Variables
 ;; 
 
-(defvar-local pdf-links-decorated-p nil
-  "Indicate whether links are decorated in this buffer.")
-  
 (defvar-local pdf-links-page-alist nil
   "Alist of pages and corresponding links.")
 
@@ -191,7 +188,6 @@ be toggled via \\[pdf-links-toggle-decoration].
   (cond
    (pdf-links-minor-mode
     (make-local-variable 'pdf-links-decorate-p)
-    (setq pdf-links-decorated-p nil)
     (add-hook 'kill-buffer-hook 'pdf-links-read-link--clear-cache nil t)
     (add-hook 'pdf-render-layer-functions 'pdf-links-render-function nil t))
    (t
@@ -210,7 +206,6 @@ be toggled via \\[pdf-links-toggle-decoration].
 (defun pdf-links-after-reconvert-hook ()
   (setq pdf-links-page-alist nil
         pdf-links-image-map-alist nil))
-
   
 ;; (defun pdf-links-after-change-page-hook ()
 ;;   "Delete the annoying tooltip."
@@ -292,27 +287,18 @@ accordingly."
                       (doc-view-current-page)
                       (ad-get-args 1))))))
 
-(defun pdf-links-render-function (action &rest args)
-  (case action
-    (:updated-p
-     (not (eq pdf-links-decorate-p
-              pdf-links-decorated-p)))
-    (:after-render
-     (setq pdf-links-decorated-p
-           pdf-links-decorate-p))
-    (:render-page
-     (when pdf-links-decorate-p
-       (let* ((page (car args))
-              (links (mapcar 'car (pdf-links-pagelinks page)))
-              (size (pdf-util-png-image-size))
-              (colors (pdf-util-face-colors
-                       'pdf-links-link pdf-misc-dark-mode)))
-         (when size
-           `(:foreground
-             ,(car colors)
-             :background ,(cdr colors)
-             :commands ,pdf-links-convert-commands
-             :apply ,(pdf-util-scale-edges links size))))))))
+(defun pdf-links-render-function (page)
+  (when pdf-links-decorate-p
+    (let* ((links (mapcar 'car (pdf-links-pagelinks page)))
+           (size (pdf-util-png-image-size))
+           (colors (pdf-util-face-colors
+                    'pdf-links-link pdf-misc-dark-mode)))
+      (when size
+        `(:foreground
+          ,(car colors)
+          :background ,(cdr colors)
+          :commands ,pdf-links-convert-commands
+          :apply ,(pdf-util-scale-edges links size))))))
 
 (defun pdf-links-action-to-string (action)
   "Return a string representation of ACTION."
