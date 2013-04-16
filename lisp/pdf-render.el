@@ -26,16 +26,11 @@
 
 (defvar pdf-render-layer-functions nil
   "A list of functions determining what to render.
-
-:before-render
-:after-render
-:updated-p
-:render-page
 ")
 
 (defvar-local pdf-render-intialized-p nil)
 (defvar-local pdf-render-state-alist nil)
-(defvar-local pdf-render-redraw-process nil)
+(defvar-local pdf-render-redraw-process/timer nil)
 (defvar-local pdf-render-redraw-timer nil)
 (defvar-local pdf-render-temp-file nil)
 
@@ -57,13 +52,15 @@
               (with-temp-buffer
                 (save-excursion
                   (insert-file-contents "render-state.el"))
-                (read)))))))
+                (unless (eobp)
+                  (read (current-buffer)))))))))
 
 (defun pdf-render-state-save ()
-  (let ((default-directory (pdf-render-cache-directory)))
+  (let ((default-directory (pdf-render-cache-directory))
+        (state pdf-render-state-alist))
     (when default-directory
       (with-temp-buffer
-        (princ pdf-render-state-alist)
+        (prin1 state (current-buffer))
         (write-region 1 (point-max) "render-state.el" nil 'no-msg)))))
 
 (defun pdf-render-cache-directory ()
@@ -105,25 +102,24 @@
         (copy-file name file)))
     file))
 
-(defun pdf-render-convert-commands (page &optional updated-only-p)
+(defun pdf-render-convert-commands (page)
   (apply 'nconc
-         (delq nil (mapcar (lambda (hook)
-                             (when (or (null updated-only-p)
-                                       (funcall hook :updated-p page))
-                               (funcall hook :render-page page)))
+         (delq nil (mapcar (lambda (h) (funcall h page))
                            (remq t pdf-render-layer-functions)))))
 
 (defun pdf-render-cancel-redraw ()
-  (when pdf-render-redraw-timer
+  (when (timerp pdf-render-redraw-timer)
     (cancel-timer pdf-render-redraw-timer)
     (setq pdf-render-redraw-timer nil))
-  (when (processp pdf-render-redraw-process)
-    (delete-process pdf-render-redraw-process)
-    (setq pdf-render-redraw-process nil))
+  (when (processp pdf-render-redraw-process/timer)
+    (delete-process pdf-render-redraw-process/timer))
+  (when (timerp pdf-render-redraw-process/timer)
+    (cancel-timer pdf-render-redraw-process/timer))
+  (setq pdf-render-redraw-process/timer nil)
   (setq mode-line-process nil)
   nil)
 
-(defun pdf-render-redraw--1 (jobs &optional buffer)
+(defun pdf-render-redraw--1 (pages &optional buffer)
   "Only used internally."
   ;; Assumes no conversion (DocView + pdf-render) in progress.
   (save-current-buffer
@@ -131,27 +127,30 @@
     ;; Prefer displayed pages.
     (catch 'done
       (dolist (active (doc-view-active-pages))
-        (let ((job (assq active jobs)))
-          (when job
-            (setq jobs (cons job (cl-remove active jobs :key 'car)))
+        (let ((page (car (memq active pages))))
+          (when page
+            (setq pages (cons page (remq active pages)))
             (throw 'done nil)))))
-    (let* ((job (car jobs))
-           (page (car job))
-           (cmds (cdr job)))
-      ;; FIXME: Cleanup temp files, if rendering is cancelled.
-      (cond
-       ((null jobs)
-        (setq pdf-render-redraw-process nil
-              mode-line-process nil)
-        (run-hook-with-args 'pdf-render-layer-functions :after-render))
-       (t
+    (if (null pages)
+        (progn
+          (setq pdf-render-redraw-process/timer nil
+                mode-line-process nil))
+      (let* ((page (car pages))
+             (cmds (pdf-render-convert-commands page))
+             (in-file (pdf-render-image-file page))
+             (out-file (pdf-util-current-image-file page)))
         (setq mode-line-process
-              (list (format ":Rendering (%d left)"
-                            (length jobs))))
-        (let ((in-file (pdf-render-image-file page))
-              (out-file (pdf-util-current-image-file page)))
-          ;;(delete-file out-file)
-          (setq pdf-render-redraw-process
+              (and pages (list (format ":Rendering (%d left)"
+                                       (length pages)))))        
+        (unless cmds
+          (pdf-render-set-state page nil)
+          (copy-file in-file out-file t)
+          (clear-image-cache out-file))
+        (setq pdf-render-redraw-process/timer
+              (if (or (null cmds)
+                      (pdf-render-state-uptodate-p page cmds))
+                  (run-with-timer 0.05 nil 'pdf-render-redraw--1
+                                  (cdr pages) buffer)
                 (apply
                  'pdf-util-convert-asynch
                  in-file pdf-render-temp-file
@@ -163,7 +162,8 @@
                           (pdf-render-set-state page cmds)
                           (copy-file pdf-render-temp-file out-file t)
                           (clear-image-cache out-file)
-                          (pdf-render-redraw--1 (cdr jobs) buffer)))))))))))))
+                          (pdf-render-redraw--1 (cdr pages) buffer))))))))))
+    (force-mode-line-update)))
 
 (defun pdf-render-redraw-document (&optional buffer)
   (interactive)
@@ -173,16 +173,9 @@
     (pdf-render-initialize)
     (unless (doc-view-already-converted-p)
       (error "Can't render while DocView is still converting"))
-    (pdf-render-cancel-redraw)
-    (run-hook-with-args 'pdf-render-layer-functions :before-render)
-    (let* ((pages (number-sequence 1 (pdf-info-number-of-pages buffer)))
-           (cmds (mapcar 'pdf-render-convert-commands pages))
-           (jobs (cl-mapcar 'cons pages cmds)))
-      (pdf-render-redraw--1
-       (cl-remove-if
-        (lambda (j) (pdf-render-state-uptodate-p (car j) (cdr j)))
-        jobs)
-       buffer))))
+    (pdf-render-cancel-redraw) 
+    (let* ((pages (number-sequence 1 (pdf-info-number-of-pages buffer))))
+      (pdf-render-redraw--1 pages buffer))))
 
 (provide 'pdf-render)
 ;;; pdf-render.el ends here
