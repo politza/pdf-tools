@@ -205,6 +205,84 @@ Leave a border of MARGIN."
                             (window-width))
       (pdf-util-set-window-pixel-vscroll 0))))
 
+;;
+
+(defcustom pdf-misc-multipage-horizontally nil
+  "If non-nil, windows are sorted left to right first."
+  :group 'pdf-misc)
+
+(defvar pdf-misc-multipage-minor-mode-map
+  (let ((kmap (make-sparse-keymap)))
+    (set-keymap-parent kmap doc-view-mode-map)
+    (define-key kmap [remap doc-view-next-page]
+      'pdf-misc-multipage-next-page)
+    (define-key kmap [remap doc-view-previous-page]
+      'pdf-misc-multipage-previous-page)
+    kmap))
+  
+(define-minor-mode pdf-misc-multipage-minor-mode
+  "View and navigate multiple pages in all windows."
+  nil nil nil
+  (pdf-util-assert-docview-buffer)
+  (cond
+   (pdf-misc-multipage-minor-mode
+    (pdf-misc-multipage-next-page 0))))
+
+(defun pdf-misc-multipage-get-windows (&optional horizontally-p)
+  (sort (get-buffer-window-list (current-buffer))
+        (lambda (w1 w2)
+          (let* ((e1 (window-edges w1))
+                 (e2 (window-edges w2))
+                 (l1 (car e1)) (t1 (cadr e1))
+                 (l2 (car e2)) (t2 (cadr e2)))
+            (if horizontally-p
+                (or (< t1 t2)
+                    (and (= t1 t2)
+                         (< l1 l2)))
+              (or (< l1 l2)
+                    (and (= l1 l2)
+                         (< t1 t2))))))))
+                
+(defun pdf-misc-multipage-next-page (&optional arg)
+  (interactive "p")
+  (let* ((windows (pdf-misc-multipage-get-windows
+                   pdf-misc-multipage-horizontally))
+         (selwin (selected-window))
+         (pos (cl-position selwin windows))
+         (page (doc-view-current-page))
+         (npages (pdf-info-number-of-pages)))
+    (cond
+     ((> arg 0)
+      (setq arg (min arg (- npages
+                            (+ page (- (length windows) pos 1)))))
+      (when (<= arg 0)
+        (error "End of document"))
+      ;; Set page of first window.
+      (setq page (- (+ page arg) pos)))
+     ((< arg 0)
+      (setq arg (max arg (- (- page pos 1))))
+      (when (>= arg 0)
+        (error "Beginning of document"))
+      (setq page (- (+ page arg) pos)))
+     (t
+      ;; Adjust pages in this case, starting at the first window.
+      (setq page (max 1
+                      (min (with-selected-window (car windows)
+                             (doc-view-current-page))
+                           (- npages (1- (length windows))))))))
+    (dolist (w windows)
+      (with-selected-window w
+        (doc-view-goto-page page)
+        (setq page (min (1+ page) npages))))))
+
+(defun pdf-misc-multipage-adjust-pages ()
+  (interactive)
+  (pdf-misc-multipage-next-page 0))
+
+(defun pdf-misc-multipage-previous-page (&optional arg)
+  (interactive "p")
+  (pdf-misc-multipage-next-page (- (or arg 1))))
+  
 
 ;;
 ;; Colors
