@@ -550,6 +550,24 @@ not call `imenu-sort-function'."
     (cons title
 	  (nconc (nreverse keep-at-top) menulist))))
 
+;; bugfix for imenu in Emacs 24.3 and below.
+(when (condition-case nil
+          (progn (imenu--truncate-items '(("" 0))) nil)
+        (error t))
+  (eval-after-load "imenu"
+    '(defun imenu--truncate-items (menulist)
+       "Truncate all strings in MENULIST to `imenu-max-item-length'."
+       (mapc (lambda (item)
+               ;; Truncate if necessary.
+               (when (and (numberp imenu-max-item-length)
+                          (> (length (car item)) imenu-max-item-length))
+                 (setcar item (substring (car item) 0 imenu-max-item-length)))
+               (when (imenu--subalist-p item)
+                 (imenu--truncate-items (cdr item))))
+             menulist))))
+
+
+
 (provide 'pdf-outline)
 
 ;;; pdf-outline.el ends here
