@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "config.h"
 #include <assert.h>
 #include <err.h>
 #include <error.h>
@@ -27,7 +26,10 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "epdfinfo.h"
+#include "config.h"
 
 
 /* declarations */
@@ -36,9 +38,12 @@ static arg_t *parse_args(const ctxt_t *ctx, const char *args, size_t len,
 static ptrdiff_t parse_next_arg (const char *args, char *buf);
 static void free_args (arg_t *args, size_t n);
 static void free_doc (doc_t *doc);
+static gboolean
+file_is_writable (const char *filename);
 static doc_t *open_document (const ctxt_t *ctx, const char *filename, const char *passwd, GError **error);
 static size_t release_documents (const ctxt_t *ctx, gboolean all);
 static char* strchomp (char *str);
+static char* create_file();
 static void print_escaped(const char *str, gboolean last_arg);
 static void printf_error(const char *fmt, ...);
 static void
@@ -67,7 +72,16 @@ static void cmd_npages (const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagelinks(const ctxt_t *ctx, const arg_t *args);
 static void cmd_gettext(const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagesize(const ctxt_t *ctx, const arg_t *args);
-static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
+static void cmd_getannots(const ctxt_t *ctx, const arg_t *args);
+static void cmd_getannot_by_key(const ctxt_t *ctx, const arg_t *args);
+static void cmd_getannot_attachment (const ctxt_t *ctx, const arg_t *args);
+static GHashTable* annots_get_for_page (doc_t *doc, gint pn);
+static GList*
+get_annots_for_page (doc_t *doc, gint pn);
+static annot_t*
+get_annot_by_key (doc_t *doc, const gchar *key);
+static void
+print_annot (const annot_t *annot, const PopplerPage *page);
 
 
 
@@ -131,12 +145,24 @@ const args_spec_t cmd_pagesize_spec[] =
     ARG_NATNUM                  /* page number */
   };
 
-const args_spec_t cmd_getannot_spec[] =
+const args_spec_t cmd_getannots_spec[] =
   {
     ARG_DOC,
-    ARG_NATNUM                  /* page number */
+    ARG_NATNUM,                  /* first page */
+    ARG_NATNUM                  /* last page */
   };
 
+const args_spec_t cmd_getannot_by_key_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* annotation's name */
+  };
+
+const args_spec_t cmd_getannot_attachment_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* annotation's name */
+  };
 
 static const cmd_t cmds [] =
   {
@@ -147,10 +173,17 @@ static const cmd_t cmds [] =
     {"outline", cmd_outline, cmd_outline_spec, G_N_ELEMENTS (cmd_outline_spec)},
     {"quit", cmd_quit, cmd_quit_spec, G_N_ELEMENTS (cmd_quit_spec)},
     {"number-of-pages", cmd_npages, cmd_npages_spec, G_N_ELEMENTS (cmd_npages_spec)},
-    {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec, G_N_ELEMENTS (cmd_pagelinks_spec)},
+    {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec
+     , G_N_ELEMENTS (cmd_pagelinks_spec)},
     {"gettext", cmd_gettext, cmd_gettext_spec, G_N_ELEMENTS (cmd_gettext_spec)},
     {"pagesize", cmd_pagesize, cmd_pagesize_spec, G_N_ELEMENTS (cmd_pagesize_spec)},
-    {"getannot", cmd_getannot, cmd_getannot_spec, G_N_ELEMENTS (cmd_getannot_spec)}
+    /* Annotations */
+    {"getannots", cmd_getannots, cmd_getannots_spec
+     , G_N_ELEMENTS (cmd_getannots_spec)},
+    {"getannot-by-key", cmd_getannot_by_key, cmd_getannot_by_key_spec,
+     G_N_ELEMENTS (cmd_getannot_by_key_spec)},
+    {"getannot-attachment", cmd_getannot_attachment, cmd_getannot_attachment_spec,
+     G_N_ELEMENTS (cmd_getannot_attachment_spec)}
   };
 
 static const char *poppler_action_type_strings[] =
@@ -253,7 +286,7 @@ int main(int argc, char **argv)
 
       for (i = 0; i < G_N_ELEMENTS (cmds);  i++)
         {
-          if (strncmp (cmds[i].name, line, strlen (cmds[i].name)) == 0)
+          if (strncmp (cmds[i].name, line, cmd_end) == 0)
             {
               if (cmds[i].nargs == 0
                   || (cmd_args = parse_args (&ctx, line + cmd_end,
@@ -282,7 +315,7 @@ int main(int argc, char **argv)
 
 static arg_t*
 parse_args(const ctxt_t *ctx, const char *args, size_t len,
-            const cmd_t *cmd)
+           const cmd_t *cmd)
 {
   gboolean failure = FALSE;
   int i;
@@ -428,15 +461,14 @@ parse_next_arg (const char *args, char *buf)
 }
 static doc_t*
 open_document (const ctxt_t *ctx, const char *filename
-                             , const char *passwd, GError **gerror)
+               , const char *passwd, GError **gerror)
 {
   char *uri;
   doc_t *doc = g_hash_table_lookup (ctx->documents, filename);
 
   if (NULL != doc)
     {
-      if (doc->last_used)
-        doc->last_used = time (NULL);
+      doc->last_used = time (NULL);
       return doc;
     }
 
@@ -454,6 +486,8 @@ open_document (const ctxt_t *ctx, const char *filename
     {
       doc->filename = g_strdup (filename);
       doc->passwd = g_strdup (passwd);
+      doc->annotations = g_malloc (sizeof (annotations_t));
+      doc->allow_auto_release = passwd != NULL;
       doc->last_used = time (NULL);
       g_hash_table_insert (ctx->documents, doc->filename, doc);
     }
@@ -473,7 +507,8 @@ release_documents (const ctxt_t *ctx, gboolean all)
   while (g_hash_table_iter_next (&iter, &key, &value))
     {
       doc_t *doc = (doc_t*) value;
-      if (all || (doc->last_used && doc->last_used + RELEASE_DOC_TIMEOUT < now))
+      if (all || (doc->allow_auto_release
+                  && doc->last_used + RELEASE_DOC_TIMEOUT < now))
         {
           free_doc (doc);
           g_hash_table_iter_remove (&iter);
@@ -484,7 +519,7 @@ release_documents (const ctxt_t *ctx, gboolean all)
 }
              
 static void
-print_escaped (const char *str, gboolean last_arg)
+print_escaped (const char *str, int print_add)
 {
   if (str)
     {
@@ -508,10 +543,15 @@ print_escaped (const char *str, gboolean last_arg)
         }
     }
 
-  if (last_arg)
-    putchar ('\n');
-  else
-    putchar (':');
+  switch (print_add)
+    {
+    case NL:
+      putchar ('\n');
+      break;
+    case COLON:
+      putchar (':');
+      break;
+    }
 }
 
 static void printf_error (const char *fmt, ...)
@@ -537,7 +577,7 @@ is_handled_action (PopplerAction *action)
     case POPPLER_ACTION_GOTO_REMOTE:
     case POPPLER_ACTION_GOTO_DEST:
     case POPPLER_ACTION_NAMED:
-    /* case POPPLER_ACTION_LAUNCH: */
+      /* case POPPLER_ACTION_LAUNCH: */
     case POPPLER_ACTION_URI:
       return TRUE;
     }
@@ -550,8 +590,8 @@ print_action (PopplerDocument *doc, PopplerAction *action)
   if (! is_handled_action (action))
     return;
 
-  print_escaped (poppler_action_type_strings[action->any.type], FALSE);
-  print_escaped (action->any.title, FALSE);
+  print_escaped (poppler_action_type_strings[action->any.type], COLON);
+  print_escaped (action->any.title, COLON);
   switch (action->any.type)
     {
     case POPPLER_ACTION_GOTO_REMOTE:
@@ -561,11 +601,11 @@ print_action (PopplerDocument *doc, PopplerAction *action)
       putchar ('\n');
       break;
     case POPPLER_ACTION_LAUNCH:
-      print_escaped (action->launch.file_name, FALSE);
-      print_escaped (action->launch.params, TRUE);
+      print_escaped (action->launch.file_name, COLON);
+      print_escaped (action->launch.params, NL);
       break;
     case POPPLER_ACTION_URI:
-      print_escaped (action->uri.uri, TRUE);
+      print_escaped (action->uri.uri, NL);
       break;
     }
 }
@@ -594,7 +634,7 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
   
   else if (action->any.type == POPPLER_ACTION_GOTO_REMOTE)
     {
-      print_escaped (action->goto_remote.file_name, FALSE);
+      print_escaped (action->goto_remote.file_name, COLON);
       dest = action->goto_remote.dest;
     }
   else if (action->any.type == POPPLER_ACTION_GOTO_DEST)
@@ -648,6 +688,244 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
 }
 
 
+/* Annotations */
+
+static GList*
+get_annots_for_page (doc_t *doc, gint pn)
+{
+
+  GList *annot_list, *item;
+  PopplerPage *page;
+  gint i = 0;
+  gint npages = poppler_document_get_n_pages (doc->pdf);
+
+  if (pn < 1 || pn > npages)
+    return NULL;
+
+  if (! doc->annotations->pages)
+    doc->annotations->pages = g_malloc0 (npages * sizeof(GList*));
+
+  if (doc->annotations->pages[pn - 1])
+    return doc->annotations->pages[pn - 1];
+  
+  if (! doc->annotations->keys)
+    doc->annotations->keys = g_hash_table_new (g_str_hash, g_str_equal);
+
+  page = poppler_document_get_page (doc->pdf, pn - 1);
+  if (NULL == page)
+    return NULL;
+  
+  annot_list = poppler_page_get_annot_mapping (page);
+  for (item = annot_list; item; item = item->next)
+    {
+      PopplerAnnotMapping *map = (PopplerAnnotMapping *)item->data;
+      gchar *key = g_strdup_printf ("annot-%d-%d", pn, i);
+      annot_t *a = g_malloc (sizeof (annot_t));
+      a->amap = map;
+      a->key = key;
+      doc->annotations->pages[pn - 1] =
+        g_list_append (doc->annotations->pages[pn - 1], a);
+      assert (NULL == g_hash_table_lookup (doc->annotations->keys, key));
+      g_hash_table_insert (doc->annotations->keys, key,
+                           doc->annotations->pages[pn - 1]);
+      ++i;
+    }
+  g_list_free (annot_list);
+  g_object_unref (page);
+  return doc->annotations->pages[pn - 1];
+}
+
+static annot_t*
+get_annot_by_key (doc_t *doc, const gchar *key)
+{
+  if (! doc->annotations->keys)
+    return NULL;
+
+  GList *item;
+  GList *annot = g_hash_table_lookup (doc->annotations->keys, key);
+  if (! annot)
+    return NULL;
+
+  for (item = annot; item; item = item->next)
+    {
+      annot_t *a = (annot_t*) item->data;
+      if (0 == strcmp (key, a->key))
+        return a;
+    }
+  return NULL;
+}
+
+static void
+print_annot (const annot_t *annot, const PopplerPage *page)
+{
+  double width, height;
+  PopplerAnnotMapping *m;
+  const gchar *key;
+  PopplerAnnot *a;
+  PopplerAnnotMarkup *ma;
+  PopplerAnnotText *ta;
+  PopplerRectangle r;
+  PopplerColor *color;
+  gchar *text;
+  time_t time;
+  gdouble opacity;
+  GDate *date;
+
+  if (! annot || ! page)
+    return;
+  
+  m = annot->amap;
+  key = annot->key;
+  a = m->annot;
+  poppler_page_get_size ((PopplerPage*)page, &width, &height);
+      
+  r.x1 = m->area.x1;
+  r.x2 = m->area.x2;
+  r.y1 = height - m->area.y2;
+  r.y2 = height - m->area.y1;
+
+  printf ("%d:", poppler_page_get_index ((PopplerPage*)page) + 1);
+  printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
+          , r.x2 / width, r.y2 / height); 
+      
+  printf ("%s:", poppler_annot_type_strings[poppler_annot_get_annot_type (a)]);
+  print_escaped (key, COLON);
+
+  printf ("%d:", poppler_annot_get_flags (a));
+
+  color = poppler_annot_get_color (a);
+  if (color)
+    {
+      /* Reduce 2 Byte to 1 Byte color space  */
+      printf ("%.2x%.2x%.2x", (color->red >> 8)
+              , (color->green >> 8)
+              , (color->blue >> 8));
+      g_free (color);
+    }
+
+  putchar (':');
+
+  text = poppler_annot_get_contents (a);
+  print_escaped (text, COLON);
+  g_free (text);
+
+  text = poppler_annot_get_modified (a);
+  if (poppler_date_parse (text, &time))
+    {
+      char *time_str = ctime (&time);
+      print_escaped (strchomp (time_str), NONE);
+    }
+  else
+    print_escaped (text, NONE);
+  g_free (text);
+
+  if (! POPPLER_IS_ANNOT_MARKUP (a))
+    {
+      putchar ('\n');
+      return;
+    }
+
+  putchar (':');
+  ma = POPPLER_ANNOT_MARKUP (a);
+  text = poppler_annot_markup_get_label (ma);
+  print_escaped (text, COLON);
+  g_free (text);
+
+  text = poppler_annot_markup_get_subject (ma);
+  print_escaped (text, COLON);
+  g_free (text);
+
+  opacity = poppler_annot_markup_get_opacity (ma);
+  printf ("%f:", opacity);
+
+  if (poppler_annot_markup_has_popup (ma)
+      && poppler_annot_markup_get_popup_rectangle (ma, &r))
+    {
+      gdouble tmp = r.y1;
+      r.y1 = height - r.y2;
+      r.y2 = height - tmp;
+      printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
+              , r.x2 / width, r.y2 / height
+              , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
+          
+    }
+  else
+    printf ("::");
+
+  date = poppler_annot_markup_get_date (ma);
+  if (date)
+    {
+      struct tm tm_time;
+      char *time_str;
+      g_date_to_struct_tm (date, &tm_time);
+      time_str = asctime (&tm_time);
+      print_escaped (strchomp (time_str), ! POPPLER_IS_ANNOT_TEXT (a));
+      g_free (date);
+    }
+  else
+    {
+      printf ("%s", POPPLER_IS_ANNOT_TEXT (a) ? ":" : "\n");
+    }
+
+  if (! POPPLER_IS_ANNOT_TEXT (a))
+    return;
+
+  ta = POPPLER_ANNOT_TEXT (a);
+  text = poppler_annot_text_get_icon (ta);
+  print_escaped (text, COLON);
+  g_free (text);
+  text = (gchar*)
+    poppler_annot_text_state_strings
+    [poppler_annot_text_get_state (ta)];
+  printf ("%s\n", text);
+}
+
+static void
+print_attachment (PopplerAttachment *att, gboolean do_save)
+{
+  time_t time;
+  
+  print_escaped (att->name, COLON);
+  print_escaped (att->description, COLON);
+  printf ("%d:", att->size);
+  time = (time_t) att->mtime;
+  if (time > 0)
+    print_escaped (strchomp (ctime (&time)), COLON);
+  else
+    putchar (':');
+  time = (time_t) att->ctime;
+  if (time > 0)
+    print_escaped (strchomp (ctime (&time)), COLON);
+  else
+    putchar (':');
+  print_escaped (att->checksum ? att->checksum->str : ""
+                 , COLON);
+  if (do_save)
+    {
+      char *filename = create_file ();
+      GError *error = NULL;
+      if (! filename)
+        {
+          fprintf (stderr, "Unable to create tempfile");
+        }
+      else if (! poppler_attachment_save (att, filename, &error))
+        {
+          fprintf (stderr, "Writing attachment failed: %s"
+                   , error ? error->message : "reason unknown");
+          if (error)
+            g_free (error);
+        }
+      else
+        {
+          print_escaped (filename, NONE);
+        }
+      if (filename)
+        free (filename);
+    }
+  putchar ('\n');
+}
+
+
 /* command implementations */
 
 /* Name: open
@@ -685,7 +963,7 @@ cmd_open (const ctxt_t *ctx, const arg_t *args)
     }
   else
     {
-      doc->last_used = 0;
+      doc->allow_auto_release = 0;
       OK ();
     }
 }
@@ -724,7 +1002,7 @@ cmd_closeall (const ctxt_t *ctx, const arg_t *args)
    first, respc. last, page of the document.
    
    Returns: A list of matches:
-       page edges matched-text
+   page edges matched-text
    Errors:  None
 */
 
@@ -780,7 +1058,7 @@ cmd_search(const ctxt_t *ctx, const arg_t *args)
 #ifdef HAVE_POPPLER_GET_TEXT
           line = strchomp (poppler_page_get_selected_text
                            (page, POPPLER_SELECTION_LINE, r));
-          print_escaped (line, TRUE);
+          print_escaped (line, NL);
           g_free (line);
 #else
           putchar ('\n');
@@ -821,7 +1099,7 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   OK_BEG ();
   
   title = poppler_document_get_title (doc);
-  print_escaped (title, FALSE);
+  print_escaped (title, COLON);
   g_free (title);
 
 #ifndef HAVE_POPPLER_GET_METADATA
@@ -836,16 +1114,16 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   
   for (i = 0; i < 6; ++i)
     {
-      print_escaped (md[i], FALSE);
+      print_escaped (md[i], COLON);
       g_free (md[i]);
     }
 
   date = poppler_document_get_creation_date (doc);
   time_str = strchomp (ctime (&date));
-  print_escaped (time_str ? time_str : "", FALSE);
+  print_escaped (time_str ? time_str : "", COLON);
   date = poppler_document_get_modification_date (doc);
   time_str = strchomp (ctime (&date));
-  print_escaped (time_str ? time_str : "", TRUE);
+  print_escaped (time_str ? time_str : "", NL);
 #endif
   OK_END ();
 #else
@@ -1041,7 +1319,7 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
   text = poppler_page_get_selected_text (page, POPPLER_SELECTION_GLYPH, &r);
 
   OK_BEG ();
-  print_escaped (text, TRUE);
+  print_escaped (text, NL);
   OK_END ();
 
   g_free (text);
@@ -1082,164 +1360,143 @@ cmd_pagesize(const ctxt_t *ctx, const arg_t *args)
 
 /* Annotations */
 
-/* Name: getannot
+/* Name: getannots
    Args: filename page
    Returns: The list of annotations of this page.
 
-   For non markup annotations
+   For all annotations
    
-       edges type name flags color contents mod-date
+   page edges type key flags color contents mod-date
 
    ,where
        
-       flags is PopplerAnnotFlag bitmask,
-       color is 3-byte RGB hex number ,
+   name is a document-unique name,
+   flags is PopplerAnnotFlag bitmask,
+   color is 3-byte RGB hex number and
 
-   Additionally for markup annotations:
+   Then
 
    label subject opacity popup-edges popup-is-open create-date 
 
-   Additionally for text annotations:
+   if this is a markup annotation and additionally
 
-       text-icon text-state
+   text-icon text-state
+
+   for markup text annotations.
    
    Errors: If page is out of range.
 */
 
 static void
-cmd_getannot(const ctxt_t *ctx, const arg_t *args)
+cmd_getannots(const ctxt_t *ctx, const arg_t *args)
 {
   PopplerDocument *doc = args[0].value.doc->pdf;
-  int pn = args[1].value.natnum;
+  gint first = args[1].value.natnum;
+  gint last = args[2].value.natnum;
   PopplerPage *page;
-  gdouble height, width;
   GList *annots;
   GList *list;
+  gint pn;
   
-  if (pn < 1 || pn > poppler_document_get_n_pages (doc))
+  first = MAX(1, first);
+  if (last <= 0)
+    last = poppler_document_get_n_pages (doc);
+  else
+    last = MIN(last, poppler_document_get_n_pages (doc));
+
+  OK_BEG ();
+  for (pn = first; pn <= last; ++pn)
     {
-      printf_error ("No such page %d", pn);
+      GList *annots = get_annots_for_page (args->value.doc, pn);
+      PopplerPage *page = poppler_document_get_page (doc, pn - 1);
+      if (! page)
+        continue;
+
+      for (list = annots; list; list = list->next)
+        {
+          annot_t *annot = (annot_t *)list->data;
+          print_annot (annot, page);
+        }
+      g_object_unref (page);
+    }
+  OK_END ();
+}
+
+/* Name: getannot
+   Args: filename name
+   Returns: The annotation for name, see cmd_getannots.
+   Errors: If no annotation named ,name' exists.
+*/
+
+static void
+cmd_getannot_by_key (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args->value.doc;
+  const gchar *key = args[1].value.string;
+  PopplerPage *page = NULL;
+  annot_t *a = get_annot_by_key (doc, key);
+  gint index;
+  if (! a)
+    {
+      printf_error ("No such annotation: %s", key);
       return;
     }
 
-  page = poppler_document_get_page (doc, pn - 1);
-  annots = poppler_page_get_annot_mapping (page);
-  poppler_page_get_size (page, &width, &height);
-
-  OK_BEG ();
-  for (list = annots; list; list = list->next)
+  index = poppler_annot_get_page_index (a->amap->annot);
+  if (index >= 0)
+    page = poppler_document_get_page (doc->pdf, index);
+  if (! page)
     {
-      PopplerAnnotMapping *m = (PopplerAnnotMapping *)list->data;
-      PopplerAnnot *a = m->annot;
-      PopplerAnnotMarkup *ma;
-      PopplerAnnotText *ta;
-      PopplerRectangle r;
-      PopplerColor *color;
-      gchar *text;
-      time_t time;
-      gdouble opacity;
-      GDate *date;
-      
-      r.x1 = m->area.x1;
-      r.x2 = m->area.x2;
-      r.y1 = height - m->area.y2;
-      r.y2 = height - m->area.y1;
-
-      printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
-              , r.x2 / width, r.y2 / height); 
-      
-      printf ("%s:", poppler_annot_type_strings[poppler_annot_get_annot_type (a)]);
-      text = poppler_annot_get_name (a);
-      print_escaped (text, FALSE);
-      g_free (text);
-
-      printf ("%d:", poppler_annot_get_flags (a));
-
-      color = poppler_annot_get_color (a);
-      if (color)
-        {
-          /* Reduce 2 Byte to 1 Byte color space  */
-          printf ("%.2x%.2x%.2x", (color->red >> 8)
-                  , (color->green >> 8)
-                  , (color->blue >> 8));
-          g_free (color);
-        }
-
-      putchar (':');
-
-      text = poppler_annot_get_contents (a);
-      print_escaped (text, FALSE);
-      g_free (text);
-
-      text = poppler_annot_get_modified (a);
-      if (poppler_date_parse (text, &time))
-        {
-          char *time_str = ctime (&time);
-          print_escaped (strchomp (time_str)
-                         , ! POPPLER_IS_ANNOT_MARKUP (a));
-        }
-      else
-        print_escaped (text, ! POPPLER_IS_ANNOT_MARKUP (a));
-      g_free (text);
-
-      if (! POPPLER_IS_ANNOT_MARKUP (a))
-        continue;
-
-      ma = POPPLER_ANNOT_MARKUP (a);
-      text = poppler_annot_markup_get_label (ma);
-      print_escaped (text, FALSE);
-      g_free (text);
-
-      text = poppler_annot_markup_get_subject (ma);
-      print_escaped (text, FALSE);
-      g_free (text);
-
-      opacity = poppler_annot_markup_get_opacity (ma);
-      printf ("%f:", opacity);
-
-      if (poppler_annot_markup_has_popup (ma)
-          && poppler_annot_markup_get_popup_rectangle (ma, &r))
-        {
-          gdouble tmp = r.y1;
-          r.y1 = height - r.y2;
-          r.y2 = height - tmp;
-          printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
-                  , r.x2 / width, r.y2 / height
-                  , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
-          
-        }
-      else
-        printf ("::");
-
-      date = poppler_annot_markup_get_date (ma);
-      if (date)
-        {
-          struct tm tm_time;
-          char *time_str;
-          g_date_to_struct_tm (date, &tm_time);
-          time_str = asctime (&tm_time);
-          print_escaped (strchomp (time_str), ! POPPLER_IS_ANNOT_TEXT (a));
-          g_free (date);
-        }
-      else
-        {
-          printf ("%s", POPPLER_IS_ANNOT_TEXT (a) ? ":" : "\n");
-        }
-
-      if (! POPPLER_IS_ANNOT_TEXT (a))
-        continue;
-
-      ta = POPPLER_ANNOT_TEXT (a);
-      text = poppler_annot_text_get_icon (ta);
-      print_escaped (text, FALSE);
-      g_free (text);
-      text = (gchar*) poppler_annot_text_state_strings[poppler_annot_text_get_state (ta)];
-      printf ("%s\n", text);
+      printf_error("Unable to get page: %d", index + 1);
+      return;
     }
+  OK_BEG ();
+  print_annot (a, page);
+  OK_END ();
+  g_object_unref (page);
+}
 
-  poppler_page_free_annot_mapping (annots);
+/* Name: getannot_attachment
+   Args: filename name [output-filename]
+   Returns: name description size mtime ctime output-filename
+   Errors: If no annotation named ,name' exists or output-filename is
+   not writable.
+*/
+
+static void
+cmd_getannot_attachment (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args->value.doc;
+  const gchar *key = args[1].value.string;
+  gboolean do_save = args[2].value.flag;
+  PopplerAttachment *att;
+  time_t time;
+  
+  annot_t *a = get_annot_by_key (doc, key);
+  gint index;
+  if (! a)
+    {
+      printf_error ("No such annotation: %s", key);
+      return;
+    }
+  if (! POPPLER_IS_ANNOT_FILE_ATTACHMENT (a->amap->annot))
+    {
+      printf_error ("Is not a file annotation: %s", key);
+      return;
+    }
+  att = poppler_annot_file_attachment_get_attachment
+    (POPPLER_ANNOT_FILE_ATTACHMENT (a->amap->annot));
+  if (! att)
+    {
+      printf_error ("Unable to get attachment: %s", key);
+      return;
+    }
+  
+  OK_BEG ();
+  print_attachment (att, do_save);
   OK_END ();
 }
+
 
 
 /* utility functions */
@@ -1271,6 +1528,10 @@ free_doc (doc_t *doc)
     return;
   g_free (doc->filename);
   g_free (doc->passwd);
+  if (doc->annotations)
+    {
+      /* FIXME: Free annotations */
+    }
   g_object_unref (doc->pdf);
   g_free (doc);
 }
@@ -1287,3 +1548,46 @@ strchomp (char *str)
   return str;
 }
 
+static gboolean
+file_is_writable (const char *filename)
+{
+  int fd;
+
+  if (! filename)
+    return FALSE;
+
+  fd = open (filename, O_WRONLY);
+  
+  if (fd < 0)
+    {
+      fd = open (filename, O_WRONLY | O_CREAT);
+      if (fd >= 0)
+        {
+          close (fd);
+          unlink (filename);
+        }
+    }
+  else
+    close (fd);
+
+  return fd >= 0;
+}
+
+
+static char*
+create_file()
+{        
+  char *filename = tempnam(NULL, "epdfinfo");
+  if (filename)
+    {
+      int fd = open(filename, O_CREAT | O_EXCL | O_RDWR, S_IRWXU);
+      if (fd > 0)
+        close (fd);
+      else
+        {
+          free (filename);
+          filename = NULL;
+        }
+    }
+  return filename;
+}
