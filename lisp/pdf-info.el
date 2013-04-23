@@ -109,7 +109,7 @@ error."
       (error "The variable pdf-info-epdfinfo-program is unset or not executable: %s"
              pdf-info-epdfinfo-program))
     (let ((proc (start-process
-                 "epdfinfo" nil pdf-info-epdfinfo-program)))
+                 "epdfinfo" "*epdfinfo*" pdf-info-epdfinfo-program)))
       (set-process-query-on-exit-flag proc nil)
       (set-process-coding-system proc 'utf-8-unix 'utf-8-unix)
       (setq pdf-info-queue (tq-create proc))))
@@ -172,13 +172,15 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
 
 (defun pdf-info-query--escape (arg)
   "Escape ARG for transmision to the server."
-  (with-temp-buffer
-    (save-excursion (insert (format "%s" arg)))
-    (while (not (eobp))
-      (when (memq (char-after) '(?\n ?:))
-        (insert ?\\))
-      (forward-char))
-    (buffer-string)))
+  (if (null arg)
+      ""
+    (with-temp-buffer
+      (save-excursion (insert (format "%s" arg)))
+      (while (not (eobp))
+        (when (memq (char-after) '(?\n ?:))
+          (insert ?\\))
+        (forward-char))
+      (buffer-string))))
   
 (defun pdf-info-query--parse-response (cmd response)
   "Parse one epdfinfo RESPONSE to CMD."
@@ -195,9 +197,10 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
      ((looking-at "OK\n")
       (save-excursion
         ;; FIXME: Hotfix: poppler prints this to stdout, if a
-        ;; destination lookup failed.
-        (while (re-search-forward "failed to look up [A-Z.0-9]+\n" nil t)
-          (replace-match "")))
+        ;; destination lookup failed. (Is it really stdout ?)
+        ;; (while (re-search-forward "failed to look up [A-Z.0-9]+\n" nil t)
+        ;;   (replace-match ""))
+        )
       (let (result)
         (forward-line)
         (while (not (looking-at "^\\.\n"))
@@ -270,7 +273,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
           (cons 'title (pop md))
           (cons 'author (pop md))
           (cons 'subject (pop md))
-          ;; (cons 'keywords-raw (car md))
+          (cons 'keywords-raw (car md))
           (cons 'keywords (split-string (pop md) "[\t\n ]*,[\t\n ]*" t))
           (cons 'creator (pop md))
           (cons 'producer (pop md))
@@ -279,11 +282,48 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
           (cons 'modified (pop md))))))
     (gettext
      (or (caar response) ""))
-    (supported-commands (mapcar 'intern (car response)))
+    (features (mapcar 'intern (car response)))
     (pagesize
      (setq response (car response))
      (cons (round (string-to-number (car response)))
            (round (string-to-number (cadr response)))))
+    ((getannots getannot-by-key)
+     (let ((r (mapcar (lambda (a)
+                        `((page . ,(string-to-number (pop a)))
+                          (edges . ,(mapcar 'string-to-number
+                                            (split-string (pop a) " " t)))
+                          (type . ,(intern (pop a)))
+                          (key . ,(pop a))
+                          (flags . ,(string-to-number (pop a)))
+                          (color . ,(concat "#" (pop a)))
+                          (contents . ,(pop a))
+                          (modified . ,(pop a))
+                          ,@(when a
+                              `((label . ,(pop a))
+                                (subject . ,(pop a))
+                                (opacity . ,(pop a))
+                                (popup-edges . ,(mapcar 'string-to-number
+                                                        (split-string (pop a) " " t)))
+                                (popup-isopen . ,(equal (pop a) "1"))
+                                (created . ,(pop a))))
+                          ,@(when a
+                              `((text-icon . ,(pop a))
+                                (text-state . ,(pop a))))))
+                      response)))
+       (if (eq cmd 'getannot-by-key) (car r) r)))
+    ((getattachments getattachment-from-annot)
+     (let ((r (mapcar (lambda (a)
+                        `((name . ,(pop a))
+                          (description . ,(pop a))
+                          (size . ,(string-to-number (pop a)))
+                          (modified . ,(pop a))
+                          (created . ,(pop a))
+                          (checksum . ,(pop a))
+                          (file . ,(pop a))))
+                      response)))
+       (if (eq cmd 'getattachment-from-annot)
+           (car r)
+         r)))
     (t response)))
 
 (defun pdf-info-query--transform-action (action)
