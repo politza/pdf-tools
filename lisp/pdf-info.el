@@ -377,7 +377,7 @@ or a PDF file."
   (not (not (ignore-errors (pdf-info--normalize-pages pages)))))
 
 (defun pdf-info--normalize-pages (pages)
-  "Normalize PAGES into a form \(first . last\).
+  "Normalize PAGES into a form \(FIRST . LAST\).
 
 PAGES may be one of
 
@@ -550,6 +550,101 @@ The size is in pixel."
     (pdf-info-query 'quit)
     (tq-close pdf-info-queue)
     (setq pdf-info-queue nil)))
+
+(defun pdf-info-getannots (&optional pages file-or-buffer)
+  "Return the annotations on PAGE.
+
+See `pdf-info--normalize-pages' for valid PAGES formats.  This
+function returns the annotations for pages PAGE as a list of
+alists.  A element of this list contains the following
+key-value-pairs.
+
+page     - It's page number                                         . 
+edges    - It's area in relative coordinates                       . 
+type     - A symbol describing it' type                             . 
+key      - A document-wide unique symbol referencing this annotation . 
+flags    - It's flags, binary encoded                              . 
+color    - It's color in standard Emacs notation                   . 
+contents - The text of this annotation                          . 
+modified - The last date of modification                        . 
+
+Additionally, if the annotation is a markup annotation, the
+following:
+
+label        - It's label.
+subject      - The subject addressed.
+opacity      - The level of relative opacity.
+popup-edges  - The edges of a possibly associated popup window.
+popup-isopen - Whether this window should be displayed open.
+created      - The date this markup annotation was created.
+
+Additionally, if the annotation is a markup text annotation, the
+following:
+
+text-icon  - A string kind of describing the purpose of this annotation.
+text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
+  
+  (let ((pages (pdf-info--normalize-pages pages)))
+    (pdf-info-query
+     'getannots
+     (pdf-info--normalize-file-or-buffer file-or-buffer)
+     (car pages)
+     (cdr pages))))
+
+(defun pdf-info-getannots-by-key (key &optional file-or-buffer)
+  "Return the annotation for KEY.
+
+KEY should be a symbol, which was previously returned in a
+`pdf-info-getannots' query.
+
+See `pdf-info-getannots' for the kind of return value of this
+function."
+  (pdf-info-query
+   'getannot-by-key
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   key))
+
+(defun pdf-info-getattachment-from-annot (key &optional do-save file-or-buffer)
+  "Return the attachment associated with annotation KEY.
+
+KEY should be a symbol which was previously returned in a
+`pdf-info-getannots' query, and referencing an attachment of type
+`file', otherwise the result in an error.
+
+See `pdf-info-getattachments' for the kind of return value of this
+function and the meaning of DO-SAVE."
+
+  (pdf-info-query
+   'getattachment-from-annot
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   key
+   (if do-save 1 0)))
+
+(defun pdf-info-getattachments (&optional do-save file-or-buffer)
+  "Return the document level attachments.
+
+Attachments may be associated with the document or an annotation.
+If DO-SAVE is non-nil, also save the attachments data to a local
+file, see below.
+
+This function returns the former as a list of alist, where every
+element has the following key-value-pairs:
+
+name        - The filename of this attachment.
+description - A description of this attachment.
+size        - The size in bytes or -1 if n/a.
+modified    - The last date of modification.
+created     - The date of creation.
+checksum    - The MD5 (?) checksum of this attachment.
+file        - The name of a tempfile containing the data, only if DO-SAVE is non-nil.
+
+If DO-SAVE is non-nil, the caller should use the
+tempfile (e.g. move it) and delete it afterwards."
+  (pdf-info-query
+   'getattachments
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   (if do-save 1 0)))
+
 
 (add-hook 'kill-emacs-hook 'pdf-info-quit)
 
