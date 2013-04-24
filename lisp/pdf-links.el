@@ -189,9 +189,9 @@ be toggled via \\[pdf-links-toggle-decoration].
    (pdf-links-minor-mode
     (make-local-variable 'pdf-links-decorate-p)
     (add-hook 'kill-buffer-hook 'pdf-links-read-link--clear-cache nil t)
-    (add-hook 'pdf-render-layer-functions 'pdf-links-render-function nil t))
+    (pdf-render-register-layer 'pdf-links-render-function 0))
    (t
-    (remove-hook 'pdf-render-layer-functions 'pdf-links-render-function t)))
+    (pdf-render-unregister-layer 'pdf-links-render-function)))
   (doc-view-goto-page (doc-view-current-page)))
 
 (defun pdf-links-toggle-decoration ()
