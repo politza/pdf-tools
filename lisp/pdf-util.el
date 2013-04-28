@@ -71,6 +71,39 @@
   (unless (pdf-util-pdf-buffer-p)
     (error "Buffer is not in DocView PDF mode")))
 
+(defun pdf-util-docview-window-p (&optional window)
+  (save-selected-window
+    (and window (select-window window))
+    (pdf-util-docview-buffer-p)))
+
+(defun pdf-util-assert-docview-window (&optional window)
+  (unless (pdf-util-docview-window-p window)
+    (error "Window's buffer is not in DocView mode")))
+
+(defun pdf-util-pdf-window-p (&optional window)
+  (save-selected-window
+    (and window (select-window window))
+    (pdf-util-pdf-buffer-p)))
+  
+(defun pdf-util-assert-pdf-window (&optional window)
+  (unless (pdf-util-pdf-window-p window)
+    (error "Window's buffer is not in DocView PDF mode")))
+
+
+(defun pdf-util-doc-view-windows (&optional buffer)
+  (unless buffer (setq buffer (current-buffer)))
+  (with-current-buffer buffer
+    (pdf-util-assert-docview-buffer))
+  (let (windows)
+    (walk-windows
+     (lambda (win)
+       (with-selected-window win
+         (when (eq (current-buffer) buffer)
+           (push win windows))))
+     'no-mini t)
+    windows))
+                  
+  
 (defadvice doc-view-goto-page (around pdf-util activate)
   "Run `pdf-util-after-change-page-hook'."
   (let ((pdf-util-current-page (doc-view-current-page)))
@@ -81,6 +114,11 @@
 
 (defadvice doc-view-reconvert-doc (after pdf-links activate)
   (run-hooks 'pdf-util-after-reconvert-hook))
+
+;; 
+
+;;
+;; 
 
 (defun pdf-util-page-displayed-p ()
   (consp (ignore-errors
@@ -146,12 +184,15 @@ to the scale of the image in the current window."
       (setq list-of-edges (list list-of-edges)))
     (let* ((sx (car scale))
            (sy (cdr scale))
+           (round-p (or (> sx 1) (> sy 1)))
            (result (mapcar (lambda (edges)
-                             (mapcar 'round
-                                     (list (* (nth 0 edges) sx)
-                                           (* (nth 1 edges) sy)
-                                           (* (nth 2 edges) sx)
-                                           (* (nth 3 edges) sy))))
+                             (let ((e (list (* (nth 0 edges) sx)
+                                            (* (nth 1 edges) sy)
+                                            (* (nth 2 edges) sx)
+                                            (* (nth 3 edges) sy))))
+                               (if round-p
+                                   (mapcar 'round e)
+                                 e)))
                            list-of-edges)))
       (if have-list-p
           result
@@ -245,7 +286,40 @@ to the scale of the image in the current window."
 ;; Handling Images In Windows
 ;; 
 
+(defcustom pdf-util-fast-image-format nil
+  "An image format appropriate for fast displaying.
+
+This should be the string of a file extension of a supported (by
+Emacs and convert) image format.  If nil, the value is determined
+automatically.
+
+Different formats have different properties, with respect to
+Emacs loading time, convert creation time and the file-size.  In
+general, uncompressed formats are faster, but may need a fair
+amount of (temporary) disk space."
+  :group 'pdf-tools)
+  
+(defun pdf-util-fast-image-format ()
+  "Return an image format appropriate for fast displaying.
+
+This function returns a file extension as a string, without the
+dot."
+  (or pdf-util-fast-image-format
+      (setq pdf-util-fast-image-format
+            (if (fboundp 'imagemagick-types)
+                (cond
+                 ((memq 'BMP2 (imagemagick-types))
+                  "bmp2")
+                 ((memq 'JPEG (imagemagick-types))
+                  "jpeg")
+                 (t
+                  "png"))
+              "png"))))
+  
 (defun pdf-util-image-size (&optional sliced-p)
+  (unless (with-current-buffer (window-buffer)
+            (pdf-util-docview-buffer-p))
+    (error "Selected window's buffer is not in DocView mode"))
   (if sliced-p
       (image-display-size (image-get-display-property) t)
     (image-size (doc-view-current-image) t)))
@@ -433,9 +507,9 @@ to)."
                   spec))
            (proc
             (apply 'start-process "pdf-util-convert"
-                   (get-buffer-create " *pdf-util-convert-output*")
+                   (get-buffer-create "*pdf-util-convert-output*")
                    pdf-util-convert-program
-                   (append cmds (list in-file out-file)))))
+                   `(,in-file ,@cmds ,out-file))))
       (when callback
         (set-process-sentinel proc callback))
       proc)))
@@ -447,9 +521,9 @@ to)."
                 spec))
          (status (apply 'call-process
                         pdf-util-convert-program nil
-                        (get-buffer-create " *pdf-util-convert-output*")
+                        (get-buffer-create "*pdf-util-convert-output*")
                         nil
-                        (append cmds (list in-file out-file)))))
+                        `(,in-file ,@cmds ,out-file))))
     (unless (and (numberp status) (= 0 status))
       (error "The convert program exited with error status: %s" status))
     out-file))
@@ -467,15 +541,20 @@ to)."
         (:background
          (setq bg (pop spec)))
         (:commands
-         (setq cmds (pop spec)))
-        (:extra-formats
-         (setq formats (pop spec)))
+         (setq cmds (pop spec))
+         (if (and cmds (listp (car cmds)))
+             (setq formats (cdr cmds)
+                   cmds (car cmds))
+           (setq formats nil)))
         (:apply
          (dolist (m (pop spec))
            (pdf-util-with-edges (m)
              (let ((alist (append
                            (mapcar (lambda (f)
-                                     (cons (car f) (funcall (cdr f))))
+                                     (cons (car f)
+                                           (if (stringp (cdr f))
+                                               (cdr f)
+                                             (funcall (cdr f) m))))
                                    formats)
                            `((?g . ,(format "%dx%d+%d+%d"
                                             m-width m-height

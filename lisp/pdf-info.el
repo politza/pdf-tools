@@ -232,99 +232,111 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
 
 (defun pdf-info-query--transform-response (cmd response)
   "Transform a RESPONSE to CMD into a convenient lisp form."
-  (cl-case cmd
-    (open nil)
-    (close (equal "1" (caar response)))
-    (number-of-pages (string-to-number (caar response)))
-    (search
-     (let ((matches (mapcar (lambda (r)
-                              (list
-                               (string-to-number (pop r))
-                               (mapcar 'string-to-number
-                                       (split-string (pop r) " " t))
-                               (pop r)))
-                            response))
-           result)
-       (while matches
-         (let ((page (caar matches))
-               items)
-           (while (and matches
-                       (= (caar matches) page))
-             (push (cdr (pop matches)) items))
-           (push (cons page (nreverse items)) result)))
-       (nreverse result)))
-    (outline
-     (mapcar (lambda (r)
-               (cons (string-to-number (pop r))
-                     (pdf-info-query--transform-action r)))
-             response))
-    (pagelinks
-     (mapcar (lambda (r)
-               (cons
-                (mapcar 'string-to-number ;area
-                        (split-string (pop r) " " t))
-                (pdf-info-query--transform-action r)))
-             response))
-    (metadata
-     (let ((md (car response)))
-       (if (= 1 (length md))
-           (list (cons 'title (car md)))
-         (list
-          (cons 'title (pop md))
-          (cons 'author (pop md))
-          (cons 'subject (pop md))
-          (cons 'keywords-raw (car md))
-          (cons 'keywords (split-string (pop md) "[\t\n ]*,[\t\n ]*" t))
-          (cons 'creator (pop md))
-          (cons 'producer (pop md))
-          (cons 'format (pop md))
-          (cons 'created (pop md))
-          (cons 'modified (pop md))))))
-    (gettext
-     (or (caar response) ""))
-    (features (mapcar 'intern (car response)))
-    (pagesize
-     (setq response (car response))
-     (cons (round (string-to-number (car response)))
-           (round (string-to-number (cadr response)))))
-    ((getannots getannot-by-key)
-     (let ((r (mapcar (lambda (a)
-                        `((page . ,(string-to-number (pop a)))
-                          (edges . ,(mapcar 'string-to-number
-                                            (split-string (pop a) " " t)))
-                          (type . ,(intern (pop a)))
-                          (key . ,(pop a))
-                          (flags . ,(string-to-number (pop a)))
-                          (color . ,(concat "#" (pop a)))
-                          (contents . ,(pop a))
-                          (modified . ,(pop a))
-                          ,@(when a
-                              `((label . ,(pop a))
-                                (subject . ,(pop a))
-                                (opacity . ,(pop a))
-                                (popup-edges . ,(mapcar 'string-to-number
-                                                        (split-string (pop a) " " t)))
-                                (popup-isopen . ,(equal (pop a) "1"))
-                                (created . ,(pop a))))
-                          ,@(when a
-                              `((text-icon . ,(pop a))
-                                (text-state . ,(pop a))))))
-                      response)))
-       (if (eq cmd 'getannot-by-key) (car r) r)))
-    ((getattachments getattachment-from-annot)
-     (let ((r (mapcar (lambda (a)
-                        `((name . ,(pop a))
-                          (description . ,(pop a))
-                          (size . ,(string-to-number (pop a)))
-                          (modified . ,(pop a))
-                          (created . ,(pop a))
-                          (checksum . ,(pop a))
-                          (file . ,(pop a))))
-                      response)))
-       (if (eq cmd 'getattachment-from-annot)
-           (car r)
-         r)))
-    (t response)))
+  (cl-macrolet ((pop-not-empty (l)
+                `(let ((str (pop ,l)))
+                  (and (> (length str) 0) str))))
+    (cl-case cmd
+      (open nil)
+      (close (equal "1" (caar response)))
+      (number-of-pages (string-to-number (caar response)))
+      (search
+       (let ((matches (mapcar (lambda (r)
+                                (list
+                                 (string-to-number (pop r))
+                                 (mapcar 'string-to-number
+                                         (split-string (pop r) " " t))
+                                 (pop r)))
+                              response))
+             result)
+         (while matches
+           (let ((page (caar matches))
+                 items)
+             (while (and matches
+                         (= (caar matches) page))
+               (push (cdr (pop matches)) items))
+             (push (cons page (nreverse items)) result)))
+         (nreverse result)))
+      (outline
+       (mapcar (lambda (r)
+                 (cons (string-to-number (pop r))
+                       (pdf-info-query--transform-action r)))
+               response))
+      (pagelinks
+       (mapcar (lambda (r)
+                 (cons
+                  (mapcar 'string-to-number ;area
+                          (split-string (pop r) " " t))
+                  (pdf-info-query--transform-action r)))
+               response))
+      (metadata
+       (let ((md (car response)))
+         (if (= 1 (length md))
+             (list (cons 'title (car md)))
+           (list
+            (cons 'title (pop md))
+            (cons 'author (pop md))
+            (cons 'subject (pop md))
+            (cons 'keywords-raw (car md))
+            (cons 'keywords (split-string (pop md) "[\t\n ]*,[\t\n ]*" t))
+            (cons 'creator (pop md))
+            (cons 'producer (pop md))
+            (cons 'format (pop md))
+            (cons 'created (pop md))
+            (cons 'modified (pop md))))))
+      (gettext
+       (or (caar response) ""))
+      (features (mapcar 'intern (car response)))
+      (pagesize
+       (setq response (car response))
+       (cons (round (string-to-number (car response)))
+             (round (string-to-number (cadr response)))))
+      ((getannots getannot-by-id)
+       (funcall
+        (if (eq cmd 'getannot-by-id)
+            'car
+          'identity)
+        (mapcar
+         (lambda (a)
+           `((page . ,(string-to-number (pop a)))
+             (edges . ,(mapcar 'string-to-number
+                               (split-string (pop a) " " t)))
+             (type . ,(intern (pop a)))
+             (id . ,(intern (pop a)))
+             (flags . ,(string-to-number (pop a)))
+             (color . ,(let ((c (pop a)))
+                         (and (> (length c) 0)
+                              (concat "#" c))))
+             (contents . ,(pop a))
+             (modified . ,(pop-not-empty a))
+             ,@(when a
+                 `((label . ,(pop-not-empty a))
+                   (subject . ,(pop-not-empty a))
+                   (opacity . ,(pop a))
+                   (popup-edges . ,(let ((p (pop-not-empty a)))
+                                     (when p
+                                       (mapcar 'string-to-number
+                                               (split-string p " " t)))))
+                   (popup-isopen . ,(equal (pop a) "1"))
+                   (created . ,(pop-not-empty a))))
+             ,@(when a
+                 `((text-icon . ,(pop-not-empty a))
+                   (text-state . ,(pop-not-empty a))))))
+         response)))
+      ((getattachments getattachment-from-annot)
+       (funcall
+        (if (eq cmd 'getattachment-from-annot)
+            'car
+          'identity)
+        (mapcar (lambda (a)
+                  `((name . ,(pop-not-empty a))
+                    (description . ,(pop-not-empty a))
+                    (size . ,(string-to-number (pop a)))
+                    (modified . ,(pop-not-empty a))
+                    (created . ,(pop-not-empty a))
+                    (checksum . ,(pop-not-empty a))
+                    (file . ,(pop-not-empty a))))
+                response)))
+      (t response))))
 
 (defun pdf-info-query--transform-action (action)
   "Transform ACTION response into a convenient Lisp form."
@@ -411,6 +423,10 @@ PAGES may be one of
 ;; High level interface
 ;;
 
+(defun pdf-info-features ()
+  "Return a list of symbols describing compile-time features."
+  (pdf-info-query 'features))
+                          
 (defun pdf-info-open (&optional file-or-buffer password)
   "Open the docüment FILE-OR-BUFFER using PASSWORD.
 
@@ -562,7 +578,7 @@ key-value-pairs.
 page     - It's page number                                         . 
 edges    - It's area in relative coordinates                       . 
 type     - A symbol describing it' type                             . 
-key      - A document-wide unique symbol referencing this annotation . 
+id       - A document-wide unique symbol referencing this annotation . 
 flags    - It's flags, binary encoded                              . 
 color    - It's color in standard Emacs notation                   . 
 contents - The text of this annotation                          . 
@@ -591,10 +607,10 @@ text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
      (car pages)
      (cdr pages))))
 
-(defun pdf-info-getannots-by-key (key &optional file-or-buffer)
-  "Return the annotation for KEY.
+(defun pdf-info-getannot-by-id (id &optional file-or-buffer)
+  "Return the annotation for ID.
 
-KEY should be a symbol, which was previously returned in a
+ID should be a symbol, which was previously returned in a
 `pdf-info-getannots' query.
 
 See `pdf-info-getannots' for the kind of return value of this
@@ -602,12 +618,12 @@ function."
   (pdf-info-query
    'getannot-by-key
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   key))
+   id))
 
-(defun pdf-info-getattachment-from-annot (key &optional do-save file-or-buffer)
-  "Return the attachment associated with annotation KEY.
+(defun pdf-info-getattachment-from-annot (id &optional do-save file-or-buffer)
+  "Return the attachment associated with annotation ID.
 
-KEY should be a symbol which was previously returned in a
+ID should be a symbol which was previously returned in a
 `pdf-info-getannots' query, and referencing an attachment of type
 `file', otherwise the result in an error.
 
@@ -617,7 +633,7 @@ function and the meaning of DO-SAVE."
   (pdf-info-query
    'getattachment-from-annot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   key
+   id
    (if do-save 1 0)))
 
 (defun pdf-info-getattachments (&optional do-save file-or-buffer)

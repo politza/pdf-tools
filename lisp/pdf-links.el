@@ -68,7 +68,8 @@ enabled.  The face colors used depend on `pdf-misc-dark-mode'."
   :group 'pdf-tools-faces)
 
 (defcustom pdf-links-convert-commands
-  '("-fill" "none" "-strokewidth" "1.5" "-stroke" "%b" "-draw" "line %x,%Y,%X,%Y")
+  '("-fill" "none" "-strokewidth" "1.5" "-stroke" "%b" "-draw" "line %x,%Y,%X,%Y"
+    "-stroke" "none" "-strokewidth" "1")
   "The commands for the convert program, when decorating links.
 
 See `pdf-isearch-convert-commands' for an explanation of the
@@ -111,29 +112,7 @@ reading links."
                           ((lambda (x) (and (numberp x)
                                             (<= x 1)
                                             (>= x 0))))))
-                           
-  
-(defcustom pdf-links-read-link-convert-image-format
-  (if (fboundp 'imagemagick-types)
-      (cond
-       ((memq 'BMP2 (imagemagick-types))
-        "bmp2")
-       ((memq 'JPEG (imagemagick-types))
-        "jpeg")
-       (t
-        "png"))
-    "png")
-  "The convert image-format when reading links.
 
-See also `pdf-isearch-convert-image-format'."
-  :group 'pdf-links
-  :type (if (fboundp 'imagemagick-types)
-            `(choice ,@(mapcar (lambda (type)
-                                 `(const ,(downcase (symbol-name type))))
-                               (imagemagick-filter-types)))
-            'string)
-  :link '(variable-link pdf-isearch-convert-image-format))
-  
 (defcustom pdf-links-browse-uri-function
   'org-open-link-from-string
   "The function for handling uri links.
@@ -189,9 +168,12 @@ be toggled via \\[pdf-links-toggle-decoration].
    (pdf-links-minor-mode
     (make-local-variable 'pdf-links-decorate-p)
     (add-hook 'kill-buffer-hook 'pdf-links-read-link--clear-cache nil t)
-    (pdf-render-register-layer 'pdf-links-render-function 0))
+    (pdf-render-register-layer-function 'pdf-links-render-function 0)
+    (pdf-render-register-annotate-image-function
+     'pdf-links-annotate-image 0))
    (t
-    (pdf-render-unregister-layer 'pdf-links-render-function)))
+    (pdf-render-unregister-layer-function 'pdf-links-render-function)
+    (pdf-render-unregister-annotate-function 'pdf-links-annotate-image)))
   (doc-view-goto-page (doc-view-current-page)))
 
 (defun pdf-links-toggle-decoration ()
@@ -224,27 +206,22 @@ the format of the return value."
         (push (cons page links) pdf-links-page-alist)
         links)))
 
-(defun pdf-links-image-props (page props)
+(defun pdf-links-annotate-image (fn page size)
   "Merge properties for handling links on PAGE with PROPS.
 
 This adds the :map property and defines global mouse bindings
 accordingly."
-  (let* ((width (or (plist-get :width props)
+  (let* ((props (funcall fn page size))
+         (width (or (plist-get :width props)
                     doc-view-image-width))
          (map (cdr (assoc (cons page width)
                           pdf-links-image-map-alist))))
     (unless map
       (let* ((links (pdf-links-pagelinks page))
              (id-fmt "pdf-link-%d")
-             (pointer 'hand)
-             (size (pdf-util-png-image-size))
-             (scale (if (fboundp 'imagemagick-types)
-                        (cons width
-                              (round (* (/ (float (cdr size))
-                                           (car size)) width)))
-                      size)))
+             (pointer 'hand))
         (dolist (l links)
-          (let ((e (pdf-util-scale-edges (car l) scale))
+          (let ((e (pdf-util-scale-edges (car l) size))
                 (id (intern (format id-fmt (cl-incf pdf-links-id-counter)))))
             (push `((rect . ((,(nth 0 e) . ,(nth 1 e))
                              . (,(nth 2 e) . ,(nth 3 e))))
@@ -266,39 +243,28 @@ accordingly."
         (setq map (nreverse map))
         (push (cons (cons page width) map)
               pdf-links-image-map-alist )))
-    (append props `(:map ,map))))
+    (plist-put props
+               :map
+               (append map (plist-get props :map)))))
 
 (defun pdf-links-other-mouse-click-proxy (ev)
   (interactive "e")
   (setcar (cdr (cadr ev)) 1)
   (setq unread-command-events (list ev)))
-  
-(defadvice doc-view-insert-image (before pdf-links activate)
-  "Not documented."
-  (let (ov)
-    (when (and pdf-links-minor-mode
-               (eq 'pdf doc-view-doc-type)
-               (ad-get-arg 0)
-               (file-readable-p (ad-get-arg 0))
-               (setq ov (doc-view-current-overlay))
-               (window-live-p (overlay-get ov 'window))
-               (pdf-util-png-image-size))
-      (ad-set-args 1 (pdf-links-image-props
-                      (doc-view-current-page)
-                      (ad-get-args 1))))))
 
 (defun pdf-links-render-function (page)
   (when pdf-links-decorate-p
     (let* ((links (mapcar 'car (pdf-links-pagelinks page)))
            (size (pdf-util-png-image-size))
            (colors (pdf-util-face-colors
-                    'pdf-links-link pdf-misc-dark-mode)))
+                    'pdf-links-link pdf-misc-dark-mode))
+           cmds)
       (when size
         `(:foreground
-          ,(car colors)
-          :background ,(cdr colors)
-          :commands ,pdf-links-convert-commands
-          :apply ,(pdf-util-scale-edges links size))))))
+                     ,(car colors)
+                     :background ,(cdr colors)
+                     :commands ,pdf-links-convert-commands
+                     :apply ,(pdf-util-scale-edges links size))))))
 
 (defun pdf-links-action-to-string (action)
   "Return a string representation of ACTION."
@@ -405,7 +371,7 @@ See `pdf-links-do-action' for the interface."
          (in-file (pdf-util-current-image-file page))
          (out-file (pdf-util-cache-make-filename
                     "pdf-links-read-link"
-                    pdf-links-read-link-convert-image-format
+                    (pdf-util-fast-image-format)
                     links))
          (keys (pdf-links-read-link-action--create-keys
                 (length links)))
@@ -420,14 +386,14 @@ See `pdf-links-do-action' for the interface."
       (message "Creating image...")
       (pdf-util-convert
        in-file out-file
-       :commands pdf-links-read-link-convert-commands
+       :commands (list pdf-links-read-link-convert-commands
+                       (cons ?c (lambda (_edges) (pop key-strings)))
+                       (cons ?P
+                             `(lambda (_edges)
+                                ,(max 1 (* (cdr (pdf-util-png-image-size))
+                                           pdf-links-convert-pointsize-scale)))))
        :foreground (car colors)
        :background (cdr colors)
-       :extra-formats (list (cons ?c (lambda () (pop key-strings)))
-                            (cons ?P
-                                  `(lambda ()
-                                     ,(max 1 (* (cdr (pdf-util-png-image-size))
-                                                pdf-links-convert-pointsize-scale)))))
        :apply (pdf-util-scale-edges
                (mapcar 'car links)
                (pdf-util-png-image-size))))

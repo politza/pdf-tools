@@ -129,6 +129,47 @@ The selection works as usual, e.g. like the region in Emacs."
       (display-buffer (current-buffer)))
     md))
 
+(defun pdf-misc-list-attachments ()
+  (interactive)
+  (pdf-util-assert-pdf-buffer)
+  (let* ((annots (cl-remove-if-not
+                  (lambda (a) (eq 'file (cdr (assq 'type a))))
+                  (pdf-info-getannots)))
+         (page-att (mapcar 'pdf-info-getattachment-from-annot
+                           (mapcar (lambda (a) (cdr (assq 'key a)))
+                                   annots)))
+         (doc-att (pdf-info-getattachments)))
+    (with-current-buffer (get-buffer-create
+                          (format "*%s Attachments*"
+                                  (buffer-name)))
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (tabulated-list-mode)
+      (setq tabulated-list-format
+            [("File" 30 t)
+             ;; ("Page" 4 t :right-align t :pad-right 1)
+             ("Size" 9 t :right-align t :pad-right 2)
+             ("Description" 15 t)
+             ;; ("Modified" 15 t)
+             ;; ("Created" 0 t)
+             ]
+            tabulated-list-entries
+            (mapcar
+             (lambda (a)
+               (list a
+                     (apply 'vector
+                            (mapcar (lambda (k)
+                                      (format "%s"
+                                              (or (cdr (assq k a))
+                                                  "")))
+                                    '(name size description
+                                           ;; modified created
+                                           )))))
+             (append doc-att page-att)))
+      (tabulated-list-init-header)
+      (tabulated-list-print)
+      (pop-to-buffer (current-buffer)))))
+  
 (defun pdf-misc-crop-margins (&optional margin)
   "Set the slice from the document's BoundingBox information.
 

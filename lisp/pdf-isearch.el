@@ -94,26 +94,6 @@ See url `http://www.imagemagick.org/script/convert.php'."
   ;; :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
-(defvar pdf-isearch-convert-image-format
-  (if (fboundp 'imagemagick-types)
-      (cond
-       ((memq 'BMP2 (imagemagick-types))
-        "bmp2")
-       ((memq 'JPEG (imagemagick-types))
-        "jpeg")
-       (t
-        "png"))
-    "png")
-  "The image-format convert produces.
-
-This should be a string naming a file extension, which tells
-convert what type of image to produce.
-
-Different formats have different advantages/disadvantages, with
-respect to Emacs loading time, convert creation time and the
-file-size.  In general, uncompressed formats are faster, but may
-need enormous amounts of (temporary) disk space.")
-
 ;;
 ;; * Internal Variables
 ;; 
@@ -184,7 +164,7 @@ currently visible in the selected window.
 
 Performance is also greatly influenced by the kind of image the
 convert program produces. This may be determined by the variable
-`pdf-isearch-convert-image-format'.
+`pdf-util-fast-image-format'.
 
 The kind of highlighting is determined by the variable
 `pdf-isearch-convert-commands' and the three faces pdf-isearch-match
@@ -241,7 +221,7 @@ And when in `isearch-mode', also the following, via
     (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t))))
 
 (define-minor-mode pdf-isearch-active-mode
-  nil nil nil
+  "" nil nil nil
   ;; (set-buffer-multibyte pdf-isearch-active-mode)
   )
 
@@ -605,7 +585,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
   (let* ((page (doc-view-current-page))
          (out-file (pdf-util-cache-make-filename
                     "pdf-isearch"
-                    pdf-isearch-convert-image-format
+                    (pdf-util-fast-image-format)
                     page current
                     pdf-isearch-convert-commands
                     pdf-misc-dark-mode

@@ -22,6 +22,9 @@
 
 ;; 
 
+(require 'org-macs) ;;org-with-gensyms
+(require 'pdf-util)
+
 ;;; Code:
 
 (defvar pdf-render-layer-functions nil
@@ -33,18 +36,64 @@
 (defvar-local pdf-render-redraw-process/timer nil)
 (defvar-local pdf-render-schedule-redraw-timer nil)
 (defvar-local pdf-render-temp-file nil)
+(defvar-local pdf-render-annotate-functions nil)
 
-(defun pdf-render-register-layer (fn &optional layer)
+(defvar pdf-render-debug t)
+
+(defadvice doc-view-insert-image (before pdf-render activate)
+  "Not documented."
+  (let (ov)
+    (when (and (pdf-util-pdf-buffer-p)
+               (ad-get-arg 0)
+               (file-readable-p (ad-get-arg 0))
+               (setq ov (doc-view-current-overlay))
+               (window-live-p (overlay-get ov 'window))
+               (pdf-util-png-image-size))
+      (ad-set-args 1 (pdf-render-annotate-image
+                      (doc-view-current-page)
+                      (ad-get-args 1))))))
+
+(defun pdf-render-register-annotate-image-function (fn &optional layer)
+  (push (cons (or layer 0) fn)
+        pdf-render-annotate-functions))
+
+(defun pdf-render-unregister-annotate-function (fn)
+  (setq pdf-render-annotate-functions
+        (cl-remove fn pdf-render-annotate-functions
+                   :key 'cdr)))
+
+(defun pdf-render-annotate-image (page props)
+  (let* ((width (or (plist-get :width props)
+                    doc-view-image-width))
+         (size (pdf-util-png-image-size page))
+         (size (if (fboundp 'imagemagick-types)
+                   (cons width
+                         (round (* (/ (float (cdr size))
+                                      (car size)) width)))
+                 size)))
+    (with-wrapper-hook 
+        (nreverse (pdf-render-sorted-layer-functions
+                   pdf-render-annotate-functions))
+        (page size)
+      props)))
+      
+(defun pdf-render-sorted-layer-functions (functions)
+  (mapcar 'cdr (cl-sort (copy-sequence functions)
+                        '< :key 'car)))
+
+(defun pdf-render-register-layer-function (fn &optional layer)
   (setq pdf-render-layer-functions
         (cons (cons (or layer 0) fn)
               (cl-remove fn pdf-render-layer-functions
                          :key 'cdr))))
 
-(defun pdf-render-unregister-layer (fn)
+(defun pdf-render-unregister-layer-function (fn)
   (setq pdf-render-layer-functions
         (cl-remove fn pdf-render-layer-functions
                    :key 'cdr)))
   
+;; 
+
 (defun pdf-render-initialize (&optional force)
   (unless (and pdf-render-intialized-p
                (not force))
@@ -97,8 +146,9 @@
           ,@(cl-remove page pdf-render-state-alist :key 'car))))
 
 (defun pdf-render-state-uptodate-p (page cmds)
-  (equal (sha1 (format "%S" cmds))
-         (pdf-render-state page)))
+  (unless pdf-render-debug
+    (equal (sha1 (format "%S" cmds))
+           (pdf-render-state page))))
 
 (defun pdf-render-image-file (page)
   ;; Assumes no conversion in progress.
@@ -114,16 +164,11 @@
         (copy-file name file)))
     file))
 
-(defun pdf-render-layer-functions ()
-  (mapcar 'cdr (cl-sort
-                (copy-sequence
-                 pdf-render-layer-functions)
-                '< :key 'car)))
-  
 (defun pdf-render-convert-commands (page)
   (apply 'nconc
          (mapcar (lambda (h) (funcall h page))
-                 (pdf-render-layer-functions))))
+                 (pdf-render-sorted-layer-functions
+                  pdf-render-layer-functions))))
 
 (defun pdf-render-cancel-redraw ()
   (when (timerp pdf-render-schedule-redraw-timer)
@@ -177,15 +222,17 @@
                    in-file pdf-render-temp-file
                    `(,@cmds
                      ,(lambda (_proc status)
-                        (when (and (equal status "finished\n")
-                                   (buffer-live-p buffer))
+                        (when (buffer-live-p buffer)
                           (with-current-buffer buffer
-                            (pdf-render-set-state page cmds)
-                            (copy-file pdf-render-temp-file out-file t)
-                            (clear-image-cache out-file)
-                            (setq pdf-render-pages-to-render
-                                  (remq page pdf-render-pages-to-render))
-                            (pdf-render-redraw--1 buffer)))))))))))))
+                            (if (not (equal status "finished\n"))
+                                (setq mode-line-process
+                                      (list ":*convert error*"))
+                              (pdf-render-set-state page cmds)
+                              (copy-file pdf-render-temp-file out-file t)
+                              (clear-image-cache out-file)
+                              (setq pdf-render-pages-to-render
+                                    (remq page pdf-render-pages-to-render))
+                              (pdf-render-redraw--1 buffer))))))))))))))
     (force-mode-line-update)))
 
 (defun pdf-render-redraw-document (&optional buffer pages)
@@ -207,6 +254,68 @@
                           pdf-render-pages-to-render)
               (number-sequence 1 (pdf-info-number-of-pages buffer))))
       (pdf-render-redraw--1  buffer)))))
+
+(defmacro pdf-render-with-redraw (render-fn &optional exclusive-p &rest body)
+  (declare (indent 1) (debug t))
+  (unless (memq exclusive-p '(t nil))
+    (setq body (cons exclusive-p body)
+          exclusive-p nil))
+  (org-with-gensyms (proc buffer tmp-in tmp-out fn page first-redraw)
+    `(progn
+       (pdf-util-assert-pdf-window)
+       (let* ((,tmp-in
+               (make-temp-file
+                "pdf-render" nil (concat "." (pdf-util-fast-image-format))))
+              (,tmp-out
+               (make-temp-file
+                "pdf-render" nil (concat "." (pdf-util-fast-image-format))))
+              (,page (doc-view-current-page))
+              (,fn ,render-fn)
+              (,buffer (current-buffer))
+              (,first-redraw t)
+              ,proc)
+         (unwind-protect
+             (progn
+               (pdf-render-cancel-redraw)
+               (pdf-render-initialize)
+               (apply 'pdf-util-convert
+                      (pdf-render-image-file ,page)
+                      ,tmp-in
+                      (let ((pdf-render-layer-functions
+                             (and (not ,exclusive-p)
+                                  (cl-remove ,fn pdf-render-layer-functions
+                                             :key 'cdr))))
+                        (pdf-render-convert-commands ,page)))
+               (cl-labels
+                 ((redraw ()
+                    (and (processp ,proc) (delete-process ,proc))
+                    (setq ,proc
+                          (apply 'pdf-util-convert-asynch
+                                 ,tmp-in
+                                 ,tmp-out
+                                 (append (funcall ,fn ,page)
+                                         (list (lambda (_proc status)
+                                                 (when (and (equal status "finished\n")
+                                                            (eq (window-buffer)
+                                                                ,buffer)
+                                                            (eq ,page (doc-view-current-page)))
+                                                   (copy-file ,tmp-out pdf-render-temp-file t)
+                                                   (if (null ,first-redraw)
+                                                       (clear-image-cache
+                                                        pdf-render-temp-file)
+                                                     (setq ,first-redraw nil)
+                                                     (pdf-util-display-image
+                                                      pdf-render-temp-file))))))))))
+                 ,@body))
+           (pdf-render-redraw-document
+            nil (cons ,page pdf-render-pages-to-render))
+           (while (memq ,page pdf-render-pages-to-render)
+             (accept-process-output nil 0.005))
+           (pdf-util-display-image nil)
+           (when (file-exists-p ,tmp-in)
+             (delete-file ,tmp-in))
+           (when (file-exists-p ,tmp-in)
+             (delete-file ,tmp-in)))))))
 
 (provide 'pdf-render)
 ;;; pdf-render.el ends here
