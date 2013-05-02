@@ -188,12 +188,6 @@ be toggled via \\[pdf-links-toggle-decoration].
 (defun pdf-links-after-reconvert-hook ()
   (setq pdf-links-page-alist nil
         pdf-links-image-map-alist nil))
-  
-;; (defun pdf-links-after-change-page-hook ()
-;;   "Delete the annoying tooltip."
-;;   (let ((ov (doc-view-current-overlay)))
-;;     (when (and ov (stringp (overlay-get ov 'help-echo)))
-;;       (overlay-put ov 'help-echo nil))))
 
 (defun pdf-links-pagelinks (&optional page)
   "Return the cached links for page PAGE.
@@ -401,7 +395,7 @@ See `pdf-links-do-action' for the interface."
         (progn
           (pdf-util-display-image out-file)
           (cdr (pdf-links-read-link-action--read-chars prompt alist)))
-      (pdf-util-display-image nil)
+      (pdf-util-redisplay-current-page)
       ;; (pdf-links-read-link--clear-cache)
       )))
 

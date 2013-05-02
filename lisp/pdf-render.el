@@ -38,12 +38,19 @@
 (defvar-local pdf-render-temp-file nil)
 (defvar-local pdf-render-annotate-functions nil)
 
-(defvar pdf-render-debug t)
+(defvar pdf-render-debug nil)
+
+(defvar pdf-render-ghostscript-configuration 0)
+
+;;
+;; DocView Setup
+;; 
 
 (defadvice doc-view-insert-image (before pdf-render activate)
   "Not documented."
   (let (ov)
     (when (and (pdf-util-pdf-buffer-p)
+               pdf-render-annotate-functions
                (ad-get-arg 0)
                (file-readable-p (ad-get-arg 0))
                (setq ov (doc-view-current-overlay))
@@ -52,6 +59,113 @@
       (ad-set-args 1 (pdf-render-annotate-image
                       (doc-view-current-page)
                       (ad-get-args 1))))))
+
+(defun pdf-render-ghostscript-configure (render-opt)
+  "Set ghostscript options from RENDER-OPT.
+
+RENDER-OPT should be a number, with the following meaning.
+
+0 -- Don't render annotations.
+1 -- Render annotations, except for links.
+2 -- Render annotations and links.
+
+Everything else behaves like 0."
+  (interactive
+   (list (let ((value 0))
+           (if (y-or-n-p "Let Ghostscript render common annotations ?")
+               (setq value 1))
+           (when (/= value 0)
+             (if (y-or-n-p "Let Ghostscript render links as well ?")                 
+                 (setq value 2)))
+           value)))
+
+  (let ((not-annot-opt "-dShowAnnots=false")
+        (link-opts '("-dDOPDFMARKS" "-dPrinted=false")))
+    
+    (if (not (memq render-opt '(1 2)))
+        (add-to-list 'doc-view-ghostscript-options not-annot-opt t)
+      (setq doc-view-ghostscript-options
+            (remove not-annot-opt doc-view-ghostscript-options)))
+    (dolist (o link-opts)
+      (if (eq render-opt 2)
+          (add-to-list 'doc-view-ghostscript-options o t)
+        (setq doc-view-ghostscript-options
+              (remove o doc-view-ghostscript-options))))
+    (setq pdf-render-ghostscript-configuration
+          (if (not (numberp render-opt))
+              0
+            (min 2 (max 0 render-opt))))))
+
+(defun pdf-render-ghostscript-check (&optional interactive)
+  "Check ghostscript's options regarding annotations.
+
+Returns a number with the following meaning.
+
+0 -- gs does not render annotations.
+1 -- gs renders annotations, but not links.
+2 -- gs renders annotations and links."
+
+  (interactive (list t))
+  (let ((not-annot-opt "-dShowAnnots=false")
+        (link-opts '("-dDOPDFMARKS" "-dPrinted=false"))
+        (value 0))
+    (unless (member not-annot-opt doc-view-ghostscript-options)
+      (setq value 1)
+      (when (and (member (car link-opts) doc-view-ghostscript-options)
+                 (member (cadr link-opts) doc-view-ghostscript-options))
+        (setq value 2)))
+    (when interactive
+      (message "Ghostscript is configured %sto render %s"
+               (if (= 0 value) "not " "")
+               (case value
+                 (0 "annotations or links.")
+                 (1 "annotations, but not links.")
+                 (2 "annotations and links."))))
+    value))
+    
+    
+    
+(defadvice doc-view-sentinel (before pdf-render-handle-spurious-gs-errors activate)
+  "Handle spurious ghostscript errors.
+
+When setting the option -dShowAnnots=false, ghostscript prints
+frequently (verision 8.71 anyway) error messages and exits with
+an error code, thought all pages were rendered just fine.  Handle
+this case, i.e. check if all images were produced, despite the
+exit code.  And if this checks out, advice DocView about it."
+
+  (unless (equal "finished\n" (ad-get-arg 1))
+    (let ((rargs (reverse (process-command (ad-get-arg 0)))))
+      (when (equal doc-view-ghostscript-program
+                   (car (last rargs)))
+        (let ((pdf (pop rargs))
+              out first last)
+          (dolist (arg rargs)
+            (if (string-match "\\`-d\\(?:\\(LastPage\\)\\|FirstPage\\)=\\([0-9]+\\)\\'" arg)
+                (if (match-string 1 arg)
+                    (setq first (string-to-number (match-string 2 arg)))
+                  (setq last (string-to-number (match-string 2 arg))))
+              (if (string-match "\\`-sOutputFile=\\(.*\\)\\'" arg)
+                  (setq out (match-string 1 arg)))))
+          (when (or (and  first last out
+                          (not (string-match "page-%d.png\\'" out))
+                          (file-exists-p out))
+                    (and pdf out
+                         (file-readable-p pdf)
+                         (string-match "page-%d.png\\'" out)
+                         (catch 'result
+                           (setq first 1
+                                 last (pdf-info-number-of-pages pdf))
+                           (while (< first last)
+                             (unless (file-exists-p (format out first))
+                               (throw 'result nil))
+                             (setq first (1+ first)))
+                           t)))
+            (ad-set-arg 1 "finished\n")))))))
+
+;;
+;; Rendering
+;; 
 
 (defun pdf-render-register-annotate-image-function (fn &optional layer)
   (push (cons (or layer 0) fn)
@@ -311,11 +425,16 @@
             nil (cons ,page pdf-render-pages-to-render))
            (while (memq ,page pdf-render-pages-to-render)
              (accept-process-output nil 0.005))
-           (pdf-util-display-image nil)
-           (when (file-exists-p ,tmp-in)
-             (delete-file ,tmp-in))
+           (pdf-util-display-image)
+           (when (file-exists-p ,tmp-out)
+             (delete-file ,tmp-out))
            (when (file-exists-p ,tmp-in)
              (delete-file ,tmp-in)))))))
+
+(defun pdf-render-hex-color-from-name (color-name)
+  (apply 'format "#%02x%02x%02x"
+         (mapcar (lambda (c) (lsh c -8))
+                 (color-values color-name))))
 
 (provide 'pdf-render)
 ;;; pdf-render.el ends here

@@ -67,8 +67,8 @@
          (and (derived-mode-p 'doc-view-mode)
               (eq 'pdf doc-view-doc-type)))))
 
-(defun pdf-util-assert-pdf-buffer ()
-  (unless (pdf-util-pdf-buffer-p)
+(defun pdf-util-assert-pdf-buffer (&optional buffer)
+  (unless (pdf-util-pdf-buffer-p buffer)
     (error "Buffer is not in DocView PDF mode")))
 
 (defun pdf-util-docview-window-p (&optional window)
@@ -102,12 +102,15 @@
            (push win windows))))
      'no-mini t)
     windows))
-                  
-  
+
 (defadvice doc-view-goto-page (around pdf-util activate)
   "Run `pdf-util-after-change-page-hook'."
   (let ((pdf-util-current-page (doc-view-current-page)))
     ad-do-it
+    ;; Delete the annoying tooltip ,,Page x of y''.
+    (let ((ov (doc-view-current-overlay)))
+      (when (and ov (stringp (overlay-get ov 'help-echo)))
+        (overlay-put ov 'help-echo nil)))
     (unless (eq pdf-util-current-page
                 (doc-view-current-page))
       (run-hooks 'pdf-util-after-change-page-hook))))
@@ -421,7 +424,10 @@ dot."
          (image-set-window-hscroll ,hscroll)
          (image-set-window-vscroll ,vscroll)))))
 
-(defun pdf-util-display-image (file)
+(defun pdf-util-redisplay-current-page ()
+  (doc-view-goto-page (doc-view-current-page)))
+
+(defun pdf-util-display-image (&optional file)
   (if (null file)
       (doc-view-goto-page (doc-view-current-page))
     (let ((type (or (and (fboundp 'imagemagick-types)
@@ -572,7 +578,6 @@ to)."
                (dolist (fmt cmds)
                  (push (format-spec fmt alist) result))))))))
     (nreverse result)))
-
 
 ;;
 ;; Caching Converted Images

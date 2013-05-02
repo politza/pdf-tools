@@ -233,8 +233,8 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
 (defun pdf-info-query--transform-response (cmd response)
   "Transform a RESPONSE to CMD into a convenient lisp form."
   (cl-macrolet ((pop-not-empty (l)
-                `(let ((str (pop ,l)))
-                  (and (> (length str) 0) str))))
+                  `(let ((str (pop ,l)))
+                     (and (> (length str) 0) str))))
     (cl-case cmd
       (open nil)
       (close (equal "1" (caar response)))
@@ -290,9 +290,9 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
        (setq response (car response))
        (cons (round (string-to-number (car response)))
              (round (string-to-number (cadr response)))))
-      ((getannots getannot-by-id)
+      ((getannots getannot)
        (funcall
-        (if (eq cmd 'getannot-by-id)
+        (if (eq cmd 'getannot)
             'car
           'identity)
         (mapcar
@@ -303,9 +303,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
              (type . ,(intern (pop a)))
              (id . ,(intern (pop a)))
              (flags . ,(string-to-number (pop a)))
-             (color . ,(let ((c (pop a)))
-                         (and (> (length c) 0)
-                              (concat "#" c))))
+             (color . ,(pop-not-empty a))
              (contents . ,(pop a))
              (modified . ,(pop-not-empty a))
              ,@(when a
@@ -319,8 +317,9 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                    (popup-isopen . ,(equal (pop a) "1"))
                    (created . ,(pop-not-empty a))))
              ,@(when a
-                 `((text-icon . ,(pop-not-empty a))
-                   (text-state . ,(pop-not-empty a))))))
+                 `((icon . ,(pop-not-empty a))
+                   (state . ,(pop-not-empty a))
+                   (isopen . ,(pop-not-empty a))))))
          response)))
       ((getattachments getattachment-from-annot)
        (funcall
@@ -330,7 +329,8 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
         (mapcar (lambda (a)
                   `((name . ,(pop-not-empty a))
                     (description . ,(pop-not-empty a))
-                    (size . ,(string-to-number (pop a)))
+                    (size . ,(let ((n (string-to-number (pop a))))
+                               (and (>= n 0) n)))
                     (modified . ,(pop-not-empty a))
                     (created . ,(pop-not-empty a))
                     (checksum . ,(pop-not-empty a))
@@ -607,7 +607,7 @@ text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
      (car pages)
      (cdr pages))))
 
-(defun pdf-info-getannot-by-id (id &optional file-or-buffer)
+(defun pdf-info-getannot (id &optional file-or-buffer)
   "Return the annotation for ID.
 
 ID should be a symbol, which was previously returned in a
@@ -616,9 +616,46 @@ ID should be a symbol, which was previously returned in a
 See `pdf-info-getannots' for the kind of return value of this
 function."
   (pdf-info-query
-   'getannot-by-key
+   'getannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    id))
+
+(defun pdf-info-addannot (id &optional file-or-buffer)
+  "Return the annotation for ID.
+
+ID should be a symbol, which was previously returned in a
+`pdf-info-getannots' query.
+
+See `pdf-info-getannots' for the kind of return value of this
+function."
+  (pdf-info-query
+   'addannot
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   id))
+
+(defun pdf-info-mvannot (id edges &optional file-or-buffer)
+  "Move/Resize annotation ID to fit EDGES. 
+
+ID should be a symbol, which was previously returned in a
+`pdf-info-getannots' query."
+  (apply 'pdf-info-query
+         'mvannot
+         (pdf-info--normalize-file-or-buffer file-or-buffer)
+         id
+         edges))
+
+(defun pdf-info-saveas (filename &optional file-or-buffer)
+  "Save FILE-OR-BUFFER to  file.
+
+Returns the name of the new file."
+  (interactive "FSave As: ")
+  (let ((file (pdf-info--normalize-file-or-buffer file-or-buffer)))
+    (when (and (file-exists-p file)
+               (file-exists-p filename)
+               (file-equal-p file filename))
+      (error "Unable to save under the same filename:%s" filename))
+    (pdf-info-query 'saveas file filename)))
+   
 
 (defun pdf-info-getattachment-from-annot (id &optional do-save file-or-buffer)
   "Return the attachment associated with annotation ID.
