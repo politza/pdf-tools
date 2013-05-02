@@ -254,15 +254,57 @@ values should have the format of an element of the
   
 (defvar pdf-util-save-buffer-functions nil)
 
-(defadvice doc-view-toggle-display (before pdf-annot-save-buffer activate)
+(defadvice doc-view-toggle-display (before pdf-annot-save-document activate)
   "Offer to save modifications to annotations, before switching modes."
   (when (and (pdf-util-pdf-buffer-p)
              pdf-annot-minor-mode
-             pdf-annot-writing-supported
+             pdf-info-writing-supported
              (buffer-modified-p)
              (y-or-n-p "Save changes in PDF document ?"))
-    ;; (save-buffer)
-    ))
+    (save-buffer)))
+
+(defun pdf-annot-property-writable-p (a prop)
+  (and pdf-info-writing-supported
+       (or (memq prop '(edges color))
+           (and (pdf-annot-is-markup-p a)
+                (memq prop '(label contents popup-isopen)))
+           (and (pdf-annot-is-text-p a)
+                (memq prop '(isopen icon))))))
+  
+(defun pdf-annot-save-document ()
+  (interactive)
+  (when (buffer-modified-p)
+    (unless pdf-info-writing-supported
+      (error "Sorry, writing PDFs not supported by this version of epdfinfo"))
+    (let (really-modified-p)
+      (dolist (a (pdf-annot-getannots))
+        (let (modifications)
+          (dolist (prop (pdf-annot-modified-p a))
+            (if (not (pdf-annot-property-writable a prop))
+                (warn "Unable to write modified properties: %s" prop)
+              (push (cons prop (pdf-annot-get a prop))
+                    modifications)))
+          (when modifications
+            (setq really-modified-p t)
+            (pdf-info-editannot (pdf-annot-get a 'id) modifications))))
+      (when really-modified-p
+        (let ((tmpfile (pdf-info-save))
+              (old-cache (doc-view-current-cache-dir)))
+          (rename-file tmpfile (buffer-file-name) t)
+          (unless (file-equal-p
+                   (buffer-file-name)
+                   doc-view-buffer-file-name)
+            (copy-file (buffer-file-name)
+                       doc-view-buffer-file-name)
+            ;; Recompute the MD5 dirname.
+            (setq doc-view-current-cache-dir nil)
+            (let ((new-cache (doc-view-current-cache-dir)))
+              (rename-file old-cache new-cache t)))))
+      (clear-visited-file-modtime)
+      (pdf-info-close)
+      (pdf-annot-revert-document)
+      (set-buffer-modified-p nil))))
+        
 
 (define-minor-mode pdf-annot-minor-mode
   "Annotation support."
@@ -273,17 +315,45 @@ values should have the format of an element of the
       (when (boundp 'x-gtk-use-system-tooltips)
         (setq x-gtk-use-system-tooltips nil))
       (setq tooltip-hide-delay 3600))
-    (add-hook 'write-contents-functions 'pdf-annot-save-buffer nil t)
+    (add-hook 'write-contents-functions 'pdf-annot-save-document nil t)
     (pdf-render-register-layer-function 'pdf-annot-render-function 9)
     (pdf-render-register-annotate-image-function 'pdf-annot-annotate-image 9))
    
    (t
-    (remove-hook 'write-contents-functions 'pdf-annot-save-buffer t)
+    (remove-hook 'write-contents-functions 'pdf-annot-save-document t)
     (pdf-render-unregister-layer-function 'pdf-annot-render-function)
     (pdf-render-unregister-annotate-function 'pdf-annot-annotate-image)))
   (pdf-render-redraw-document)
   (pdf-util-redisplay-current-page))
 
+(defvar pdf-annot-edit-annotation nil)
+(defvar pdf-annot-edit-buffer nil)
+
+(define-derived-mode pdf-annot-edit-text-mode text-mode "AEdit"
+  "Mode for editing the contents of annotations."
+  (make-local-variable 'pdf-annot-edit-document)
+  (make-local-variable 'pdf-annot-edit-annotation)
+  (add-hook 'kill-buffer-query-functions
+            'pdf-annot-edit-text-kill-buffer-query nil t))
+
+(defun pdf-annot-edit-text (a)
+  (interactive)
+  (pdf-util-assert-pdf-buffer)
+  (unless pdf-annot-edit-buffer
+    (setq pdf-annot-edit-buffer
+          (format "*Edit %s's Annotation*"
+                  (file-name-sans-extension (buffer-name)))))
+  (with-current-buffer (get-buffer-create
+                        pdf-annot-edit-buffer)
+    (unless (derived-mode-p 'pdf-annot-edit-text-mode)
+      (pdf-annot-edit-text-mode))
+    (unless (eq a pdf-annot-edit-annotation)
+      (save-window-excursion
+        (display-buffer (current-buffer))
+        (unless (y-or-n-p "Save changes of previous annotation ?")
+          (pdf-annot-set pdf-annot-edit-annotation
+              'contents (buffer-string)))))
+    (setq pdf-annot-edit-annotation a)))
 ;;
 ;; Annotation Data Structure
 ;; 
@@ -293,21 +363,6 @@ values should have the format of an element of the
        (eq 'pdf-annot (car a))))
 
 (defvar-local pdf-annot-cached-annotations nil)
-
-(defconst pdf-annot-read-only-properties
-  '(page
-    type
-    id
-    flags
-    modified
-    subject
-    opacity
-    popup-edges
-    created
-    state))
-
-(defconst pdf-annot-writeable-properties
-  '(color contents label popup-isopen icon isopen))
 
 (defun pdf-annot-new (pdf alist)
   `(pdf-annot
@@ -362,12 +417,13 @@ FILE-OR-BUFFER to the current buffer."
                             nil))))))
       annotations)))
 
-(defun pdf-annot-revert-buffer (&optional interactive)
+(defun pdf-annot-revert-document (&optional interactive)
   (interactive (list t))
   (pdf-util-assert-pdf-buffer)
   (when (or (null interactive)
             (y-or-n-p "Forget about all modifications of all annotations in this buffer ?"))
     (setq pdf-annot-cached-annotations nil)
+    (set-buffer-modified-p nil)
     (pdf-util-redisplay-current-page)
     (pdf-render-redraw-document)))
 
@@ -391,11 +447,6 @@ FILE-OR-BUFFER to the current buffer."
       (pdf-util-redisplay-current-page))
     (pdf-render-redraw-document nil (list page))))
 
-(defun pdf-annot-write (a)
-  (unless pdf-annot-writing-supported
-    (error "Sorry, modifying PDF is not supported in this version of epdfinfo"))
-  (error "Not implemented"))
-                        
 (defun pdf-annot-get (a prop &optional default)
   (declare (gv-setter (lambda (val)
                         `(progn
@@ -408,7 +459,7 @@ FILE-OR-BUFFER to the current buffer."
 ;; FIXME: Enforce types of properties (e.g. all string, but...)
 (defun pdf-annot-set (a prop val)
   (declare (indent 2))
-  (when (memq prop pdf-annot-read-only-properties)
+  (when (memq prop pdf-info-read-only-properties)
     (error "Property is read-only:%s" prop))
   ;;(pdf-annot-validate-property prop val)
   (let ((curval (assq prop (cdr a))))

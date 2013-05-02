@@ -46,12 +46,14 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_epdfinfo_OBJECTS = epdfinfo-epdfinfo.$(OBJEXT)
+am_epdfinfo_OBJECTS = epdfinfo-epdfinfo.$(OBJEXT) \
+	epdfinfo-poppler-hack.$(OBJEXT)
 epdfinfo_OBJECTS = $(am_epdfinfo_OBJECTS)
 am__DEPENDENCIES_1 =
-epdfinfo_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-epdfinfo_LINK = $(CCLD) $(epdfinfo_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
-	$(LDFLAGS) -o $@
+epdfinfo_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1)
+epdfinfo_LINK = $(CXXLD) $(epdfinfo_CXXFLAGS) $(CXXFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -60,6 +62,11 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+CXXLD = $(CXX)
+CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
+	-o $@
 SOURCES = $(epdfinfo_SOURCES)
 DIST_SOURCES = $(epdfinfo_SOURCES)
 ETAGS = etags
@@ -76,6 +83,9 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CXX = @CXX@
+CXXDEPMODE = @CXXDEPMODE@
+CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -120,6 +130,7 @@ abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
+ac_ct_CXX = @ac_ct_CXX@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -151,6 +162,8 @@ oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 poppler_CFLAGS = @poppler_CFLAGS@
 poppler_LIBS = @poppler_LIBS@
+poppler_glib_CFLAGS = @poppler_glib_CFLAGS@
+poppler_glib_LIBS = @poppler_glib_LIBS@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
@@ -162,9 +175,10 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-epdfinfo_CFLAGS = $(glib_CFLAGS) $(poppler_CFLAGS)
-epdfinfo_LDADD = $(glib_LIBS) $(poppler_LIBS)
-epdfinfo_SOURCES = epdfinfo.c epdfinfo.h
+epdfinfo_CFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS)
+epdfinfo_CXXFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS)
+epdfinfo_LDADD = $(glib_LIBS) $(poppler_glib_LIBS) $(poppler_LIBS)
+epdfinfo_SOURCES = epdfinfo.c epdfinfo.h poppler-hack.cc
 CVSCLEANFILES = Makefile.in aclocal.m4 config.h.in configure \
 	depcomp install-sh missing autom4te.cache
 
@@ -172,7 +186,7 @@ all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .o .obj
+.SUFFIXES: .c .cc .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -268,6 +282,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/epdfinfo-epdfinfo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/epdfinfo-poppler-hack.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -296,6 +311,34 @@ epdfinfo-epdfinfo.obj: epdfinfo.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='epdfinfo.c' object='epdfinfo-epdfinfo.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(epdfinfo_CFLAGS) $(CFLAGS) -c -o epdfinfo-epdfinfo.obj `if test -f 'epdfinfo.c'; then $(CYGPATH_W) 'epdfinfo.c'; else $(CYGPATH_W) '$(srcdir)/epdfinfo.c'; fi`
+
+.cc.o:
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ $<
+
+.cc.obj:
+@am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+
+epdfinfo-poppler-hack.o: poppler-hack.cc
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(epdfinfo_CXXFLAGS) $(CXXFLAGS) -MT epdfinfo-poppler-hack.o -MD -MP -MF $(DEPDIR)/epdfinfo-poppler-hack.Tpo -c -o epdfinfo-poppler-hack.o `test -f 'poppler-hack.cc' || echo '$(srcdir)/'`poppler-hack.cc
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/epdfinfo-poppler-hack.Tpo $(DEPDIR)/epdfinfo-poppler-hack.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='poppler-hack.cc' object='epdfinfo-poppler-hack.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(epdfinfo_CXXFLAGS) $(CXXFLAGS) -c -o epdfinfo-poppler-hack.o `test -f 'poppler-hack.cc' || echo '$(srcdir)/'`poppler-hack.cc
+
+epdfinfo-poppler-hack.obj: poppler-hack.cc
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(epdfinfo_CXXFLAGS) $(CXXFLAGS) -MT epdfinfo-poppler-hack.obj -MD -MP -MF $(DEPDIR)/epdfinfo-poppler-hack.Tpo -c -o epdfinfo-poppler-hack.obj `if test -f 'poppler-hack.cc'; then $(CYGPATH_W) 'poppler-hack.cc'; else $(CYGPATH_W) '$(srcdir)/poppler-hack.cc'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/epdfinfo-poppler-hack.Tpo $(DEPDIR)/epdfinfo-poppler-hack.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='poppler-hack.cc' object='epdfinfo-poppler-hack.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(epdfinfo_CXXFLAGS) $(CXXFLAGS) -c -o epdfinfo-poppler-hack.obj `if test -f 'poppler-hack.cc'; then $(CYGPATH_W) 'poppler-hack.cc'; else $(CYGPATH_W) '$(srcdir)/poppler-hack.cc'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

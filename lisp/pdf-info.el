@@ -64,6 +64,13 @@ ask -- ask whether to restart or not."
                  (const :tag "Restart silently" t)
                  (const :tag "Always ask" ask)))
 
+(defconst pdf-info-read-only-properties
+  '(page type id flags modified subject opacity popup-edges
+         created state))
+
+(defconst pdf-info-writeable-properties
+  '(color contents label popup-isopen icon isopen))
+
 ;;
 ;; Internal Variables and Functions
   
@@ -177,8 +184,13 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
     (with-temp-buffer
       (save-excursion (insert (format "%s" arg)))
       (while (not (eobp))
-        (when (memq (char-after) '(?\n ?:))
+        (cond
+         ((eq (char-after) ?:)
           (insert ?\\))
+         ((eq (char-after) ?\n)
+          (delete-char 1)
+          (insert ?\\ ?n)
+          (backward-char)))
         (forward-char))
       (buffer-string))))
   
@@ -336,6 +348,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                     (checksum . ,(pop-not-empty a))
                     (file . ,(pop-not-empty a))))
                 response)))
+      (save (caar response))
       (t response))))
 
 (defun pdf-info-query--transform-action (action)
@@ -644,17 +657,37 @@ ID should be a symbol, which was previously returned in a
          id
          edges))
 
-(defun pdf-info-saveas (filename &optional file-or-buffer)
-  "Save FILE-OR-BUFFER to  file.
+(defun pdf-info-editannot (id modifications &optional file-or-buffer)
+  "Send modifications to annotation ID to the server."
 
-Returns the name of the new file."
-  (interactive "FSave As: ")
-  (let ((file (pdf-info--normalize-file-or-buffer file-or-buffer)))
-    (when (and (file-exists-p file)
-               (file-exists-p filename)
-               (file-equal-p file filename))
-      (error "Unable to save under the same filename:%s" filename))
-    (pdf-info-query 'saveas file filename)))
+  (let ((cmd-map '((edges . mvannot)
+                   (color . setannot-color)
+                   (label . setannot-markup-label)
+                   (contents . setannot-contents)
+                   (popup-isopen . setannot-is-open)
+                   (isopen . setannot-is-open)
+                   (icon . setannot-text-icon))))
+    (dolist (prop (mapcar 'car modifications))
+      (unless (assq prop cmd-map)
+        (error "This property is read-only: %s" prop)))
+    (dolist (elt modifications)
+      (let ((cmd (cdr (assq (car elt) cmd-map))))
+        (apply 'pdf-info-query
+               cmd
+               (pdf-info--normalize-file-or-buffer file-or-buffer)
+               id
+               (if (eq (car elt) 'edges)
+                   (cdr elt)
+                 (list (cdr elt))))))))
+
+(defun pdf-info-save (&optional file-or-buffer)
+  "Save FILE-OR-BUFFER.
+
+This saves the document to a new temporary file, which is
+returned."
+  (pdf-info-query
+   'save
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))
    
 
 (defun pdf-info-getattachment-from-annot (id &optional do-save file-or-buffer)
@@ -698,8 +731,10 @@ tempfile (e.g. move it) and delete it afterwards."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    (if do-save 1 0)))
 
-
 (add-hook 'kill-emacs-hook 'pdf-info-quit)
+
+(defconst pdf-info-writing-supported
+  (memq 'write-support (pdf-info-features)))
 
 (provide 'pdf-info)
 

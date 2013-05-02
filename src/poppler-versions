@@ -20,7 +20,7 @@ HAVE_POPPLER_GET_TEXT
 0.16 poppler_page_get_selected_text
 
 HAVE_POPPLER_WRITE_PDF
-0.19.4 solves bug 49080, which corrupts some PDF files.
+0.19.4 solves bug 49080, which potentially corrupts PDF files.
 
 HAVE_POPPLER_FIND_OPTS
 0.22 PopplerFindFlags

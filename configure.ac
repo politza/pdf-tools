@@ -9,11 +9,13 @@ AC_CONFIG_HEADERS([src/config.h])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CXX
 AM_PATH_LISPDIR
 
 # Checks for libraries.
 PKG_CHECK_MODULES([glib], [glib-2.0])
-PKG_CHECK_MODULES([poppler], [poppler-glib])
+PKG_CHECK_MODULES([poppler], [poppler])
+PKG_CHECK_MODULES([poppler_glib], [poppler-glib])
 
 poppler_version=${POPPLER_GLIB_VERSION}
 

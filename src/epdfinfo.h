@@ -40,15 +40,28 @@
   } while (0)
 
 
+enum { NONE, COLON, NL};
+
+typedef struct
+{
+  PopplerAnnotMapping *amap;
+  gchar *key;
+} annot_t;
+
 typedef struct
 {
   PopplerDocument *pdf;
   char *filename;
   char *passwd;
   time_t last_used;
-  char *tmp_dir;
+  gboolean allow_auto_release;
+  struct
+  {
+    GHashTable *keys;             /* key => page */
+    GList **pages;                /* page array  */
+  } annotations;
 } doc_t;
-
+  
 typedef enum args_spec
 {
     ARG_NULL = 0,
@@ -57,7 +70,9 @@ typedef enum args_spec
     ARG_STRING,
     ARG_NATNUM,
     ARG_STRING_NONEMPTY,
-    ARG_EDGE
+    ARG_EDGE,
+    ARG_EDGE_OR_NEG,
+    ARG_COLOR
 } args_spec_t;
 
 typedef struct
