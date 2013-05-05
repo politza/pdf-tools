@@ -393,7 +393,7 @@ See `pdf-links-do-action' for the interface."
                (pdf-util-png-image-size))))
     (unwind-protect
         (progn
-          (pdf-util-display-image out-file)
+          (pdf-render-display-image out-file)
           (cdr (pdf-links-read-link-action--read-chars prompt alist)))
       (pdf-util-redisplay-current-page)
       ;; (pdf-links-read-link--clear-cache)

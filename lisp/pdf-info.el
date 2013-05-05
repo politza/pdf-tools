@@ -64,12 +64,12 @@ ask -- ask whether to restart or not."
                  (const :tag "Restart silently" t)
                  (const :tag "Always ask" ask)))
 
-(defconst pdf-info-read-only-properties
+(defconst pdf-info-annot-read-only-properties
   '(page type id flags modified subject opacity popup-edges
-         created state))
+         popup-isopen created state))
 
-(defconst pdf-info-writeable-properties
-  '(color contents label popup-isopen icon isopen))
+(defconst pdf-info-annot-writable-properties
+  '(color contents label icon isopen edges))
 
 ;;
 ;; Internal Variables and Functions
@@ -302,11 +302,11 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
        (setq response (car response))
        (cons (round (string-to-number (car response)))
              (round (string-to-number (cadr response)))))
-      ((getannots getannot)
+      ((getannots getannot editannot)
        (funcall
-        (if (eq cmd 'getannot)
-            'car
-          'identity)
+        (if (eq cmd 'getannots)
+            'identity
+          'car)
         (mapcar
          (lambda (a)
            `((page . ,(string-to-number (pop a)))
@@ -331,7 +331,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
              ,@(when a
                  `((icon . ,(pop-not-empty a))
                    (state . ,(pop-not-empty a))
-                   (isopen . ,(pop-not-empty a))))))
+                   (isopen . ,(equal (pop a) "1"))))))
          response)))
       ((getattachments getattachment-from-annot)
        (funcall
@@ -633,18 +633,16 @@ function."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    id))
 
-(defun pdf-info-addannot (id &optional file-or-buffer)
-  "Return the annotation for ID.
-
-ID should be a symbol, which was previously returned in a
-`pdf-info-getannots' query.
+(defun pdf-info-addannot (page x0 y0 x1 y1 &optional file-or-buffer)
+  "Add a new text annotation to PAGE with edges X0, Y0, X1 and Y1.
 
 See `pdf-info-getannots' for the kind of return value of this
 function."
   (pdf-info-query
    'addannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   id))
+   page
+   x0 y0 x1 y1))
 
 (defun pdf-info-mvannot (id edges &optional file-or-buffer)
   "Move/Resize annotation ID to fit EDGES. 
@@ -660,25 +658,31 @@ ID should be a symbol, which was previously returned in a
 (defun pdf-info-editannot (id modifications &optional file-or-buffer)
   "Send modifications to annotation ID to the server."
 
-  (let ((cmd-map '((edges . mvannot)
-                   (color . setannot-color)
-                   (label . setannot-markup-label)
-                   (contents . setannot-contents)
-                   (popup-isopen . setannot-is-open)
-                   (isopen . setannot-is-open)
-                   (icon . setannot-text-icon))))
-    (dolist (prop (mapcar 'car modifications))
-      (unless (assq prop cmd-map)
-        (error "This property is read-only: %s" prop)))
-    (dolist (elt modifications)
-      (let ((cmd (cdr (assq (car elt) cmd-map))))
-        (apply 'pdf-info-query
-               cmd
-               (pdf-info--normalize-file-or-buffer file-or-buffer)
-               id
-               (if (eq (car elt) 'edges)
-                   (cdr elt)
-                 (list (cdr elt))))))))
+  (let ((properties (mapcar 'car modifications)))
+    (dolist (prop properties)
+      (unless (memq prop pdf-info-annot-writable-properties)
+        (error "This property is not writable: %s" prop)))
+    (let ((args (append
+                 (if (memq 'edges properties)
+                     (cdr (assq 'edges modifications))
+                   (list nil nil nil nil))
+                 (list
+                  (cdr (assq 'color modifications))
+                  (cdr (assq 'contents modifications))
+                  (cdr (assq 'label modifications))
+                  (cdr (assq 'isopen modifications))
+                  (cdr (assq 'icon modifications)))))
+          (setmask
+           (apply 'string
+                  (mapcar (lambda (p)
+                            (if (memq p properties)
+                                ?1 ?0))
+                          '(edges color contens label isopen icon)))))
+      (apply 'pdf-info-query
+             'editannot
+             (pdf-info--normalize-file-or-buffer file-or-buffer)
+             id
+             (cons setmask args)))))
 
 (defun pdf-info-save (&optional file-or-buffer)
   "Save FILE-OR-BUFFER.

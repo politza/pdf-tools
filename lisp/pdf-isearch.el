@@ -25,6 +25,7 @@
 
 (require 'doc-view)
 (require 'cl-lib)
+(require 'pdf-render)
 (require 'pdf-util)
 (require 'pdf-info)
 (require 'pdf-misc)
@@ -119,13 +120,34 @@ See url `http://www.imagemagick.org/script/convert.php'."
 
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap (kbd "C-s") 'isearch-forward)
-    (define-key kmap (kbd "C-r") 'isearch-backward)
+    (define-key kmap (kbd "C-s") 'pdf-isearch-forward)
+    (define-key kmap (kbd "C-r") 'pdf-isearch-backward)
     (define-key kmap (kbd "C-M-s") 'doc-view-search)
     (define-key kmap (kbd "C-M-r") 'doc-view-search-backward)
     (define-key kmap (kbd "M-s o") 'pdf-occur)
     kmap)
   "Keymap used in `pdf-isearch-minor-mode'.")
+
+(defun pdf-isearch (&optional backward)
+  (interactive)
+  (let ((window (selected-window)))
+  (unwind-protect
+      (let ((pdf-render-inhibit-rendering t))
+        (funcall (if backward 'isearch-backward
+                   'isearch-forward)))
+    (when (window-live-p window)
+      (with-selected-window window
+        (pdf-render-redisplay-current-page))))))
+     
+
+(defun pdf-isearch-forward ()
+  (interactive)
+  (pdf-isearch))
+
+(defun pdf-isearch-backward ()
+  (interactive)
+  (pdf-isearch 'backward))
+    
 
 (defvar pdf-isearch-active-mode-map
   (let ((kmap (make-sparse-keymap)))
@@ -594,7 +616,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
          if-size)
     (cond
      ((file-exists-p out-file)
-      (pdf-util-display-image out-file))
+      (pdf-render-display-image out-file))
      ((and (pdf-util-page-displayed-p)
            (setq if-size (pdf-util-png-image-size)))
       (let* ((image (doc-view-current-image))
@@ -602,7 +624,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
              (buffer (current-buffer))
              (size (pdf-util-image-size))
              (colors (pdf-isearch-current-colors))
-             (in-file (pdf-util-current-image-file)))
+             (in-file (pdf-render-image-file page)))
         (let ((scale
                (cons (/ (car if-size) (float (car size)))
                      (/ (cdr if-size) (float (cdr size))))))
@@ -635,7 +657,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                          (when (and (eq major-mode 'doc-view-mode)
                                     isearch-mode
                                     (eq image (doc-view-current-image)))
-                           (pdf-util-display-image out-file))))))))))))
+                           (pdf-render-display-image out-file))))))))))))
      (t (pdf-isearch-message "Unable to display")))))
 
 ;;

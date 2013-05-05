@@ -84,7 +84,8 @@ In order to customize dark and light colors use
     pdf-misc-minor-mode
     pdf-outline-minor-mode
     pdf-misc-menu-bar-minor-mode
-    pdf-misc-tool-bar-minor-mode))
+    pdf-misc-tool-bar-minor-mode
+    pdf-annot-minor-mode))
     
 (defcustom pdf-tools-enabled-modes pdf-tools-modes 
   "A list of automatically enabled minor-modes.

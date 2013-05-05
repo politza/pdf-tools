@@ -243,6 +243,12 @@ to the scale of the image in the current window."
           result
         (car result)))))
 
+(defun pdf-utils-edges-inside-p (edges pos &optional epsilon)
+  (pdf-utils-edges-contained-p
+   edges
+   (list (car pos) (cdr pos) (car pos) (cdr pos))
+   epsilon))
+
 (defun pdf-utils-edges-contained-p (edges contained &optional epsilon)
   (unless epsilon (setq epsilon 0))
   (pdf-util-with-edges (edges contained)
@@ -424,30 +430,6 @@ dot."
          (image-set-window-hscroll ,hscroll)
          (image-set-window-vscroll ,vscroll)))))
 
-(defun pdf-util-redisplay-current-page ()
-  (doc-view-goto-page (doc-view-current-page)))
-
-(defun pdf-util-display-image (&optional file)
-  (if (null file)
-      (doc-view-goto-page (doc-view-current-page))
-    (let ((type (or (and (fboundp 'imagemagick-types)
-                         'imagemagick)
-                    (and (equal (file-name-extension file) "png")
-                         'png)
-                    (image-type file))))
-      (unless type
-        (error "Unable to display image: %s" file))
-      (let ((ov (doc-view-current-overlay))
-            (slice (doc-view-current-slice))
-            (im (apply 'create-image file
-                       type
-                       nil
-                       (list :width doc-view-image-width))))
-        (overlay-put ov 'display (if slice
-                                     (list (cons 'slice slice) im)
-                                   im))
-        (clear-image-cache file)))))
-
 ;;
 ;; Converting Images
 ;;
@@ -578,13 +560,13 @@ to)."
                (dolist (fmt cmds)
                  (push (format-spec fmt alist) result))))))))
     (nreverse result)))
-
+        
 ;;
 ;; Caching Converted Images
 ;;
 
 (defun pdf-util-cache-make-filename (dir &optional extension &rest keys)
-  (unless (stringp dir)
+  (when (symbolp dir)
     (setq dir (symbol-name dir)))
   (let ((root (pdf-util-cache--get-root-dir)))
     (unless root
@@ -600,7 +582,8 @@ to)."
       (expand-file-name file dir))))
 
 (defun pdf-util-cache-files (dir)
-  (interactive)
+  (when (symbolp dir)
+    (setq dir (symbol-name dir)))
   (let ((root (pdf-util-cache--get-root-dir)))
     (when root
       (let ((dir (file-name-as-directory
@@ -612,7 +595,8 @@ to)."
            dir t directory-files-no-dot-files-regexp))))))
 
 (defun pdf-util-cache-clear (dir)
-  (interactive)
+  (when (symbolp dir)
+    (setq dir (symbol-name dir)))
   (let ((root (pdf-util-cache--get-root-dir)))
     (when root
       (let ((dir (file-name-as-directory

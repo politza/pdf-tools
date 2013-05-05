@@ -35,19 +35,14 @@
 (declare-function pdf-annot-get "pdf-annot.el"
                   (a prop &optional default))
 
-(defun pdf-attach-new (pdf page id alist)
-  (cl-check-type page number)
-  `(pdf-attach
-    (objdata
-     (document . ,pdf)
-     (id . ,id)
-     (page . ,page))
-    ,@alist))
+(defstruct (pdf-attach
+            (:constructor pdf-attach-new (document page id properties))
+            (:constructor nil))
+  document
+  id
+  page
+  properties)
 
-(defun pdf-attach-p (obj)
-  (and (consp obj)
-       (eq 'pdf-attach (car obj))))
-  
 (defun pdf-attach-getattachments (&optional file-or-buffer)
   "Return the attachments of FILE-OR-BUFFER.
 
@@ -89,52 +84,40 @@ A should be a file-annotation, otherwise the result is an error."
     (pdf-attach-new pdf page id alist)))
 
 (defun pdf-attach-get (a prop &optional default)
-  (unless (eq prop 'objdata)
-    (or (cdr (assq prop (cdr a)))
-        default)))
+  (or (cdr (assq prop (pdf-attach-properties a)))
+      default))
 
-(defun pdf-attach-set (a prop val)
+(defun pdf-annot-set (a prop val)
   (declare (indent 2))
-  (when (eq prop 'objdata)
-    (error "Invalid property: %s" prop))
-  (setcdr a (cons (cons prop val)
-                  (delq (assq prop (cdr a)) (cdr a)))))
-
-(defun pdf-attach-document (a)
-  "Return attachment A's origin."
-  (cdr (assq 'document (cdr (assq 'objdata a)))))
-
-(defun pdf-attach-page (a)
-  "Return attachment A's page."
-  (cdr (assq 'page (cdr (assq 'objdata a)))))
-
-(defun pdf-attach-id (a)
-  "Return attachment A's id."
-  (cdr (assq 'id (cdr (assq 'objdata a)))))
+  (let ((curval (assq prop (pdf-annot-properties a))))
+    (setf (pdf-annot-properties a)
+          (cons (cons prop val)
+                (delq curval (pdf-annot-properties a))))
+    val))
 
 (defun pdf-attach-name (a)
   "Return attachment A's specified filename or nil."
-  (cdr (assq 'name (cdr a))))
+  (cdr (assq 'name (pdf-attach-properties a))))
 
 (defun pdf-attach-description (a)
   "Return attachment A's description or nil."
-  (cdr (assq 'description (cdr a))))
+  (cdr (assq 'description (pdf-attach-properties a))))
 
 (defun pdf-attach-size (a)
   "Return attachment A's size or nil."
-  (cdr (assq 'size (cdr a))))
+  (cdr (assq 'size (pdf-attach-properties a))))
 
 (defun pdf-attach-mtime (a)
   "Return attachment A's modification time or nil."
-  (cdr (assq 'mtime (cdr a))))
+  (cdr (assq 'mtime (pdf-attach-properties a))))
 
 (defun pdf-attach-ctime (a)
   "Return attachment A's creation time or nil."
-  (cdr (assq 'ctime (cdr a))))
+  (cdr (assq 'ctime (pdf-attach-properties a))))
 
 (defun pdf-attach-checksum (a)
   "Return attachment A's checksum or nil."
-  (cdr (assq 'checksum (cdr a))))
+  (cdr (assq 'checksum (pdf-attach-properties a))))
 
 (defun pdf-attach-pp-for-tooltip (a)
   "Return a string describing attachment A."
@@ -153,7 +136,6 @@ A should be a file-annotation, otherwise the result is an error."
       'display
       header)
      (or (pdf-attach-description a) "No description"))))         
-
   
 (defun pdf-attach-from-annotation-p (a)
   "Return t, if attachment A belongs to some annotation.
@@ -247,11 +229,13 @@ file."
   "Extract all attachments of BUFFER and put them in DIRECTORY.
 
 BUFFER defaults to the current buffer and DIRECTORY to the
-subdirectory `doc-view-current-cache-dir'/attachments.  Return
-DIRECTORY.
+subdirectory `doc-view-current-cache-dir'/${PDF-NAME}_attachments.  
 
 The attachments are written under their specified name, if
-possible, but existing files are not overwritten."
+possible, but existing files are not overwritten.
+
+If BUFFER has no attachments, do nothing and return nil,
+otherwise return DIRECTORY."
   
   (pdf-util-assert-pdf-buffer buffer)
   (save-current-buffer
@@ -259,18 +243,21 @@ possible, but existing files are not overwritten."
     (let ((dir (or (and directory
                         (expand-file-name directory))
                    (expand-file-name
-                    "attachments"
-                    (doc-view-current-cache-dir)))))
+                    (format "%s_attachments"
+                            (file-name-sans-extension (buffer-name)))
+                    (doc-view-current-cache-dir))))
+          (attachments (pdf-attach-getattachments)))
       
-      (unless (file-exists-p dir)
-        (make-directory dir t))
+      (when attachments
+        (unless (file-exists-p dir)
+          (make-directory dir t))
 
-      (unless (file-directory-p dir)
-        (error "Not a directory: %s" dir))
-      
-      (dolist (a (pdf-attach-getattachments))
-        (pdf-attach-create-named-file a dir))
-      dir)))
+        (unless (file-directory-p dir)
+          (error "Not a directory: %s" dir))
+
+        (dolist (a attachments)
+          (pdf-attach-create-named-file a dir))
+        dir))))
 
 
 (defun pdf-attach-dired (&optional buffer)
@@ -280,10 +267,13 @@ possible, but existing files are not overwritten."
   (save-current-buffer
     (when buffer (set-buffer buffer))
     (let ((dir (expand-file-name
-                "attachments"
+                (format "%s_attachments"
+                        (file-name-sans-extension (buffer-name)))
                 (doc-view-current-cache-dir))))
       (unless (file-exists-p dir)
-        (pdf-attach-create-directory nil dir))
+        (setq dir (pdf-attach-create-directory nil dir)))
+      (unless dir
+        (error "Document has no data attached"))
       (dired dir))))
     
 
