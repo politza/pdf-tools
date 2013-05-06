@@ -302,7 +302,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
        (setq response (car response))
        (cons (round (string-to-number (car response)))
              (round (string-to-number (cadr response)))))
-      ((getannots getannot editannot)
+      ((getannots getannot editannot addannot)
        (funcall
         (if (eq cmd 'getannots)
             'identity

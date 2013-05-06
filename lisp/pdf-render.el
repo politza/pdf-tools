@@ -379,8 +379,8 @@ exit code.  And if this checks out, advice DocView about it."
               (if  pages 
                   (cl-union (cl-remove-duplicates pages)
                             pdf-render-pages-to-render)
-                (number-sequence 1 (pdf-info-number-of-pages buffer))))
-        (pdf-render-redraw--1  buffer))))))
+                (number-sequence 1 (pdf-info-number-of-pages))))
+        (pdf-render-redraw--1))))))
 
 (defmacro pdf-render-with-redraw (render-fn &optional exclusive-p &rest body)
   (declare (indent 1) (debug t))
@@ -446,7 +446,8 @@ exit code.  And if this checks out, advice DocView about it."
 
 
 (defun pdf-render-redisplay-current-page ()
-  (doc-view-goto-page (doc-view-current-page)))
+  (when (pdf-util-page-displayed-p)
+    (doc-view-goto-page (doc-view-current-page))))
 
 (defun pdf-render-display-image (&optional file no-annotate)
   (if (null file)

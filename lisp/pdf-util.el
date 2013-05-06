@@ -89,7 +89,6 @@
   (unless (pdf-util-pdf-window-p window)
     (error "Window's buffer is not in DocView PDF mode")))
 
-
 (defun pdf-util-doc-view-windows (&optional buffer)
   (unless buffer (setq buffer (current-buffer)))
   (with-current-buffer buffer
@@ -122,6 +121,13 @@
 
 ;;
 ;; 
+
+(defun pdf-util-assert-derived-mode (&rest modes)
+  (unless (apply 'derived-mode-p modes)
+    (error "Buffer is not derived from %s"
+           (concat (mapconcat 'symbol-name (butlast modes) ", ")
+                   (if (cdr modes) " or ")
+                   (symbol-name (car (last modes)))))))
 
 (defun pdf-util-page-displayed-p ()
   (consp (ignore-errors
@@ -419,6 +425,15 @@ dot."
                        edges-top
                      (- edges-bot win-height)))))))))
 
+(defun pdf-util-scroll-to-edges (edges &optional eager-p)
+  (pdf-util-assert-pdf-window)
+  (let ((vscroll (pdf-util-required-vscroll edges eager-p))
+        (hscroll (pdf-util-required-hscroll edges eager-p)))
+    (when vscroll
+      (pdf-util-set-window-pixel-vscroll vscroll))
+    (when hscroll
+      (pdf-util-set-window-pixel-hscroll hscroll))))
+    
 (defmacro pdf-util-save-window-scroll (&rest body)
   (declare (indent 0) (debug t))
   (let ((hscroll (make-symbol "hscroll"))
