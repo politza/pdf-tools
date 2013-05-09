@@ -209,7 +209,8 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
      ((looking-at "OK\n")
       (save-excursion
         ;; FIXME: Hotfix: poppler prints this to stdout, if a
-        ;; destination lookup failed. (Is it really stdout ?)
+        ;; destination lookup failed.
+        ;; (Is it really stdout ? Yes it is : Catalog.cc, function NameTree::lookup)
         ;; (while (re-search-forward "failed to look up [A-Z.0-9]+\n" nil t)
         ;;   (replace-match ""))
         )
@@ -317,7 +318,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
              (flags . ,(string-to-number (pop a)))
              (color . ,(pop-not-empty a))
              (contents . ,(pop a))
-             (modified . ,(pop-not-empty a))
+             (modified . ,(pdf-info-parse-pdf-date (pop-not-empty a)))
              ,@(when a
                  `((label . ,(pop-not-empty a))
                    (subject . ,(pop-not-empty a))
@@ -327,7 +328,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                                        (mapcar 'string-to-number
                                                (split-string p " " t)))))
                    (popup-isopen . ,(equal (pop a) "1"))
-                   (created . ,(pop-not-empty a))))
+                   (created . ,(pdf-info-parse-pdf-date (pop-not-empty a)))))
              ,@(when a
                  `((icon . ,(pop-not-empty a))
                    (state . ,(pop-not-empty a))
@@ -431,6 +432,67 @@ PAGES may be one of
     (signal 'wrong-type-argument
             (list 'pdf-info-valid-page-spec-p pages)))))
 
+
+(defvar pdf-info-pdf-date-regexp
+  ;; Adobe PDF32000.book, 7.9.4 Dates
+  (concat
+   ;; allow for preceding garbage
+   ;;"\\`"
+   "[dD]:"
+   "\\([0-9]\\{4\\}\\)"          ;year
+   "\\(?:"
+   "\\([0-9]\\{2\\}\\)"          ;month
+   "\\(?:"
+   "\\([0-9]\\{2\\}\\)"          ;day
+   "\\(?:"
+   "\\([0-9]\\{2\\}\\)"          ;hour
+   "\\(?:"
+   "\\([0-9]\\{2\\}\\)"          ;minutes
+   "\\(?:"
+   "\\([0-9]\\{2\\}\\)"          ;seconds
+   "\\)?\\)?\\)?\\)?\\)?"
+   "\\(?:"
+   "\\([+-Zz]\\)"                ;UT delta char
+   "\\(?:"
+   "\\([0-9]\\{2\\}\\)"          ;UT delta hours
+   "\\(?:"
+   "'"
+   "\\([0-9]\\{2\\}\\)"          ;UT delta minutes
+   "\\)?\\)?\\)?"
+   ;; "\\'"
+   ;; allow for trailing garbage
+   ))
+          
+(defun pdf-info-parse-pdf-date (date)
+  (when (and date
+             (string-match pdf-info-pdf-date-regexp date))
+    (let ((year (match-string 1 date))
+          (month (match-string 2 date))
+          (day (match-string 3 date))
+          (hour (match-string 4 date))
+          (min (match-string 5 date))
+          (sec (match-string 6 date))
+          (ut-char (match-string 7 date))
+          (ut-hour (match-string 8 date))
+          (ut-min (match-string 9 date))
+          (tz 0))
+      (when (or (equal ut-char "+")
+                (equal ut-char "-"))
+        (when ut-hour
+          (setq tz (* 3600 (string-to-number ut-hour))))
+        (when ut-min
+          (setq tz (+ tz (* 60 (string-to-number ut-min)))))
+        (when (equal ut-char "-")
+          (setq tz (- tz))))
+      (encode-time
+       (if sec (string-to-number sec) 0)
+       (if min (string-to-number min) 0)
+       (if hour (string-to-number hour) 0)
+       (if day (string-to-number day) 1)
+       (if month (string-to-number month) 1)
+       (string-to-number year)
+       tz))))
+
 
 ;;
 ;; High level interface
@@ -453,13 +515,23 @@ Manually opened docüments are never closed automatically."
    'open (pdf-info--normalize-file-or-buffer file-or-buffer)
    password))
 
+(defvar pdf-info-after-close-document-hook nil
+  "A hook ran after a document was closed in the server.")
+
 (defun pdf-info-close (&optional file-or-buffer)
   "Close the document FILE-OR-BUFFER.
 
 Returns t, if the document was actually open, otherwise nil.
 This command is rarely needed, see also `pdf-info-open'."
-  (pdf-info-query
-   'close (pdf-info--normalize-file-or-buffer file-or-buffer)))
+  (let* ((pdf (pdf-info--normalize-file-or-buffer file-or-buffer))
+         (buffer (find-buffer-visiting pdf)))
+    (prog1
+        (pdf-info-query 'close pdf)
+      (save-current-buffer
+        (when (buffer-live-p buffer) (set-buffer buffer))
+        (run-hooks 'pdf-info-after-close-document-hook)))))
+      
+  
 
 (defun pdf-info-metadata (&optional file-or-buffer)
   "Extract the metadata from the document FILE-OR-BUFFER.
@@ -740,6 +812,19 @@ tempfile (e.g. move it) and delete it afterwards."
 (defconst pdf-info-writing-supported
   (memq 'write-support (pdf-info-features)))
 
+(define-minor-mode pdf-info-auto-revert-minor-mode
+  "Close the document, when the buffer was reverted.
+
+This ensures, that the information retrieves is not outdated, but
+will, of course, abandon all changes made to it."
+  nil nil t
+  (pdf-util-assert-pdf-buffer)
+  (cond
+   (pdf-info-auto-revert-minor-mode
+    (add-hook 'after-revert-hook 'pdf-info-close nil t))
+   (t
+    (remove-hook 'after-revert-hook 'pdf-info-close t))))
+  
 (provide 'pdf-info)
 
 ;;; pdf-info.el ends here

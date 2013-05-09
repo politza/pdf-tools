@@ -32,9 +32,13 @@ AWINDOW is deleted."
                       (not (eq buffer (window-buffer window))))
               (remove-hook 'window-configuration-change-hook
                            hook)
+              ;; Deleting windows inside wcch leads to errors in
+              ;; windows.el .
               (run-with-timer
                0 nil (lambda (win)
                        (when (window-live-p win)
                          (delete-window win)))
                awindow))))
     (add-hook 'window-configuration-change-hook hook)))
+
+(provide 'pdf-window)

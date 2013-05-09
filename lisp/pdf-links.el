@@ -134,15 +134,6 @@ do something with it."
 (defvar-local pdf-links-page-alist nil
   "Alist of pages and corresponding links.")
 
-(defvar-local pdf-links-image-map-alist nil
-  "Alist of pages and corresponding image maps.
-
-The keys are \(PAGE . WIDTH\), where WIDTH is the corresponding
-image width of the image map.")
-
-(defvar pdf-links-id-counter 0
-  "A counter for unique image :map mappings.")
-
 ;;
 ;; Function
 ;; 
@@ -186,8 +177,7 @@ be toggled via \\[pdf-links-toggle-decoration].
   (pdf-render-redraw-document))
 
 (defun pdf-links-after-reconvert-hook ()
-  (setq pdf-links-page-alist nil
-        pdf-links-image-map-alist nil))
+  (setq pdf-links-page-alist nil))
 
 (defun pdf-links-pagelinks (&optional page)
   "Return the cached links for page PAGE.
@@ -205,41 +195,37 @@ the format of the return value."
 
 This adds the :map property and defines global mouse bindings
 accordingly."
-  (let* ((props (funcall fn page size))
-         (width (or (plist-get :width props)
-                    doc-view-image-width))
-         (map (cdr (assoc (cons page width)
-                          pdf-links-image-map-alist))))
-    (unless map
-      (let* ((links (pdf-links-pagelinks page))
-             (id-fmt "pdf-link-%d")
-             (pointer 'hand))
-        (dolist (l links)
-          (let ((e (pdf-util-scale-edges (car l) size))
-                (id (intern (format id-fmt (cl-incf pdf-links-id-counter)))))
-            (push `((rect . ((,(nth 0 e) . ,(nth 1 e))
-                             . (,(nth 2 e) . ,(nth 3 e))))
-                    ,id
-                    (pointer
-                     ,pointer
-                     help-echo ,(pdf-links-action-to-string (cdr l))))
-                  map)
-            (global-set-key
-             (vector id 'mouse-1)
-             (lambda nil
-               (interactive "@")
-               (pdf-links-do-action (cdr l))))
-            (dolist (kind '("" "down-" "drag-"))
-              (dotimes (i 9)
-                (global-set-key
-                 (vector id (intern (format "%smouse-%d" kind (+ i 2))))
-                 'pdf-links-other-mouse-click-proxy)))))
-        (setq map (nreverse map))
-        (push (cons (cons page width) map)
-              pdf-links-image-map-alist )))
+  (let ((props (funcall fn page size))
+        (links (pdf-links-pagelinks page))
+        (id-fmt "link-%d-%d")
+        (i 0)
+        (pointer 'hand)
+        map)
+    (dolist (l links)
+      (let ((e (pdf-util-scale-edges (car l) size))
+            (id (intern (format id-fmt page
+                                (cl-incf i)))))
+        (push `((rect . ((,(nth 0 e) . ,(nth 1 e))
+                         . (,(nth 2 e) . ,(nth 3 e))))
+                ,id
+                (pointer
+                 ,pointer
+                 help-echo ,(pdf-links-action-to-string (cdr l))))
+              map)
+        (local-set-key
+         (vector id 'mouse-1)
+         (lambda nil
+           (interactive "@")
+           (pdf-links-do-action (cdr l))))
+        (dolist (kind '("" "down-" "drag-"))
+          (dotimes (i 5)
+            (local-set-key
+             (vector id (intern (format "%smouse-%d" kind (+ i 2))))
+             'pdf-links-other-mouse-click-proxy)))))
     (plist-put props
                :map
-               (append map (plist-get props :map)))))
+               (append (nreverse map)
+                       (plist-get props :map)))))
 
 (defun pdf-links-other-mouse-click-proxy (ev)
   (interactive "e")

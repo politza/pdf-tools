@@ -24,6 +24,23 @@
 #define IN_BUF_LEN 4096
 #define RELEASE_DOC_TIMEOUT (15 * 60)
 
+#define DISCARD_STDOUT(saved_fd)                \
+  do {                                          \
+    int fd;                                     \
+    fflush(stdout);                             \
+    saved_fd = dup(1);                          \
+    fd = open("/dev/null", O_WRONLY);           \
+    dup2(fd, 1);                                \
+    close(fd);                                  \
+  } while (0)
+  
+#define UNDISCARD_STDOUT(saved_fd)              \
+  do {                                          \
+  fflush(stdout);                               \
+  dup2(saved_fd, 1);                            \
+  close(saved_fd);                              \
+  } while (0)
+
 #define OK_BEG()                                \
   do {                                          \
     puts("OK");                                 \
@@ -100,5 +117,8 @@ typedef struct
   const args_spec_t *args_spec; /* Art der Argumente */
   int nargs;                    /* Anzahl Argumente */
 } cmd_t;
+
+extern void poppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle);
+extern gchar *poppler_annot_markup_get_created (PopplerAnnotMarkup*);
 
 #endif  /* _EPDF_H_ */

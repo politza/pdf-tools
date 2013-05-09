@@ -42,8 +42,7 @@
 
 (defvar pdf-render-ghostscript-configuration 0)
 
-(defvar pdf-render-inhibit-rendering nil)
-(defvar pdf-render-inhibit-annotating nil)
+(defvar pdf-render-inhibit-display nil)
 
 ;;
 ;; DocView Setup
@@ -58,14 +57,15 @@
                (setq ov (doc-view-current-overlay))
                (window-live-p (overlay-get ov 'window))
                (pdf-util-png-image-size))
-      (when pdf-render-inhibit-rendering
+      (when pdf-render-inhibit-display
         (let* ((+file+ (ad-get-arg 0))
                (+page+ (save-match-data
-                       (and (string-match
-                             "page-\\([0-9]+\\)\\.png\\'"
-                             +file+)             
-                            (string-to-number (match-string 1 +file+))))))
-          (ad-set-arg 0 (pdf-render-image-file +page+))))
+                         (and (string-match
+                               "page-\\([0-9]+\\)\\.png\\'"
+                               +file+)             
+                              (string-to-number (match-string 1 +file+))))))
+          (when +page+
+            (ad-set-arg 0 (pdf-render-image-file +page+)))))
       (ad-set-args 1 (pdf-render-annotate-image
                       (doc-view-current-page)
                       (ad-get-args 1))))))
@@ -176,7 +176,7 @@ exit code.  And if this checks out, advice DocView about it."
 ;;
 ;; Rendering
 ;; 
-
+  
 (defun pdf-render-register-annotate-image-function (fn &optional layer)
   (push (cons (or layer 0) fn)
         pdf-render-annotate-functions))
@@ -187,7 +187,7 @@ exit code.  And if this checks out, advice DocView about it."
                    :key 'cdr)))
 
 (defun pdf-render-annotate-image (page props)
-  (if pdf-render-inhibit-annotating
+  (if pdf-render-inhibit-display
       props
     (let* ((width (or (plist-get :width props)
                       doc-view-image-width))
@@ -318,7 +318,11 @@ exit code.  And if this checks out, advice DocView about it."
     ;; Prefer displayed pages.
     (let* ((pages pdf-render-pages-to-render)
            (page (or (cl-some (lambda (p) (car (memq p pages)))
-                              (doc-view-active-pages))
+                              ;; This function results in an error, if
+                              ;; the page is not yet displayed in some
+                              ;; window.
+                              (ignore-errors
+                                (doc-view-active-pages)))
                      (car pages))))
       (cond
        ((null pages)
@@ -341,6 +345,8 @@ exit code.  And if this checks out, advice DocView about it."
                       (pdf-render-state-uptodate-p page cmds))
                   (setq pdf-render-pages-to-render
                         (remq page pdf-render-pages-to-render))
+                  ;; FIXME: This slows Emacs down, when a lot of
+                  ;; buffers are rendered.
                   (run-with-timer 0.05 nil 'pdf-render-redraw--1 buffer))
                  (t
                   (apply
@@ -352,7 +358,11 @@ exit code.  And if this checks out, advice DocView about it."
                           (with-current-buffer buffer
                             (if (not (equal status "finished\n"))
                                 (setq mode-line-process
-                                      (list ":*convert error*"))
+                                      `(,(cond
+                                          ((equal status "killed\n")
+                                           ":*canceled*")
+                                          (t
+                                           ":*convert error*"))))
                               (pdf-render-set-state page cmds)
                               (copy-file pdf-render-temp-file out-file t)
                               (clear-image-cache out-file)
@@ -361,6 +371,15 @@ exit code.  And if this checks out, advice DocView about it."
                               (pdf-render-redraw--1 buffer))))))))))))))
     (force-mode-line-update)))
 
+(defvar pdf-render-max-processes 3) 
+(defun pdf-render-current-number-of-processes ()
+  (let ((n 0))
+    (dolist (buf (buffer-list))
+      (when (buffer-local-value
+             'pdf-render-redraw-process/timer buf)
+        (setq n (1+ n))))
+    n))
+  
 (defun pdf-render-redraw-document (&optional buffer pages)
   (interactive)
   (save-current-buffer
@@ -368,19 +387,20 @@ exit code.  And if this checks out, advice DocView about it."
     (pdf-util-assert-pdf-buffer)
     (pdf-render-initialize)
     (pdf-render-cancel-redraw)
-    (unless pdf-render-inhibit-rendering
-      (cond
-       ((not (doc-view-already-converted-p))
-        (setq pdf-render-schedule-redraw-timer
-              (run-with-timer 1 nil 'pdf-render-redraw-document
-                              (current-buffer) pages)))
-       (t
-        (setq pdf-render-pages-to-render
-              (if  pages 
-                  (cl-union (cl-remove-duplicates pages)
-                            pdf-render-pages-to-render)
-                (number-sequence 1 (pdf-info-number-of-pages))))
-        (pdf-render-redraw--1))))))
+    (cond
+     ((or (not (doc-view-already-converted-p))
+          (>= (pdf-render-current-number-of-processes)
+              pdf-render-max-processes))
+      (setq pdf-render-schedule-redraw-timer
+            (run-with-timer 1 nil 'pdf-render-redraw-document
+                            (current-buffer) pages)))
+     (t
+      (setq pdf-render-pages-to-render
+            (if  pages 
+                (cl-union (cl-remove-duplicates pages)
+                          pdf-render-pages-to-render)
+              (number-sequence 1 (pdf-info-number-of-pages))))
+      (pdf-render-redraw--1)))))
 
 (defmacro pdf-render-with-redraw (render-fn &optional exclusive-p &rest body)
   (declare (indent 1) (debug t))
@@ -447,7 +467,8 @@ exit code.  And if this checks out, advice DocView about it."
 
 (defun pdf-render-redisplay-current-page ()
   (when (pdf-util-page-displayed-p)
-    (doc-view-goto-page (doc-view-current-page))))
+    (pdf-util-save-window-scroll
+      (doc-view-goto-page (doc-view-current-page)))))
 
 (defun pdf-render-display-image (&optional file no-annotate)
   (if (null file)
@@ -477,7 +498,7 @@ exit code.  And if this checks out, advice DocView about it."
                                      img))
           (clear-image-cache file))))))
 
-(defun pdf-render-momentarily (callback &rest spec)
+(defun pdf-render-momentarily (&rest spec)
   (pdf-util-assert-pdf-window)
   (let* ((window (selected-window))
          (buffer (window-buffer window))
@@ -492,12 +513,10 @@ exit code.  And if this checks out, advice DocView about it."
     (cond
      ((file-exists-p out-file)
       (pdf-render-display-image out-file)
-      (when callback
-        (run-with-timer 0 nil (lambda nil (funcall callback)))))
+      nil)
      ((null spec)
       (pdf-util-redisplay-current-page)
-      (when callback
-        (run-with-timer 0 nil (lambda nil (funcall callback)))))
+      nil)
      (t
       (apply
        'pdf-util-convert-asynch
@@ -509,12 +528,9 @@ exit code.  And if this checks out, advice DocView about it."
                        (eq (window-buffer window) buffer)
                        (pdf-util-pdf-buffer-p buffer))
               (with-selected-window window
-                (pdf-render-display-image out-file)
-                (when callback
-                  (funcall callback)))))))))))
+                (pdf-render-display-image out-file))))))))))
   
 (defun pdf-render-momentarily-clear-cache ()
-  (pdf-util-assert-pdf-buffer)
   (pdf-util-cache-clear 'pdf-render-momentarily))
 
 (provide 'pdf-render)

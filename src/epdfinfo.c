@@ -92,8 +92,8 @@ static void cmd_getattachments (const ctxt_t *ctx, const arg_t *args);
 static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_relocannot (const ctxt_t *ctx, const arg_t *args);
+static void cmd_test_text_layout (const ctxt_t *ctx, const arg_t *args);
 
-extern void poppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle);
 
 /* command specs */
 const args_spec_t cmd_features_spec[] = {};
@@ -231,6 +231,11 @@ const args_spec_t cmd_relocannot_spec[] =
     ARG_NATNUM
   };
 
+const args_spec_t cmd_test_text_layout_spec[] =
+  {
+    ARG_DOC
+  };
+
 
 static const cmd_t cmds [] =
   {
@@ -263,7 +268,9 @@ static const cmd_t cmds [] =
      cmd_getattachment_from_annot_spec,
      G_N_ELEMENTS (cmd_getattachment_from_annot_spec)},
     {"getattachments", cmd_getattachments, cmd_getattachments_spec,
-     G_N_ELEMENTS (cmd_getattachments_spec)} 
+     G_N_ELEMENTS (cmd_getattachments_spec)} ,
+    {"test-text-layout", cmd_test_text_layout, cmd_test_text_layout_spec,
+     G_N_ELEMENTS (cmd_test_text_layout_spec)}
   };
 
 static const char *poppler_action_type_strings[] =
@@ -699,18 +706,25 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
   gboolean free_dest = FALSE;
   double width, height, top, left;
   PopplerPage *page;
+  int saved_stdin;
     
   if (action->any.type == POPPLER_ACTION_GOTO_DEST
       && action->goto_dest.dest->type == POPPLER_DEST_NAMED)
     {
+      DISCARD_STDOUT (saved_stdin);
+      /* poppler_document_find_dest reports errors to stdout, so
+         discard them. */
       dest = poppler_document_find_dest
         (doc, action->goto_dest.dest->named_dest);
+      UNDISCARD_STDOUT (saved_stdin);
       free_dest = TRUE;
     }
   else if (action->any.type == POPPLER_ACTION_NAMED)
       
     {
+      DISCARD_STDOUT (saved_stdin);
       dest = poppler_document_find_dest (doc, action->named.named_dest);
+      UNDISCARD_STDOUT (saved_stdin);
       free_dest = TRUE;
     }
   
@@ -862,7 +876,6 @@ print_annot (const annot_t *annot, const PopplerPage *page)
   gchar *text;
   time_t time;
   gdouble opacity;
-  GDate *date;
 
   if (! annot || ! page)
     return;
@@ -912,11 +925,8 @@ print_annot (const annot_t *annot, const PopplerPage *page)
 
   /* Modified Date */
   text = poppler_annot_get_modified (a);
-  if (poppler_date_parse (text, &time))
-    {
-      char *time_str = ctime (&time);
-      print_escaped (strchomp (time_str), NONE);
-    }
+  if (text)
+    print_escaped (text, NONE);
   else
     print_escaped (text, NONE);
   g_free (text);
@@ -962,14 +972,11 @@ print_annot (const annot_t *annot, const PopplerPage *page)
     printf ("::");
 
   /* Creation Date */
-  date = poppler_annot_markup_get_date (ma);
-  if (date)
+  text = poppler_annot_markup_get_created (ma);
+  if (text)
     {
-      struct tm tm_time;
-      g_date_to_struct_tm (date, &tm_time);
-      print_escaped (strchomp (asctime (&tm_time))
-                     , NONE);
-      g_free (date);
+      print_escaped (text, NONE);
+      g_free (text);
     }
 
   /* <<< Markup Annotation <<< */
@@ -1987,6 +1994,28 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
   print_annot (annot, page);
   OK_END ();
   g_object_unref (page);
+}
+
+static void
+cmd_test_text_layout (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args->value.doc;
+  int pn;
+  int npages = poppler_document_get_n_pages (doc->pdf);
+  for (pn = 1; pn <= npages; ++pn)
+    {
+      PopplerPage *page = poppler_document_get_page (doc->pdf, pn - 1);
+      gchar *text = poppler_page_get_text (page);
+      PopplerRectangle *rects;
+      guint nrects;
+      if (poppler_page_get_text_layout (page, &rects, &nrects))
+        {
+          printf ("%d nchars=%d nrects=%d\n", pn,
+                  g_utf8_strlen (text, -1), nrects);
+        }
+      g_object_unref (page);
+    }
+  
 }
 
 

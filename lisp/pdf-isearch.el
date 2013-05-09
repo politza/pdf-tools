@@ -42,7 +42,7 @@
   
 (defcustom pdf-isearch-convert-commands
   '("-fuzz" "30%%" "-region" "%g"
-    "-fill" "%b" "-draw" "color %w,2 replace")
+    "-fill" "%b" "-draw" "color 0,0 replace")
   "The commands  for the external convert program.
 
 This should be a list of strings, possibly containing special
@@ -120,34 +120,13 @@ See url `http://www.imagemagick.org/script/convert.php'."
 
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap (kbd "C-s") 'pdf-isearch-forward)
-    (define-key kmap (kbd "C-r") 'pdf-isearch-backward)
+    (define-key kmap (kbd "C-s") 'isearch-forward)
+    (define-key kmap (kbd "C-r") 'isearch-backward)
     (define-key kmap (kbd "C-M-s") 'doc-view-search)
     (define-key kmap (kbd "C-M-r") 'doc-view-search-backward)
     (define-key kmap (kbd "M-s o") 'pdf-occur)
     kmap)
   "Keymap used in `pdf-isearch-minor-mode'.")
-
-(defun pdf-isearch (&optional backward)
-  (interactive)
-  (let ((window (selected-window)))
-  (unwind-protect
-      (let ((pdf-render-inhibit-rendering t))
-        (funcall (if backward 'isearch-backward
-                   'isearch-forward)))
-    (when (window-live-p window)
-      (with-selected-window window
-        (pdf-render-redisplay-current-page))))))
-     
-
-(defun pdf-isearch-forward ()
-  (interactive)
-  (pdf-isearch))
-
-(defun pdf-isearch-backward ()
-  (interactive)
-  (pdf-isearch 'backward))
-    
 
 (defvar pdf-isearch-active-mode-map
   (let ((kmap (make-sparse-keymap)))
@@ -310,9 +289,8 @@ This is a Isearch interface function."
         (let ((next-page (pdf-isearch-find-next-matching-page
                           string pdf-isearch-page isearch-forward t)))
           (when next-page
-            (doc-view-goto-page next-page)
-            ;; (set-window-hscroll nil 0)
-            ;; (set-window-vscroll nil 0)
+            (let ((pdf-render-inhibit-display t))
+              (doc-view-goto-page next-page))
             (pdf-isearch-search-function string))))))))
 
 (defun pdf-isearch-push-state-function ()
@@ -331,7 +309,8 @@ This is a Isearch interface function."
             pdf-isearch-current-match match
             pdf-isearch-page page)
 
-      (doc-view-goto-page pdf-isearch-page)
+      (let ((pdf-render-inhibit-display t))
+        (doc-view-goto-page pdf-isearch-page))
       (when pdf-isearch-current-match
         (pdf-isearch-hl-matches
          pdf-isearch-current-match
@@ -347,11 +326,12 @@ This is a Isearch interface function."
                   1
                 (pdf-info-number-of-pages))))
     (unless (= page (doc-view-current-page))
-      (doc-view-goto-page page)
+      (let ((pdf-render-inhibit-display t))
+        (doc-view-goto-page page))
       (let ((next-screen-context-lines 0))
         (if (= page 1)
-          (image-scroll-down)
-        (image-scroll-up)))))
+            (image-scroll-down)
+          (image-scroll-up)))))
   (setq pdf-isearch-current-match nil))
 
 (defun pdf-isearch-mode-cleanup ()
@@ -359,8 +339,7 @@ This is a Isearch interface function."
 
 This is a Isearch interface function."
   (pdf-isearch-active-mode -1)
-  (pdf-util-save-window-scroll
-    (doc-view-goto-page (doc-view-current-page)))
+  (pdf-render-redisplay-current-page)
   (pdf-util-cache-clear "pdf-isearch"))
 
 (defun pdf-isearch-mode-initialize ()
@@ -448,7 +427,7 @@ right."
       (mapcar 'car (cdar (pdf-info-search
                           string nil page)))
       (pdf-util-image-size))
-     0 0)))
+     1 0)))
 
 (defun pdf-isearch-find-next-matching-page (string page &optional
                                                    forward-p interactive-p)
