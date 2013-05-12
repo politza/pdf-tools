@@ -445,6 +445,22 @@ dot."
          (image-set-window-hscroll ,hscroll)
          (image-set-window-vscroll ,vscroll)))))
 
+(defun pdf-util-read-image-position (prompt)
+  (pdf-util-assert-pdf-window)
+  (save-selected-window
+    (let ((ev (read-event
+               (propertize prompt 'face 'minibuffer-prompt)))
+          (buffer (current-buffer)))
+      (unless (mouse-event-p ev)
+        (error "Not a mouse event"))
+      (let ((posn (event-start ev)))
+        (unless (and (eq (window-buffer
+                          (posn-window posn))
+                         buffer)
+                     (eq 'image (car-safe (posn-object posn))))
+          (error "Invalid image position"))
+        (posn-object-x-y posn)))))
+  
 ;;
 ;; Converting Images
 ;;
@@ -453,6 +469,12 @@ dot."
   (unless (and pdf-util-convert-program
                (file-executable-p pdf-util-convert-program))
     (error "The pdf-util-convert-program is unset or non-executable")))
+
+(defvar-local pdf-util-png-image-size-resolution nil
+  "Saved resolution of the current conversion.
+
+Used to determine whether cached image-file sizes are still
+valid.")
 
 (defun pdf-util-png-image-size (&optional page)
   "Return the image size of the image file of the current PAGE.
@@ -464,6 +486,10 @@ to)."
   (unless page (setq page (ignore-errors
                             (doc-view-current-page))))
   (when page
+    (unless (eq doc-view-resolution
+                pdf-util-png-image-size-resolution)
+      (setq pdf-util-png-image-size-resolution doc-view-resolution
+            pdf-util-png-image-size-alist nil))
     (let ((entry
            (cl-assoc page pdf-util-png-image-size-alist
                      :test 'gnus-member-of-range)))
@@ -632,15 +658,16 @@ to)."
       (delete-directory dir t))))
 
 (defun pdf-util-cache--get-root-dir ()
-  (when (and (doc-view-current-cache-dir)
+  (when (and (pdf-util-docview-buffer-p)
+             (doc-view-current-cache-dir)
              (file-exists-p (doc-view-current-cache-dir)))
     (let ((dir (file-name-as-directory
                 (expand-file-name
                  ".pdf-util-cache"
                  (doc-view-current-cache-dir)))))
       (unless (file-exists-p dir)
-        (make-directory dir)
-        (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t))
+        (make-directory dir))
+      (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t)
       dir)))
 
 

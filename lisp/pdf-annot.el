@@ -138,7 +138,8 @@ uncompressed format, e.g. bmp2."
 
 (defvar pdf-annot-annotate-resize-pixel 0)
 
-(defcustom pdf-annot-pp-for-tooltip-function nil
+(defcustom pdf-annot-print-tooltip-functions
+  '(pdf-annot-print-tooltip-latex-maybe)
   "A function for pretty printing annotations.
 
 The function receices one argument, the annotation, and it should
@@ -269,19 +270,39 @@ current buffer."
                 (delq elt (pdf-annot-properties a))))
     (unless (equal (cdr elt) val)
       (with-current-buffer (pdf-annot-buffer a)
-        (set-buffer-modified-p t))
-      (pdf-annot-set-property-modified-p a prop t)
-      (pdf-annot-run-after-change-hooks a))
+        (set-buffer-modified-p t)
+        (pdf-annot-set-property-modified-p a prop t)
+        (pdf-annot-run-pages-modified-hooks
+         (pdf-annot-get a 'page ))))
     val))
 
-(defvar pdf-annot-after-change-functions nil)
+(defvar pdf-annot-pages-modified-functions nil)
 (defvar pdf-annot-inhibit-modification-hooks nil)
+(defvar-local pdf-annot-modified-pages nil)
 
-(defun pdf-annot-run-after-change-hooks (a)
-  (unless pdf-annot-inhibit-modification-hooks
-    (with-current-buffer (pdf-annot-buffer a)
-      (run-hook-with-args
-       'pdf-annot-after-change-functions a))))          
+(defun pdf-annot-run-pages-modified-hooks (&optional pages)
+  (unless (listp pages)
+    (setq pages (list pages)))
+  (if pdf-annot-inhibit-modification-hooks
+      (setq pdf-annot-modified-pages
+            (cl-remove-duplicates (append pdf-annot-modified-pages pages)))
+    (let ((pages (cl-remove-duplicates
+                  (append pdf-annot-modified-pages pages))))
+      (setq pdf-annot-modified-pages nil)
+      (when pages
+        (run-hook-with-args
+         'pdf-annot-pages-modified-functions pages)))))
+
+(defmacro pdf-annot-with-multiple-modifications (&rest body)
+  (declare (indent 0) (debug t))
+  (org-with-gensyms (buffer)
+    `(let ((,buffer (current-buffer)))
+       (unwind-protect
+           (let ((pdf-annot-inhibit-modification-hooks t))
+             (progn ,@body))
+         (when (buffer-live-p ,buffer)
+           (with-current-buffer ,buffer
+             (pdf-annot-run-pages-modified-hooks)))))))
 
 (defun pdf-annot-validate-property-value (prop val &optional noerror)
   (let ((errmsg
@@ -335,8 +356,9 @@ current buffer."
                    (not flag)))
     (setf (pdf-annot-deleted-p a) (not (null flag)))
     (with-current-buffer (pdf-annot-buffer a)
-      (set-buffer-modified-p t))
-    (pdf-annot-run-after-change-hooks a))
+      (set-buffer-modified-p t)
+      (pdf-annot-run-pages-modified-hooks
+       (pdf-annot-get a 'page))))
   (pdf-annot-deleted-p a))
 
 (defun pdf-annot-set-property-modified-p (a prop flag)
@@ -474,7 +496,7 @@ used as a reference."
 
 (defvar pdf-annot-text-annot-defaults
   `((icon . "Note")
-    (color . "#ff8c00")
+    (color . ,(pdf-annot-colorname-to-hex "pink"))
     (label . ,user-full-name)
     (isopen . nil))
   "An alist of default properties for new text annotations.")
@@ -482,7 +504,7 @@ used as a reference."
 ;; Standard size for text annotations is 24x24 pixel.
 ;; Standard origin is roughly at (6,24) .
 (defun pdf-annot-add-text-annot (x y &optional page window)
-  "Create a new text annotation at X,Y on PAGE in WINDOW."
+  "Create a new text-annot pointing at X,Y on PAGE in WINDOW."
   (interactive
    (let ((xy (pdf-util-read-image-position
               "Click on the spot where a annotation should be added")))
@@ -501,13 +523,11 @@ used as a reference."
              (x2 (+ x1 (/ 24.0 (car size))))
              (y2 (+ y1 (/ 24.0 (cdr size)))))
         
-        (unwind-protect
-            (let ((pdf-annot-inhibit-modification-hooks t))
-              (setq a (pdf-annot-add-text-annot-raw
-                       page (list x1 y1 x2 y2)))
-              (dolist (elt pdf-annot-text-annot-defaults)
-                (pdf-annot-set a (car elt) (cdr elt))))
-          (when a (pdf-annot-run-after-change-hooks a)))))
+        (pdf-annot-with-multiple-modifications
+         (setq a (pdf-annot-add-text-annot-raw
+                  page (list x1 y1 x2 y2)))
+         (dolist (elt pdf-annot-text-annot-defaults)
+           (pdf-annot-set a (car elt) (cdr elt))))))
     ;; FIXME: Selecting the edit window won't work otherwise.
     (run-with-timer 0.001 nil 'pdf-annot-edit-text a)
     a))
@@ -572,8 +592,7 @@ used as a reference."
       (puthash page nil pdf-annot-annotations)
       (when modified
         (set-buffer-modified-p t)
-        (dolist (a (pdf-annot-getannots page))
-          (pdf-annot-run-after-change-hooks a))))))
+        (pdf-annot-run-pages-modified-hooks page)))))
 
 (defun pdf-annot-print-property (a prop)
   (or (and pdf-annot-print-property-function
@@ -607,38 +626,78 @@ used as a reference."
     ;; print verbatim
     (t (format "%s" (or (pdf-annot-get a prop) "")))))       
 
-(defun pdf-annot-pp-for-tooltip (a)
-  (or (and pdf-annot-pp-for-tooltip-function
-           (funcall pdf-annot-to-string-function a))
-      (cl-case (pdf-annot-type a)
-        (text
-         (let ((header (propertize
-                        (format "[%s]\n"
-                                (mapconcat
-                                 'identity
-                                 (mapcar
-                                  (lambda (prop)
-                                    (pdf-annot-print-property
-                                     a prop))
-                                  '(label
-                                    icon
-                                    modified))
-                                 ";"))
-                        'face 'header-line 'intangible t
-                        'read-only t)))
-           (concat
-            (propertize
-             header
-             'display
-             header)
-            (with-temp-buffer
-              (insert (or (pdf-annot-get a 'contents) ""))
-              (fill-region 1 (point-max) 'full)
-              (buffer-string)))))
-        (file
-         (pdf-attach-pp-for-tooltip (pdf-attach-get-from-annot a)))
-        (t (format "Annotation of type `%s'" (pdf-annot-type a))))))
+(defun pdf-annot-print-tooltip (a)
+  (or (run-hook-with-args-until-success
+       'pdf-annot-print-tooltip-functions a)
+      (let ((header ))
+        (concat
+         (pdf-annot-print-tooltip-header a)
+         (cl-case (pdf-annot-type a)
+           (text
+            (pdf-annot-get a 'contents))
+           (t
+            "Customize `pdf-annot-print-tooltip-functions',\
+ to change what is displayed here."))))))
 
+(defun pdf-annot-print-tooltip-header (a)
+  (let ((header
+         (propertize
+          (format "[%s]\n"
+                  (mapconcat
+                   'identity
+                   (mapcar
+                    (lambda (prop)
+                      (pdf-annot-print-property
+                       a prop))
+                    (if (pdf-annot-is-text-p a)
+                        '(label
+                          icon
+                          modified)
+                      '(type modified)))
+                   ";"))
+          'face 'header-line)))
+    (propertize header 'display header)))
+
+
+(defvar pdf-annot-latex-string-predicate
+  (lambda (str)
+    (string-match "\\`[[:space:]]*\\(?:\\$\\|\\\\[[(]\\|\\\\begin\\)" str)))
+  
+(defun pdf-annot-print-tooltip-latex-maybe (a)
+  (when (funcall pdf-annot-latex-string-predicate
+                 (pdf-annot-get a 'contents))
+    (pdf-annot-print-tooltip-latex a)))
+
+  
+(defun pdf-annot-print-tooltip-latex (a)
+  (let* ((header (pdf-annot-print-tooltip-header a))
+         (contents (pdf-annot-get a 'contents))
+         (pngfile (pdf-util-cache-make-filename
+                   'pdf-annot-latex
+                   "png"
+                   header contents))
+         (temporary-file-directory
+          (pdf-util-cache-make-filename
+           'pdf-annot-latex "latex")))
+
+    (unless (file-exists-p temporary-file-directory)
+      (make-directory temporary-file-directory))
+    (unless (file-exists-p pngfile)
+      (org-create-formula-image-with-dvipng
+       contents pngfile org-format-latex-options t)
+      (clear-image-cache pngfile))
+    (concat
+     header
+     (if (file-exists-p pngfile)
+         (propertize
+          contents 'display (create-image pngfile))
+       (propertize
+        contents
+        'display
+        (concat
+         (propertize "Failed to compile latex fragment\n"
+                     'face 'error)
+         contents))))))
 ;;
 ;; *Drawing Annotations
 ;;
@@ -799,7 +858,7 @@ To be registered with `pdf-render-register-annotate-image-function'."
                          . (,(nth 2 e) . ,(nth 3 e)))
                         ((,(- (nth 2 e) d) . ,(- (nth 3 e) d))
                          . (,(nth 2 e) . ,(nth 3 e)))))
-               (help (list (pdf-annot-pp-for-tooltip a)
+               (help (list (pdf-annot-print-tooltip a)
                            "Drag to resize horizontally."
                            "Drag to resize vertically."
                            "Drag to resize.")))
@@ -821,21 +880,21 @@ To be registered with `pdf-render-register-annotate-image-function'."
                :map
                (append map (plist-get props :map)))))
 
-(defun pdf-annot-redraw (a)
-  "Redraw the page of annotation A."
-  (let ((page (pdf-annot-get a 'page)))
-    (with-current-buffer (pdf-annot-buffer a)
-      (pdf-render-redraw-document nil (list page)))))
+(defun pdf-annot-redraw-pages (pages)
+  "Redraw PAGES of the current buffer."
+  (when pages
+    (pdf-render-redraw-document nil pages)))
 
-(defun pdf-annot-reannotate (a)
-  "Update the page of annotation A.
+(defun pdf-annot-reannotate-pages (pages)
+  "Update PAGES of the current buffer.
 
 This function reinserts the page and thus reapplys it's image
 properties, e.g. the hotspots for the mouse."
-  (dolist (win (pdf-util-doc-view-windows
-                (pdf-annot-buffer a)))
+  (dolist (win (pdf-util-doc-view-windows))
     (with-selected-window win
-      (pdf-render-redisplay-current-page))))
+      (when (and (pdf-util-page-displayed-p)
+                 (memq (doc-view-current-page) pages))
+        (pdf-render-redisplay-current-page)))))
 
 (defun pdf-annot-set-pointer-shape (shape)
   (if (null shape)
@@ -896,6 +955,7 @@ i.e. a non mouse-movement event is read."
       (error "No annotation at event's position: %s" event))
     (let* ((apos (pdf-annot-image-position a))
            (pdf-annot-inhibit-modification-hooks t)
+           (buffer (current-buffer))
            (offset (cons (- (car mpos) (car apos))
                          (- (cdr mpos) (cdr apos))))
            (edges (pdf-annot-get a 'edges))
@@ -940,7 +1000,9 @@ i.e. a non mouse-movement event is read."
                     (redraw))
                   (track-mouse
                     (setq ev (read-event))))
-                (pdf-annot-run-after-change-hooks a)))
+                (with-current-buffer buffer
+                  (pdf-annot-run-pages-modified-hooks
+                   (pdf-annot-get a 'page)))))
           (pdf-annot-set-pointer-shape nil)))
       (when (and ev (not (mouse-event-p ev)))
         (setq unread-command-events
@@ -951,42 +1013,48 @@ i.e. a non mouse-movement event is read."
 ;; *Editing text contents
 ;; 
 
-(defvar pdf-annot-edit-annotation nil)
-(defvar pdf-annot-edit-buffer nil)
+(defvar-local pdf-annot-edit-annotation nil)
+(put 'pdf-annot-edit-annotation 'permanent-local t)
+(defvar-local pdf-annot-edit-buffer nil)
 
+(defvar pdf-annot-edit-text-major-mode
+  (lambda ()
+    (let ((a pdf-annot-edit-annotation))
+      (if (and a (funcall pdf-annot-latex-string-predicate
+                          (pdf-annot-get a 'contents)))
+          (latex-mode)
+        (text-mode)))))
+  
 (defvar pdf-annot-edit-text-mode-map
   (let ((kmap (make-sparse-keymap)))
     (set-keymap-parent kmap text-mode-map)
     (define-key kmap (kbd "C-c C-c") 'pdf-annot-edit-text-commit)
     (define-key kmap (kbd "C-c C-q") 'pdf-annot-edit-text-quit)
     kmap))
-    
-(define-derived-mode pdf-annot-edit-text-mode text-mode "AEdit"
+      
+(define-minor-mode pdf-annot-edit-text-mode
   "Mode for editing the contents of annotations."
-  (make-local-variable 'pdf-annot-edit-document)
-  (make-local-variable 'pdf-annot-edit-annotation)
-  (use-local-map pdf-annot-edit-text-mode-map)
-  ;;(add-hook 'kill-buffer-hook 'quit-window)
-  ;; (add-hook 'kill-buffer-query-functions
-  ;;           'pdf-annot-edit-text-finalize nil t)
-  )
+  nil nil nil
+  (when pdf-annot-edit-text-mode
+    (message "%s"
+             (substitute-command-keys
+              "Press \\[pdf-annot-edit-text-commit] to commit your changes, \\[pdf-annot-edit-text-quit] to abandon them."))))
 
+(put 'pdf-annot-edit-text-mode 'permanent-local t)
 
 (defun pdf-annot-edit-text-finalize (do-save &optional do-kill)
-  (when (buffer-live-p pdf-annot-edit-buffer)
-    (with-current-buffer (get-buffer-create pdf-annot-edit-buffer)
-      (when (buffer-modified-p)
-        (cond
-         ((eq do-save 'ask)
-          (save-window-excursion
-            (display-buffer (current-buffer) nil (selected-frame))
-            (when (y-or-n-p "Save changes to this annotation ?")
-              (pdf-annot-edit-text-save-annotation))))
-         (do-save
-          (pdf-annot-edit-text-save-annotation)))
-        (set-buffer-modified-p nil))
-      (dolist (win (get-buffer-window-list))
-        (quit-window do-kill win)))))
+  (when (buffer-modified-p)
+    (cond
+     ((eq do-save 'ask)
+      (save-window-excursion
+        (display-buffer (current-buffer) nil (selected-frame))
+        (when (y-or-n-p "Save changes to this annotation ?")
+          (pdf-annot-edit-text-save-annotation))))
+     (do-save
+      (pdf-annot-edit-text-save-annotation)))
+    (set-buffer-modified-p nil))
+  (dolist (win (get-buffer-window-list))
+    (quit-window do-kill win)))
         
 (defun pdf-annot-edit-text-save-annotation ()
   (when (and pdf-annot-edit-annotation
@@ -1006,6 +1074,10 @@ i.e. a non mouse-movement event is read."
 
 (defun pdf-annot-edit-text-noselect (a)
   (with-current-buffer (pdf-annot-buffer a)
+    (when (and (buffer-live-p pdf-annot-edit-buffer)
+               (not (eq a pdf-annot-edit-annotation)))
+      (with-current-buffer pdf-annot-edit-buffer
+        (pdf-annot-edit-text-finalize 'ask)))
     (unless (buffer-live-p pdf-annot-edit-buffer)
       (setq pdf-annot-edit-buffer
             (with-current-buffer (get-buffer-create
@@ -1014,12 +1086,11 @@ i.e. a non mouse-movement event is read."
               (pdf-annot-edit-text-mode)
               (current-buffer))))
     (with-current-buffer pdf-annot-edit-buffer
-      (unless (eq a pdf-annot-edit-annotation)
-        (pdf-annot-edit-text-finalize 'ask))
       (setq pdf-annot-edit-annotation a)
+      (funcall pdf-annot-edit-text-major-mode)
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (save-excursion (insert (or (pdf-annot-get a 'contents) "")))
+        (save-excursion (insert (pdf-annot-get a 'contents)))
         (set-buffer-modified-p nil)
         (current-buffer)))))
 
@@ -1053,7 +1124,7 @@ i.e. a non mouse-movement event is read."
 ;; *Listing annotations
 ;;
 
-(defvar-local pdf-annot-list-document nil)
+(defvar-local pdf-annot-list-document-buffer nil)
 
 (defvar pdf-annot-list-mode-map
   (let ((km (make-sparse-keymap)))
@@ -1061,11 +1132,11 @@ i.e. a non mouse-movement event is read."
     km))
 
 (defun pdf-annot-list-entries ()
-  (unless (buffer-live-p pdf-annot-list-document)
+  (unless (buffer-live-p pdf-annot-list-document-buffer)
     (error "No PDF document associated with this buffer"))
   (mapcar 'pdf-annot-list-create-entry
           (cl-remove-if 'pdf-annot-deleted-p
-                        (pdf-annot-getannots nil 'text pdf-annot-list-document))))
+                        (pdf-annot-getannots nil 'text pdf-annot-list-document-buffer))))
 
 (defun pdf-annot-list-create-entry (a)
   (list a (apply 'vector
@@ -1131,7 +1202,7 @@ i.e. a non mouse-movement event is read."
                                    (buffer-name))))
       (unless (derived-mode-p 'pdf-annot-list-mode)
         (pdf-annot-list-mode))
-      (setq pdf-annot-list-document buffer)
+      (setq pdf-annot-list-document-buffer buffer)
       (tabulated-list-print)
       (setq tablist-context-window-function 'pdf-annot-list-context-function
             tablist-find-entry-function 'pdf-annot-list-find-entry
@@ -1148,12 +1219,14 @@ i.e. a non mouse-movement event is read."
        pdf-annot-list-display-buffer-action)
       (tablist-move-to-major-column)
       (tablist-display-context-window))
-    (add-hook 'pdf-annot-after-change-functions
-              'pdf-annot-list-update-context-window nil t)))
+    (add-hook 'pdf-annot-pages-modified-functions
+              'pdf-annot-list-update nil t)))
 
-(defun pdf-annot-list-update-context-window (a)
+(defun pdf-annot-list-update (_pages)
   (when (buffer-live-p pdf-annot-list-buffer)
     (with-current-buffer pdf-annot-list-buffer
+      (unless tablist-edit-column-minor-mode
+        (tablist-revert))
       (tablist-context-window-update))))
   
 (defun pdf-annot-list-context-function (annot)
@@ -1164,7 +1237,7 @@ i.e. a non mouse-movement event is read."
       (when annot
         (save-excursion
           (insert
-           (pdf-annot-pp-for-tooltip annot))))
+           (pdf-annot-print-tooltip annot))))
       (read-only-mode 1))))
 
 (defun pdf-annot-list-insert (a)
@@ -1183,14 +1256,20 @@ i.e. a non mouse-movement event is read."
     (pdf-annot-set id prop item)
     (cadr (pdf-annot-list-create-entry id))))
 
-(defun pdf-annot-list-delete-function (a)
-  (pdf-annot-set-deleted-p a t))
+(defun pdf-annot-list-delete-function (annots)
+  (when (buffer-live-p pdf-annot-list-document-buffer)
+    (with-current-buffer pdf-annot-list-document-buffer
+      (pdf-annot-with-multiple-modifications
+        (dolist (a annots)
+          (pdf-annot-set-deleted-p a t))))))
   
 (defun pdf-annot-display-annotation (a)
   (interactive (list (tabulated-list-get-id)))
   (let ((buffer (pdf-annot-buffer a)))
     (with-selected-window (or (get-buffer-window buffer)
-                              (display-buffer buffer))
+                              (display-buffer
+                               buffer
+                               '(nil (inhibit-same-window . t))))
       (when (pdf-util-page-displayed-p)
         (pdf-util-scroll-to-edges
          (pdf-util-scale-edges
@@ -1382,9 +1461,9 @@ i.e. a non mouse-movement event is read."
     (add-hook 'write-contents-functions 'pdf-annot-save-document nil t)
     (pdf-render-register-layer-function 'pdf-annot-render-function 9)
     (pdf-render-register-annotate-image-function 'pdf-annot-annotate-image 9)
-    (add-hook 'pdf-annot-after-change-functions 'pdf-annot-redraw nil t)
-    (add-hook 'pdf-annot-after-change-functions
-              'pdf-annot-reannotate nil t)
+    (add-hook 'pdf-annot-pages-modified-functions 'pdf-annot-redraw-pages nil t)
+    (add-hook 'pdf-annot-pages-modified-functions
+              'pdf-annot-reannotate-pages nil t)
     (add-hook 'pdf-info-after-close-document-hook
               'pdf-annot-revert-document nil t)
     (add-hook 'pdf-util-after-reconvert-hook
@@ -1397,10 +1476,10 @@ i.e. a non mouse-movement event is read."
     (remove-hook 'write-contents-functions 'pdf-annot-save-document t)
     (pdf-render-unregister-layer-function 'pdf-annot-render-function)
     (pdf-render-unregister-annotate-function 'pdf-annot-annotate-image)
-    (remove-hook 'pdf-annot-after-change-functions
-                 'pdf-annot-redraw t)
-    (remove-hook 'pdf-annot-after-change-functions
-                 'pdf-annot-reannotate t)
+    (remove-hook 'pdf-annot-pages-modified-functions
+                 'pdf-annot-redraw-pages t)
+    (remove-hook 'pdf-annot-pages-modified-functions
+                 'pdf-annot-reannotate-pages t)
     (remove-hook 'pdf-info-after-close-document-hook
                  'pdf-annot-revert-document t)
     (remove-hook 'pdf-util-after-reconvert-hook 'pdf-render-redraw-document t)))

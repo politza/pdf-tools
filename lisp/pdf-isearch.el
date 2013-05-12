@@ -42,7 +42,7 @@
   
 (defcustom pdf-isearch-convert-commands
   '("-fuzz" "30%%" "-region" "%g"
-    "-fill" "%b" "-draw" "color 0,0 replace")
+    "-fill" "%b" "-draw" "color 1,0 replace")
   "The commands  for the external convert program.
 
 This should be a list of strings, possibly containing special
@@ -416,9 +416,8 @@ there was no previous search, this function returns t."
 (defun pdf-isearch-search-page (string &optional page)
   "Search STRING on PAGE in the current window.
 
-Returns a list of relative edges (LEFT TOP RIGHT BOTTOM),
-i.e. from the interval [0;1], sorted top to bottom, left to
-right."
+Returns a list of edges (LEFT TOP RIGHT BOTTOM) in image
+coordinates, sorted top to bottom, then left to right."
 
   (unless page (setq page (doc-view-current-page)))
   (let ((case-fold-search isearch-case-fold-search))
@@ -427,7 +426,7 @@ right."
       (mapcar 'car (cdar (pdf-info-search
                           string nil page)))
       (pdf-util-image-size))
-     1 0)))
+     1 1)))
 
 (defun pdf-isearch-find-next-matching-page (string page &optional
                                                    forward-p interactive-p)

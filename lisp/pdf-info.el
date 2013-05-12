@@ -64,11 +64,7 @@ ask -- ask whether to restart or not."
                  (const :tag "Restart silently" t)
                  (const :tag "Always ask" ask)))
 
-(defconst pdf-info-annot-read-only-properties
-  '(page type id flags modified subject opacity popup-edges
-         popup-isopen created state))
-
-(defconst pdf-info-annot-writable-properties
+(defconst pdf-info-text-annot-writable-properties
   '(color contents label icon isopen edges))
 
 ;;
@@ -185,7 +181,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
       (save-excursion (insert (format "%s" arg)))
       (while (not (eobp))
         (cond
-         ((eq (char-after) ?:)
+         ((memq (char-after) '(?\\ ?:))
           (insert ?\\))
          ((eq (char-after) ?\n)
           (delete-char 1)
@@ -349,6 +345,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                     (checksum . ,(pop-not-empty a))
                     (file . ,(pop-not-empty a))))
                 response)))
+      (delannot nil)
       (save (caar response))
       (t response))))
 
@@ -716,6 +713,13 @@ function."
    page
    x0 y0 x1 y1))
 
+(defun pdf-info-delannot (id &optional file-or-buffer)
+  "Delete annotation with ID in FILE-OR-BUFFER."
+  (pdf-info-query
+   'delannot
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   id))
+
 (defun pdf-info-mvannot (id edges &optional file-or-buffer)
   "Move/Resize annotation ID to fit EDGES. 
 
@@ -732,7 +736,7 @@ ID should be a symbol, which was previously returned in a
 
   (let ((properties (mapcar 'car modifications)))
     (dolist (prop properties)
-      (unless (memq prop pdf-info-annot-writable-properties)
+      (unless (memq prop pdf-info-text-annot-writable-properties)
         (error "This property is not writable: %s" prop)))
     (let ((args (append
                  (if (memq 'edges properties)
@@ -749,7 +753,7 @@ ID should be a symbol, which was previously returned in a
                   (mapcar (lambda (p)
                             (if (memq p properties)
                                 ?1 ?0))
-                          '(edges color contens label isopen icon)))))
+                          '(edges color contents label isopen icon)))))
       (apply 'pdf-info-query
              'editannot
              (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -810,7 +814,9 @@ tempfile (e.g. move it) and delete it afterwards."
 (add-hook 'kill-emacs-hook 'pdf-info-quit)
 
 (defconst pdf-info-writing-supported
-  (memq 'write-support (pdf-info-features)))
+  t
+  ;; (memq 'write-support (pdf-info-features))
+  )
 
 (define-minor-mode pdf-info-auto-revert-minor-mode
   "Close the document, when the buffer was reverted.

@@ -221,10 +221,12 @@ exit code.  And if this checks out, advice DocView about it."
 ;; 
 
 (defun pdf-render-initialize (&optional force)
+  (unless (and pdf-render-temp-file
+               (file-exists-p pdf-render-temp-file))
+    (setq pdf-render-temp-file
+          (pdf-util-cache-make-filename 'pdf-render-temp-file)))
   (unless (and pdf-render-intialized-p
                (not force))
-    (unless pdf-render-temp-file
-      (setq pdf-render-temp-file (make-temp-file "pdf-render")))
     (pdf-render-state-load)
     (add-hook 'kill-buffer-hook 'pdf-render-state-save nil t)
     (add-hook 'pdf-util-after-reconvert-hook 'pdf-render-state-load nil t)
@@ -232,14 +234,14 @@ exit code.  And if this checks out, advice DocView about it."
 
 (defun pdf-render-state-load ()
   (let ((default-directory (pdf-render-cache-directory)))
-    (when default-directory
-      (setq pdf-render-state-alist
-            (when (file-exists-p "render-state.el")
-              (with-temp-buffer
-                (save-excursion
-                  (insert-file-contents "render-state.el"))
-                (unless (eobp)
-                  (read (current-buffer)))))))))
+    (setq pdf-render-state-alist
+          (when (and default-directory
+                     (file-exists-p "render-state.el"))
+            (with-temp-buffer
+              (save-excursion
+                (insert-file-contents "render-state.el"))
+              (unless (eobp)
+                (read (current-buffer))))))))
 
 (defun pdf-render-state-save ()
   (let ((default-directory (pdf-render-cache-directory))
@@ -508,8 +510,6 @@ exit code.  And if this checks out, advice DocView about it."
                     'pdf-render-momentarily
                     (pdf-util-fast-image-format)
                     (append spec (pdf-render-convert-commands page)))))
-    (add-hook 'kill-buffer-hook
-              'pdf-render-momentarily-clear-cache nil t)
     (cond
      ((file-exists-p out-file)
       (pdf-render-display-image out-file)
@@ -529,9 +529,6 @@ exit code.  And if this checks out, advice DocView about it."
                        (pdf-util-pdf-buffer-p buffer))
               (with-selected-window window
                 (pdf-render-display-image out-file))))))))))
-  
-(defun pdf-render-momentarily-clear-cache ()
-  (pdf-util-cache-clear 'pdf-render-momentarily))
 
 (provide 'pdf-render)
 ;;; pdf-render.el ends here

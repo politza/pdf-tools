@@ -381,7 +381,7 @@ See `pdf-links-do-action' for the interface."
         (progn
           (pdf-render-display-image out-file)
           (cdr (pdf-links-read-link-action--read-chars prompt alist)))
-      (pdf-util-redisplay-current-page)
+      (pdf-render-redisplay-current-page)
       ;; (pdf-links-read-link--clear-cache)
       )))
 
