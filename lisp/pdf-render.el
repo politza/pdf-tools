@@ -334,9 +334,6 @@ exit code.  And if this checks out, advice DocView about it."
         (let* ((cmds (pdf-render-convert-commands page))
                (in-file (pdf-render-image-file page))
                (out-file (pdf-util-current-image-file page)))
-          (setq mode-line-process
-                (and pages (list (format ":Rendering (%d left)"
-                                         (length pages)))))        
           (unless cmds
             (pdf-render-set-state page nil)
             (copy-file in-file out-file t)
@@ -351,6 +348,9 @@ exit code.  And if this checks out, advice DocView about it."
                   ;; buffers are rendered.
                   (run-with-timer 0.05 nil 'pdf-render-redraw--1 buffer))
                  (t
+                  (setq mode-line-process
+                        (and pages (list (format ":Rendering (%d left)"
+                                                 (length pages)))))
                   (apply
                    'pdf-util-convert-asynch
                    in-file pdf-render-temp-file
@@ -468,9 +468,12 @@ exit code.  And if this checks out, advice DocView about it."
 
 
 (defun pdf-render-redisplay-current-page ()
-  (when (pdf-util-page-displayed-p)
-    (pdf-util-save-window-scroll
-      (doc-view-goto-page (doc-view-current-page)))))
+  (pdf-util-assert-pdf-buffer)
+  (dolist (win (get-buffer-window-list))
+    (with-selected-window win
+      (when (pdf-util-page-displayed-p)
+        (pdf-util-save-window-scroll
+          (doc-view-goto-page (doc-view-current-page)))))))
 
 (defun pdf-render-display-image (&optional file no-annotate)
   (if (null file)

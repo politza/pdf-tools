@@ -30,29 +30,27 @@
 ;; Resolve the circular dependency.
 (declare-function pdf-annot-getannots "pdf-annot.el"
                   (&optional pages types file-or-buffer))
-(declare-function pdf-annot-document "pdf-annot.el"
+(declare-function pdf-annot-buffer "pdf-annot.el"
                   (a))
 (declare-function pdf-annot-get "pdf-annot.el"
                   (a prop &optional default))
 
 (defstruct (pdf-attach
-            (:constructor pdf-attach-new (document page id properties))
+            (:constructor pdf-attach-new (buffer page id properties))
             (:constructor nil))
-  document
+  buffer
   id
   page
   properties)
 
-(defun pdf-attach-getattachments (&optional file-or-buffer)
-  "Return the attachments of FILE-OR-BUFFER.
+(defun pdf-attach-getattachments ()
+  "Return the attachments of the current buffer.
 
-FILE-OR-BUFFER defaults to the current buffer.  The return value
-includes all attachments from annotations and global,
-document-level ones."
+The return value includes all attachments from annotations as
+well as global, document-level ones."
   (require 'pdf-annot)
-  (let* ((pdf (pdf-info--normalize-file-or-buffer file-or-buffer))
-         (annots (pdf-annot-getannots nil 'file pdf))
-         (docatt (pdf-info-getattachments nil pdf))
+  (let* ((annots (pdf-annot-getannots nil 'file))
+         (docatt (pdf-info-getattachments nil))
          attachments)
     ;; Identify document level attachments by their order.
     ;; Identification is needed for later retrieval of the
@@ -64,9 +62,9 @@ document-level ones."
       (let ((pn (pdf-annot-get a 'page))
             (id (pdf-annot-get a 'id)))
         (push (pdf-attach-new
-               pdf pn id
-               (pdf-info-getattachment-from-annot
-                id nil pdf))
+               (current-buffer)
+               pn id
+               (pdf-info-getattachment-from-annot id))
               attachments)))
     attachments))
 
@@ -78,10 +76,10 @@ A should be a file-annotation, otherwise the result is an error."
   (unless (eq (pdf-annot-get a 'type) 'file)
     (error "Annotation has no data attached: %s" a))
   (let* ((id (pdf-annot-get a 'id))
-         (pdf (pdf-annot-document a))
+         (buffer (pdf-annot-buffer a))
          (page (pdf-annot-get a 'page))
-         (alist (pdf-info-getattachment-from-annot id nil pdf)))
-    (pdf-attach-new pdf page id alist)))
+         (alist (pdf-info-getattachment-from-annot id buffer)))
+    (pdf-attach-new buffer page id alist)))
 
 (defun pdf-attach-get (a prop &optional default)
   (or (cdr (assq prop (pdf-attach-properties a)))
@@ -119,7 +117,7 @@ A should be a file-annotation, otherwise the result is an error."
   "Return attachment A's checksum or nil."
   (cdr (assq 'checksum (pdf-attach-properties a))))
 
-(defun pdf-attach-pp-for-tooltip (a)
+(defun pdf-attach-print-tooltip (a)
   "Return a string describing attachment A."
   (let ((header (propertize
                  (format "File attachment `%s' of %s\n"
@@ -160,7 +158,7 @@ longer needed."
      ((numberp id)
       ;; This is not very elegant.
       (let ((attachments (pdf-info-getattachments
-                          t (pdf-attach-document a)))
+                          t (pdf-attach-buffer a)))
             data)
         (dotimes (i (length attachments))
           (let ((file (cdr (assq 'file (nth i attachments)))))
@@ -170,9 +168,9 @@ longer needed."
         data))
      (t
       (cdr (assq 'file (pdf-info-getattachment-from-annot
-                        id t (pdf-attach-document a))))))))  
+                        id t (pdf-attach-buffer a))))))))  
 
-(defun pdf-attach-create-named-file (a dir)
+(defun pdf-attach-create-named-file (a &optional dir)
   "Copy attachment A's data to DIR.
 
 This uses A's specified filename and creates directories below
@@ -182,12 +180,14 @@ created, are simply ignored.)  If DIR already contains a filename
 of the same name (inclusive directories), return that name and
 don't overwrite it.
 
-If A does not specify a filename, the name is chosen randomly and
-put in DIR.
+DIR defaults to `pdf-attach-default-directory'.  If A does not
+specify a filename, the name is chosen randomly and put in DIR.
 
 In any case, return the absolute filename of the created or found
 file."
-  
+
+  (unless dir
+    (setq dir (pdf-attach-default-directory (pdf-attach-buffer a))))
   (unless (file-directory-p dir)
     (error "Not a directory: %s" dir))
   (unless (file-writable-p dir)
@@ -225,6 +225,19 @@ file."
       (when (file-exists-p datafile)
         (delete-file datafile)))))
 
+(defun pdf-attach-find-file (a)
+  (when (pdf-annot-p a)
+    (setq a (pdf-attach-get-from-annot a)))
+  (find-file
+   (pdf-attach-create-named-file a)))
+
+(defun pdf-attach-find-file-other-window (a)
+  (when (pdf-annot-p a)
+    (setq a (pdf-attach-get-from-annot a)))
+  (pop-to-buffer
+   (find-file-noselect
+    (pdf-attach-create-named-file a))))
+  
 (defun pdf-attach-create-directory (&optional buffer directory)
   "Extract all attachments of BUFFER and put them in DIRECTORY.
 
@@ -242,10 +255,7 @@ otherwise return DIRECTORY."
     (when buffer (set-buffer buffer))
     (let ((dir (or (and directory
                         (expand-file-name directory))
-                   (expand-file-name
-                    (format "%s_attachments"
-                            (file-name-sans-extension (buffer-name)))
-                    (doc-view-current-cache-dir))))
+                   (pdf-attach-default-directory)))
           (attachments (pdf-attach-getattachments)))
       
       (when attachments
@@ -260,21 +270,27 @@ otherwise return DIRECTORY."
         dir))))
 
 
+(defun pdf-attach-default-directory (&optional buffer)
+  (save-current-buffer
+    (when buffer (set-buffer buffer))
+    (expand-file-name
+     (format "%s_attachments"
+             (file-name-sans-extension (buffer-name)))
+     (doc-view-current-cache-dir))))
+  
 (defun pdf-attach-dired (&optional buffer)
   "Visit all attachments of the PDF of BUFFER in dired."
   (interactive)
   (pdf-util-assert-pdf-buffer buffer)
   (save-current-buffer
     (when buffer (set-buffer buffer))
-    (let ((dir (expand-file-name
-                (format "%s_attachments"
-                        (file-name-sans-extension (buffer-name)))
-                (doc-view-current-cache-dir))))
+    (let ((dir (pdf-attach-default-directory)))
       (unless (file-exists-p dir)
         (setq dir (pdf-attach-create-directory nil dir)))
       (unless dir
         (error "Document has no data attached"))
-      (dired dir))))
+      (dired-other-window dir))))
+      
     
 
 (provide 'pdf-attach)

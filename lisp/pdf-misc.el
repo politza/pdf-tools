@@ -21,6 +21,7 @@
 ;;; Commentary:
 ;; 
 
+(require 'pdf-attach)
 (require 'pdf-util)
 (require 'imenu)
 
@@ -405,33 +406,37 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
       '(menu-item "Customize" pdf-tools-customize
                   :help "Customize PDF Tools"))
 
-    (define-key menu [sep] menu-bar-separator)
+    (define-key menu [sep-0]
+      '(menu-item "--" nil
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
     
-    (define-key menu [decorate]
-      '(menu-item "Decorate Links" pdf-links-toggle-decoration
-                  :help "Display or undisplay links (will reconvert document)"
-                  :button (:toggle . pdf-links-decorate-p)
-                  :visible (featurep 'pdf-links)))
-
-    (define-key menu [dark]
-      '(menu-item "Dark Mode" pdf-misc-dark-mode
-                  :help "Prefer a different color set"
-                  :button (:toggle . pdf-misc-dark-mode)
-                  :visible (featurep 'pdf-isearch)))
+    (define-key menu [revert-page]
+      '(menu-item "Revert page's annotations" pdf-annot-revert-page
+                  :help "Revert annotations on this page to their saved state"
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
     
-    (define-key menu [sep-0] menu-bar-separator)
+    (define-key menu [revert-document]
+      '(menu-item "Revert all annotations" pdf-annot-revert-document
+                  :help "Revert all annotations to their saved state"
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
 
-    (define-key menu [metadata]
-      '(menu-item "Display Metadata" pdf-misc-display-metadata
-                  :help "Display information about the document"
-                  :visible (featurep 'pdf-misc)))
+    (define-key menu [sep-1]
+      '(menu-item "--" nil
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
     
-    (define-key menu [outline]
-      '(menu-item "Display Outline" pdf-outline
-                  :help "Display documents outline"
-                  :visible (featurep 'pdf-outline)))
+    (define-key menu [render-links]
+      '(menu-item "Render Links" pdf-annot-toggle-display-links
+                  :help "Display or undisplay links"
+                  :button (:toggle . (memq 'link pdf-annot-rendered-types))
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
 
-    (define-key menu [sep-1] menu-bar-separator)
+    (define-key menu [render-annotations]
+      '(menu-item "Render Annotations" pdf-annot-toggle-display-annotations
+                  :help "Display or undisplay annotations"
+                  :button (:toggle . (memq 'text pdf-annot-rendered-types))
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
+
+    (define-key menu [sep-4] menu-bar-separator)
 
     (define-key menu [occur]
       '(menu-item "Occur Document" pdf-occur
@@ -445,12 +450,40 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 
     (define-key menu [sep-2] menu-bar-separator)
 
+    (define-key menu [list-annotations]
+      '(menu-item "Display annotations" pdf-annot-list-annotations
+                  :help "List all annotations"
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
+
+    (define-key menu [dired-attachments]
+      '(menu-item "Display attachments" pdf-attach-dired
+                  :help "Display attachments in a dired buffer"
+                  :visible (featurep 'pdf-attach)))
+
+    (define-key menu [metadata]
+      '(menu-item "Display Metadata" pdf-misc-display-metadata
+                  :help "Display information about the document"
+                  :visible (featurep 'pdf-misc)))
+    
+    (define-key menu [outline]
+      '(menu-item "Display Outline" pdf-outline
+                  :help "Display documents outline"
+                  :visible (featurep 'pdf-outline)))
+
+    (define-key menu [sep-5] menu-bar-separator)
+
     (define-key menu [copy-page]
       '(menu-item "Copy page" pdf-misc-copy-page
                   :help "Copy the text of the page to the kill-ring"
                   :visible (featurep 'pdf-misc)))
 
-    (define-key menu [sep-3] menu-bar-separator)
+    (define-key menu [add-text-annotation]
+      '(menu-item "Add text annotation" pdf-annot-add-text-annot-at-event
+                  :help "Add a new text annotation"
+                  :keys "\\[pdf-annot-add-text-annot]"
+                  :visible (bound-and-true-p pdf-annot-minor-mode)))
+    
+    (define-key menu [sep-6] menu-bar-separator)
     
     (define-key menu [hist-forward]
       '(menu-item "Go Forward" pdf-history-forward
@@ -464,13 +497,31 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                   :visible (bound-and-true-p pdf-history-minor-mode)
                   :enable (not (pdf-history-end-of-history-p))))
     
-     map)
-     "The keymap used in `pdf-misc-menu-bar-minor-mode'.")
+    map)
+  "The keymap used in `pdf-misc-menu-bar-minor-mode'.")
 
+(defcustom pdf-misc-install-popup-menu t
+  "Whether mouse-3 should invoke a context menu."
+  :group 'pdf-misc
+  :type 'boolean)
+  
 (define-minor-mode pdf-misc-menu-bar-minor-mode
   "Display a PDF Tools menu in the menu-bar."
   nil nil nil
-  (pdf-util-assert-pdf-buffer))
+  (pdf-util-assert-pdf-buffer)
+  (when pdf-misc-install-popup-menu
+    (pdf-misc-install-popup-menu)))
+
+(defun pdf-misc-install-popup-menu ()
+  (interactive)
+  (local-set-key
+   [down-mouse-3]
+   (lambda
+     (ev)
+     (interactive "@e")
+     (popup-menu
+      (lookup-key pdf-misc-menu-bar-minor-mode-map
+                  [menu-bar pdf-tools])))))
 
 
 ;;

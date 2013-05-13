@@ -36,7 +36,8 @@ AWINDOW is deleted."
               ;; windows.el .
               (run-with-timer
                0 nil (lambda (win)
-                       (when (window-live-p win)
+                       (when (and (window-live-p win)
+                                  (not (eq win (selected-window))))
                          (delete-window win)))
                awindow))))
     (add-hook 'window-configuration-change-hook hook)))

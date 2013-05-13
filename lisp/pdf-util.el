@@ -460,6 +460,20 @@ dot."
                      (eq 'image (car-safe (posn-object posn))))
           (error "Invalid image position"))
         (posn-object-x-y posn)))))
+
+(defun pdf-util-image-map-mouse-click-proxy (ev)
+  (interactive "e")
+  (setcar (cdr (cadr ev)) 1)
+  (setq unread-command-events (list ev)))
+
+(defun pdf-util-image-map-divert-mouse-clicks (id &optional buttons)
+  (dolist (kind '("" "down-" "drag-"))
+    (dolist (b (or buttons '(2 3 4 5 6)))
+      (local-set-key
+       (vector id (intern (format "%smouse-%d" kind b)))
+       'pdf-util-image-map-mouse-click-proxy))))
+  
+  
   
 ;;
 ;; Converting Images
