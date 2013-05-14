@@ -832,8 +832,7 @@ get_annots_for_page (doc_t *doc, gint pn)
       a->amap = map;
       a->key = key;
       doc->annotations.pages[pn - 1] =
-        g_list_insert_sorted (doc->annotations.pages[pn - 1], a,
-                              (GCompareFunc)annots_cmp_edges);
+        g_list_prepend (doc->annotations.pages[pn - 1], a);
       assert (NULL == g_hash_table_lookup (doc->annotations.keys, key));
       g_hash_table_insert (doc->annotations.keys, key, a);
       ++i;
@@ -1679,7 +1678,7 @@ cmd_addannot (const ctxt_t *ctx, const arg_t *args)
   annot->amap = amap;
   annot->key = key;
   doc->annotations.pages[pn - 1] =
-    g_list_insert_sorted (annots, annot, (GCompareFunc) annots_cmp_edges);
+    g_list_prepend (annots, annot);
   g_hash_table_insert (doc->annotations.keys, key, annot);
   poppler_page_add_annot (page, pannot);
   OK_BEG ();
@@ -1813,8 +1812,7 @@ cmd_relocannot (const ctxt_t *ctx, const arg_t *args)
       doc->annotations.pages[index] =
         g_list_remove (doc->annotations.pages[index], annot);
       doc->annotations.pages[pn - 1] =
-        g_list_insert_sorted (doc->annotations.pages[pn - 1], annot,
-                              (GCompareFunc)annots_cmp_edges);
+        g_list_prepend (doc->annotations.pages[pn - 1], annot);
       poppler_page_remove_annot (from, pannot);
       g_object_unref (from);
       poppler_page_add_annot (to, pannot);
