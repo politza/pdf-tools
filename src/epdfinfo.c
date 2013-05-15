@@ -95,7 +95,6 @@ static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_relocannot (const ctxt_t *ctx, const arg_t *args);
 #endif  /* HAVE_POPPLER_WRITE_ANNOTS */
-static void cmd_test_text_layout (const ctxt_t *ctx, const arg_t *args);
 
 
 /* command specs */
@@ -227,19 +226,6 @@ const args_spec_t cmd_editannot_spec[] =
     ARG_STRING,                 /* icon (text only) */
   };
 
-const args_spec_t cmd_relocannot_spec[] =
-  {
-    ARG_DOC,
-    ARG_STRING_NONEMPTY,
-    ARG_NATNUM
-  };
-
-const args_spec_t cmd_test_text_layout_spec[] =
-  {
-    ARG_DOC
-  };
-
-
 static const cmd_t cmds [] =
   {
     /* Basic */
@@ -263,17 +249,15 @@ static const cmd_t cmds [] =
     {"getannot", cmd_getannot, cmd_getannot_spec, G_N_ELEMENTS (cmd_getannot_spec)},
     {"addannot", cmd_addannot, cmd_addannot_spec, G_N_ELEMENTS (cmd_addannot_spec)},
     {"delannot", cmd_delannot, cmd_delannot_spec, G_N_ELEMENTS (cmd_delannot_spec)},
-    {"editannot", cmd_editannot, cmd_editannot_spec, G_N_ELEMENTS (cmd_editannot_spec)},
-    /* {"relocannot", cmd_relocannot, cmd_relocannot_spec, G_N_ELEMENTS (cmd_relocannot_spec)}, */
+    {"editannot", cmd_editannot, cmd_editannot_spec
+     , G_N_ELEMENTS (cmd_editannot_spec)},
     
     /* Attachments */
     {"getattachment-from-annot", cmd_getattachment_from_annot,
      cmd_getattachment_from_annot_spec,
      G_N_ELEMENTS (cmd_getattachment_from_annot_spec)},
     {"getattachments", cmd_getattachments, cmd_getattachments_spec,
-     G_N_ELEMENTS (cmd_getattachments_spec)} ,
-    {"test-text-layout", cmd_test_text_layout, cmd_test_text_layout_spec,
-     G_N_ELEMENTS (cmd_test_text_layout_spec)}
+     G_N_ELEMENTS (cmd_getattachments_spec)} 
   };
 
 static const char *poppler_action_type_strings[] =
@@ -1745,45 +1729,6 @@ cmd_delannot (const ctxt_t *ctx, const arg_t *args)
 }
 
 static void
-cmd_relocannot (const ctxt_t *ctx, const arg_t *args)
-{
-  doc_t *doc = args->value.doc;
-  const char *key = args[1].value.string;
-  gint pn = args[2].value.natnum;
-  annot_t *annot = get_annot_by_key_or_error (doc, key);
-  PopplerPage *from, *to;
-  PopplerAnnot *pannot;
-  gint index;
-  if (! annot)
-    {
-      printf_error ("No such annotation: %s", key);
-      return;
-    }
-  if (pn < 0 || pn > poppler_document_get_n_pages (doc->pdf))
-    {
-      printf_error ("No such page %d", pn);
-      return;
-    }
-  
-  pannot = annot->amap->annot;
-  index = poppler_annot_get_page_index (pannot);
-  if (index != pn)
-    {
-      from = poppler_document_get_page (doc->pdf, index);
-      to = poppler_document_get_page (doc->pdf, pn - 1);
-      doc->annotations.pages[index] =
-        g_list_remove (doc->annotations.pages[index], annot);
-      doc->annotations.pages[pn - 1] =
-        g_list_prepend (doc->annotations.pages[pn - 1], annot);
-      poppler_page_remove_annot (from, pannot);
-      g_object_unref (from);
-      poppler_page_add_annot (to, pannot);
-      g_object_unref (to);
-    }
-  OK ();
-}
-
-static void
 cmd_save (const ctxt_t *ctx, const arg_t *args)
 {
   doc_t *doc = args->value.doc;
@@ -1957,27 +1902,6 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
 }
 
 #endif  /* HAVE_POPPLER_WRITE_ANNOTS */
-static void
-cmd_test_text_layout (const ctxt_t *ctx, const arg_t *args)
-{
-  doc_t *doc = args->value.doc;
-  int pn;
-  int npages = poppler_document_get_n_pages (doc->pdf);
-  for (pn = 1; pn <= npages; ++pn)
-    {
-      PopplerPage *page = poppler_document_get_page (doc->pdf, pn - 1);
-      gchar *text = poppler_page_get_text (page);
-      PopplerRectangle *rects;
-      guint nrects;
-      if (poppler_page_get_text_layout (page, &rects, &nrects))
-        {
-          printf ("%d nchars=%d nrects=%d\n", pn,
-                  g_utf8_strlen (text, -1), nrects);
-        }
-      g_object_unref (page);
-    }
-  
-}
 
 
 /* utility functions */
