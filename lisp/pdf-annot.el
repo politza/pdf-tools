@@ -264,12 +264,16 @@ current buffer."
                 (delq elt (pdf-annot-properties a))))
     (unless (equal (cdr elt) val)
       (with-current-buffer (pdf-annot-buffer a)
-        (set-buffer-modified-p t)
+        (pdf-annot-set-buffer-modified-p t)
         (pdf-annot-set-property-modified-p a prop t)
         (pdf-annot-run-pages-modified-hooks
          (pdf-annot-get a 'page ))))
     val))
 
+(defun pdf-annot-set-buffer-modified-p (flag)
+  (when (pdf-info-writable-annotations-p)
+    (set-buffer-modified-p flag)))
+  
 (defvar pdf-annot-pages-modified-functions nil)
 (defvar pdf-annot-inhibit-modification-hooks nil)
 (defvar-local pdf-annot-modified-pages nil)
@@ -350,7 +354,7 @@ current buffer."
                    (not flag)))
     (setf (pdf-annot-deleted-p a) (not (null flag)))
     (with-current-buffer (pdf-annot-buffer a)
-      (set-buffer-modified-p t)
+      (pdf-annot-set-buffer-modified-p t)
       (pdf-annot-run-pages-modified-hooks
        (pdf-annot-get a 'page))))
   (pdf-annot-deleted-p a))
@@ -559,7 +563,7 @@ used as a reference."
             (pdf-annot-y-or-n-p 'revert-document
               "Abandon all modifications of all annotations in this buffer ?"))
     (setq pdf-annot-annotations nil)
-    (set-buffer-modified-p nil)
+    (pdf-annot-set-buffer-modified-p nil)
     (pdf-annot-run-pages-modified-hooks
      (mapcar (lambda (a) (pdf-annot-get a 'page))
              (pdf-annot-getannots)))))
@@ -1059,7 +1063,7 @@ i.e. a non mouse-movement event is read."
           (pdf-annot-edit-text-save-annotation))))
      (do-save
       (pdf-annot-edit-text-save-annotation)))
-    (set-buffer-modified-p nil))
+    (pdf-annot-set-buffer-modified-p nil))
   (dolist (win (get-buffer-window-list))
     (quit-window do-kill win)))
         
@@ -1069,7 +1073,7 @@ i.e. a non mouse-movement event is read."
     (pdf-annot-set pdf-annot-edit-annotation
         'contents
       (buffer-substring-no-properties (point-min) (point-max)))
-    (set-buffer-modified-p nil)))
+    (pdf-annot-set-buffer-modified-p nil)))
 
 (defun pdf-annot-edit-text-commit ()
   (interactive)
@@ -1098,7 +1102,7 @@ i.e. a non mouse-movement event is read."
       (let ((inhibit-read-only t))
         (erase-buffer)
         (save-excursion (insert (pdf-annot-get a 'contents)))
-        (set-buffer-modified-p nil)
+        (pdf-annot-set-buffer-modified-p nil)
         (current-buffer)))))
 
 (defvar pdf-annot-edit-text-display-buffer-action
@@ -1469,7 +1473,7 @@ i.e. a non mouse-movement event is read."
       (pdf-info-close)
       (clear-visited-file-modtime)
       (pdf-annot-revert-document)
-      (set-buffer-modified-p nil)))
+      (pdf-annot-set-buffer-modified-p nil)))
   t)
 
 (defun pdf-annot-toggle-display-annotations ()
@@ -1505,15 +1509,16 @@ i.e. a non mouse-movement event is read."
     (define-key kmap [remap doc-view-revert-buffer] 'doc-view-reconvert-doc)
     (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap)
     (define-key kmap (kbd "C-c C-f") 'pdf-attach-dired)
-    (define-key smap (kbd "C-a") 'pdf-annot-add-text-annot)
-    (define-key smap (kbd "a") 'pdf-annot-add-text-annot)
     (define-key smap (kbd "C-l") 'pdf-annot-list-annotations)
     (define-key smap (kbd "l") 'pdf-annot-list-annotations)
     (define-key smap (kbd "C-d") 'pdf-annot-toggle-display-annotations)
     (define-key smap (kbd "d") 'pdf-annot-toggle-display-annotations)
-    (define-key smap (kbd "C-r") 'pdf-annot-revert-page)
-    (define-key smap (kbd "r") 'pdf-annot-revert-page)
-    (define-key smap (kbd "R") 'pdf-annot-revert-document)
+    (when (pdf-info-writable-annotations-p)
+      (define-key smap (kbd "C-a") 'pdf-annot-add-text-annot)
+      (define-key smap (kbd "a") 'pdf-annot-add-text-annot)
+      (define-key smap (kbd "C-r") 'pdf-annot-revert-page)
+      (define-key smap (kbd "r") 'pdf-annot-revert-page)
+      (define-key smap (kbd "R") 'pdf-annot-revert-document))
     (setq-default pdf-annot-minor-mode-map kmap)
     (let ((elt (assq 'pdf-annot-minor-mode minor-mode-map-alist)))
       (when elt
@@ -1600,16 +1605,17 @@ Effective symbols are `delete', `revert-document' and `revert-page'.")
                          (lookup-key pdf-misc-menu-bar-minor-mode-map
                                      [menu-bar pdf-tools]))
       (define-key menu [sep-99] menu-bar-separator))
-    (define-key menu [delete-annotation]
-      `(menu-item "Delete annotation"
-                  ,(lambda ()
-                     (interactive)
-                     (when (pdf-annot-y-or-n-p 'delete)
-                       (pdf-annot-set-deleted-p a t)
-                       (message "Annotation deleted")))
-                  :help
-                  ,(substitute-command-keys
-                    "Delete this annotation")))
+    (when (pdf-info-writable-annotations-p)
+      (define-key menu [delete-annotation]
+        `(menu-item "Delete annotation"
+                    ,(lambda ()
+                       (interactive)
+                       (when (pdf-annot-y-or-n-p 'delete)
+                         (pdf-annot-set-deleted-p a t)
+                         (message "Annotation deleted")))
+                    :help
+                    ,(substitute-command-keys
+                      "Delete this annotation"))))
     
     (cl-case (pdf-annot-type a)
       (file
@@ -1628,12 +1634,13 @@ Effective symbols are `delete', `revert-document' and `revert-page'.")
                         (pdf-annot-list-annotations)
                         (pdf-annot-list-goto-annotation a))
                      :help "Find annotation in the list buffer"))
-       (define-key menu [edit-annotation]
-         `(menu-item "Edit text"
-                     ,(lambda ()
-                        (interactive)
-                        (pdf-annot-edit-text a))
-                     :help "Edit annotations text contents"))))
+       (when (pdf-info-writable-annotations-p)
+         (define-key menu [edit-annotation]
+           `(menu-item "Edit text"
+                       ,(lambda ()
+                          (interactive)
+                          (pdf-annot-edit-text a))
+                       :help "Edit annotations text contents")))))
     menu))
   
 ;;

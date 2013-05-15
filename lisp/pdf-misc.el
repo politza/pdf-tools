@@ -408,7 +408,8 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 
     (define-key menu [sep-0]
       '(menu-item "--" nil
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
+                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
+                                (pdf-info-writable-annotations-p))))
     
     (define-key menu [revert-document]
       '(menu-item "Revert all annotations" pdf-annot-revert-document
@@ -483,7 +484,8 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
       '(menu-item "Add text annotation" pdf-annot-add-text-annot-at-event
                   :help "Add a new text annotation"
                   :keys "\\[pdf-annot-add-text-annot]"
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
+                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
+                                (pdf-info-writable-annotations-p))))
     
     (define-key menu [sep-6] menu-bar-separator)
     
