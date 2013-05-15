@@ -6,24 +6,13 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
+/* Define to 1 to enable writing of annotations (requires poppler-glib >=
+   0.19.4). */
+#undef HAVE_POPPLER_ANNOT_WRITE
+
 /* Define to 1 to enable case sensitive searching (requires poppler-glib >=
    0.22). */
 #undef HAVE_POPPLER_FIND_OPTS
-
-/* Define to 1 to enable extracting metadata (requires poppler-glib >= 0.16).
-   */
-#undef HAVE_POPPLER_GET_METADATA
-
-/* Define to 1 to enable extracting text (requires poppler-glib >= 0.16). */
-#undef HAVE_POPPLER_GET_TEXT
-
-/* Define to 1 to enable extracting PDF title (requires poppler-glib >= 0.12).
-   */
-#undef HAVE_POPPLER_GET_TITLE
-
-/* Define to 1 to enable extracting outlines (requires poppler-glib >= 0.12).
-   */
-#undef HAVE_POPPLER_INDEX_ITER
 
 /* Define to 1 if the system has the type `ptrdiff_t'. */
 #undef HAVE_PTRDIFF_T

@@ -4225,8 +4225,10 @@ fi
 
 
 
-
 # Checks for libraries.
+HAVE_POPPLER_FIND_OPTS="no   (requires poppler-glib >= 0.22)"
+HAVE_POPPLER_ANNOT_WRITE="no   (requires poppler-glib >= 0.19.4)"
+
 
 
 
@@ -4533,12 +4535,12 @@ if test -n "$poppler_glib_CFLAGS"; then
     pkg_cv_poppler_glib_CFLAGS="$poppler_glib_CFLAGS"
  elif test -n "$PKG_CONFIG"; then
     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "poppler-glib") 2>&5
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib >= 0.16.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "poppler-glib >= 0.16.0") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  pkg_cv_poppler_glib_CFLAGS=`$PKG_CONFIG --cflags "poppler-glib" 2>/dev/null`
+  pkg_cv_poppler_glib_CFLAGS=`$PKG_CONFIG --cflags "poppler-glib >= 0.16.0" 2>/dev/null`
 else
   pkg_failed=yes
 fi
@@ -4549,12 +4551,12 @@ if test -n "$poppler_glib_LIBS"; then
     pkg_cv_poppler_glib_LIBS="$poppler_glib_LIBS"
  elif test -n "$PKG_CONFIG"; then
     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "poppler-glib") 2>&5
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib >= 0.16.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "poppler-glib >= 0.16.0") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  pkg_cv_poppler_glib_LIBS=`$PKG_CONFIG --libs "poppler-glib" 2>/dev/null`
+  pkg_cv_poppler_glib_LIBS=`$PKG_CONFIG --libs "poppler-glib >= 0.16.0" 2>/dev/null`
 else
   pkg_failed=yes
 fi
@@ -4574,14 +4576,14 @@ else
         _pkg_short_errors_supported=no
 fi
         if test $_pkg_short_errors_supported = yes; then
-	        poppler_glib_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors "poppler-glib" 2>&1`
+	        poppler_glib_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors "poppler-glib >= 0.16.0" 2>&1`
         else
-	        poppler_glib_PKG_ERRORS=`$PKG_CONFIG --print-errors "poppler-glib" 2>&1`
+	        poppler_glib_PKG_ERRORS=`$PKG_CONFIG --print-errors "poppler-glib >= 0.16.0" 2>&1`
         fi
 	# Put the nasty error message in config.log where it belongs
 	echo "$poppler_glib_PKG_ERRORS" >&5
 
-	as_fn_error $? "Package requirements (poppler-glib) were not met:
+	as_fn_error $? "Package requirements (poppler-glib >= 0.16.0) were not met:
 
 $poppler_glib_PKG_ERRORS
 
@@ -4613,61 +4615,32 @@ else
 $as_echo "yes" >&6; }
 
 fi
-
-poppler_version=${POPPLER_GLIB_VERSION}
-
-if test -z $poppler_version; then
- poppler_version='< 0.12.0'
- for v in 0.22.0 0.16.0 0.12.0; do
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for poppler-glib >= $v" >&5
-$as_echo_n "checking for poppler-glib >= $v... " >&6; }
-     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib >= \$v\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "poppler-glib >= $v") 2>&5
+if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib >= 0.22\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "poppler-glib >= 0.22") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  :
-else
-  v=
+  HAVE_POPPLER_FIND_OPTS=yes
 fi
-     if test -n "$v"; then
-       { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-       poppler_version=$v
-       break
-     fi
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
- done
+if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"poppler-glib >= 0.19.4\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "poppler-glib >= 0.19.4") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  HAVE_POPPLER_ANNOT_WRITE=yes
 fi
 
-poppler_features=0
-case $poppler_version in
-  0.12.0) poppler_features=1;;
-  0.16.0) poppler_features=2;;
-  0.22.0) poppler_features=3;;
-esac
-
-if test $poppler_features -ne 0; then
-
-$as_echo "#define HAVE_POPPLER_GET_TITLE 1" >>confdefs.h
-
-
-$as_echo "#define HAVE_POPPLER_INDEX_ITER 1" >>confdefs.h
-
-fi
-if test $poppler_features -ge 2; then
-
-$as_echo "#define HAVE_POPPLER_GET_METADATA 1" >>confdefs.h
-
-
-$as_echo "#define HAVE_POPPLER_GET_TEXT 1" >>confdefs.h
-
-fi
-if test $poppler_features -ge 3; then
+if test "$HAVE_POPPLER_FIND_OPTS" = yes; then
 
 $as_echo "#define HAVE_POPPLER_FIND_OPTS 1" >>confdefs.h
+
+fi
+
+if test "$HAVE_POPPLER_ANNOT_WRITE" = yes; then
+
+$as_echo "#define HAVE_POPPLER_ANNOT_WRITE 1" >>confdefs.h
 
 fi
 
@@ -6733,8 +6706,7 @@ $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
 
-
-if test $poppler_features -lt 3; then
-   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: poppler-glib version found is < 0.22 ($poppler_version).  Therefore some features were disabled, see src/config.h for details." >&5
-$as_echo "$as_me: WARNING: poppler-glib version found is < 0.22 ($poppler_version).  Therefore some features were disabled, see src/config.h for details." >&2;}
-fi
+echo
+echo "Is case-sensitive searching enabled ? ${HAVE_POPPLER_FIND_OPTS}"
+echo "Is writing annotations enabled ?      ${HAVE_POPPLER_ANNOT_WRITE}"
+echo
