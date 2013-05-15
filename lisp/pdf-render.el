@@ -475,7 +475,7 @@ exit code.  And if this checks out, advice DocView about it."
         (pdf-util-save-window-scroll
           (doc-view-goto-page (doc-view-current-page)))))))
 
-(defun pdf-render-display-image (&optional file no-annotate)
+(defun pdf-render-display-image (&optional file no-annotate &rest props)
   (if (null file)
       (pdf-render-redisplay-current-page)
     (unless (file-equal-p
@@ -488,16 +488,15 @@ exit code.  And if this checks out, advice DocView about it."
                       (image-type file))))
         (unless type
           (error "Unable to display image: %s" file))
-        (let ((ov (doc-view-current-overlay))
-              (slice (doc-view-current-slice))
-              (img (apply 'create-image file
-                          type
-                          nil
-                          (if no-annotate
-                              (list :width doc-view-image-width)
-                            (pdf-render-annotate-image
-                             (doc-view-current-page)
-                             (list :width doc-view-image-width))))))
+        (let* ((ov (doc-view-current-overlay))
+               (slice (doc-view-current-slice))
+               (props `(,@props :width ,doc-view-image-width :pointer arrow))
+               (img (apply 'create-image file
+                           type
+                           nil
+                           (if no-annotate props
+                             (pdf-render-annotate-image
+                              (doc-view-current-page) props)))))
           (overlay-put ov 'display (if slice
                                        (list (cons 'slice slice) img)
                                      img))

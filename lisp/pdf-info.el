@@ -70,6 +70,8 @@ ask -- ask whether to restart or not."
 ;;
 ;; Internal Variables and Functions
   
+(defvar pdf-info-features nil)
+
 (defvar pdf-info-queue t
   "Internally used transmission-queue for the epdfinfo server.")
 
@@ -164,7 +166,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
       (let ((response (pdf-info-query--parse-response cmd response)))
         (when (and (consp response)
                    (eq 'error (car response)))
-          (error "%s" (cadr response)))
+          (error "epdfinfo: %s" (cadr response)))
         response))
      ((not (eq (process-status (pdf-info-process))
                'run))
@@ -459,7 +461,7 @@ PAGES may be one of
    ;; "\\'"
    ;; allow for trailing garbage
    ))
-          
+
 (defun pdf-info-parse-pdf-date (date)
   (when (and date
              (string-match pdf-info-pdf-date-regexp date))
@@ -490,6 +492,13 @@ PAGES may be one of
        (string-to-number year)
        tz))))
 
+(defun pdf-info-writable-annotations-p ()
+  (not (null (memq 'write-annotations (pdf-info-features)))))
+
+(defun pdf-info-assert-writable-annotations ()
+  (unless (memq 'write-annotations (pdf-info-features))
+    (error "Writing annotations is not supported by this version of epdfinfo")))
+
 
 ;;
 ;; High level interface
@@ -497,7 +506,11 @@ PAGES may be one of
 
 (defun pdf-info-features ()
   "Return a list of symbols describing compile-time features."
-  (pdf-info-query 'features))
+  (unless pdf-info-features
+    (setq pdf-info-features
+          (pdf-info-query 'features)))
+  pdf-info-features)
+      
                           
 (defun pdf-info-open (&optional file-or-buffer password)
   "Open the docüment FILE-OR-BUFFER using PASSWORD.
@@ -707,6 +720,7 @@ function."
 
 See `pdf-info-getannots' for the kind of return value of this
 function."
+  (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'addannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -715,6 +729,7 @@ function."
 
 (defun pdf-info-delannot (id &optional file-or-buffer)
   "Delete annotation with ID in FILE-OR-BUFFER."
+  (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'delannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -725,15 +740,12 @@ function."
 
 ID should be a symbol, which was previously returned in a
 `pdf-info-getannots' query."
-  (apply 'pdf-info-query
-         'mvannot
-         (pdf-info--normalize-file-or-buffer file-or-buffer)
-         id
-         edges))
+  (pdf-info-editannot id `((edges . ,edges)) file-or-buffer))
 
 (defun pdf-info-editannot (id modifications &optional file-or-buffer)
   "Send modifications to annotation ID to the server."
 
+  (pdf-info-assert-writable-annotations)
   (let ((properties (mapcar 'car modifications)))
     (dolist (prop properties)
       (unless (memq prop pdf-info-text-annot-writable-properties)
@@ -765,6 +777,7 @@ ID should be a symbol, which was previously returned in a
 
 This saves the document to a new temporary file, which is
 returned."
+  (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'save
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
@@ -801,7 +814,7 @@ description - A description of this attachment.
 size        - The size in bytes or -1 if n/a.
 modified    - The last date of modification.
 created     - The date of creation.
-checksum    - The MD5 (?) checksum of this attachment.
+checksum    - A checksum of this attachment.
 file        - The name of a tempfile containing the data, only if DO-SAVE is non-nil.
 
 If DO-SAVE is non-nil, the caller should use the
@@ -813,16 +826,11 @@ tempfile (e.g. move it) and delete it afterwards."
 
 (add-hook 'kill-emacs-hook 'pdf-info-quit)
 
-(defconst pdf-info-writing-supported
-  t
-  ;; (memq 'write-support (pdf-info-features))
-  )
-
 (define-minor-mode pdf-info-auto-revert-minor-mode
   "Close the document, when the buffer was reverted.
 
 This ensures, that the information retrieves is not outdated, but
-will, of course, abandon all changes made to it."
+will, of course, abandon all changes made to the buffer."
   nil nil t
   (pdf-util-assert-pdf-buffer)
   (cond

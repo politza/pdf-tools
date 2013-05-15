@@ -702,6 +702,9 @@ to)."
     (tooltip-show text)))
 
 (defun pdf-util-tooltip-arrow (image-top &optional timeout)
+  (pdf-util-assert-pdf-window)
+  (unless (pdf-util-page-displayed-p)
+    (error "No page displayed in this window"))
   (when (floatp image-top)
     (setq image-top
           (round (* image-top (cdr (pdf-util-image-size))))))
@@ -722,6 +725,10 @@ to)."
     (setq dy (max 0 (- dy
                        (cdr (pdf-util-image-offset))
                        (window-vscroll nil t))))
+    (when (overlay-get (doc-view-current-overlay) 'before-string)
+      (let* ((e (window-inside-pixel-edges))
+             (xw (pdf-util-with-edges (e) e-width)))
+        (cl-incf dx (/ (- xw (car (pdf-util-image-size))) 2))))
     (pdf-util-tooltip-in-window
      (propertize
       " " 'display (propertize

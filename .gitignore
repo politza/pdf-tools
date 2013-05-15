@@ -10,6 +10,7 @@ epdfinfo/aux
 loadit.el
 Makefile
 autom4te.cache/
+configure
 config.log
 config.status
 lisp/pdf-history.elc
@@ -27,8 +28,11 @@ src/Makefile
 src/config.h
 src/epdfinfo
 src/epdfinfo-epdfinfo.o
+src/*.o
 src/stamp-h1
+src/config.h.in
+src/Makefile.in
 specs/
 aux/
 pdf-tools-*.tar
-epdfinfo-poppler-hack.o
+*~

@@ -218,9 +218,16 @@ current buffer."
   (let ((pages (pdf-info--normalize-pages pages)))
     (save-current-buffer
       (when buffer (set-buffer buffer))
+      (pdf-util-assert-pdf-buffer)
       (unless pdf-annot-annotations
         (setq pdf-annot-annotations
-              (make-hash-table)))
+              (make-hash-table))
+        (dolist (a (pdf-info-getannots))
+          (let ((pn (cdr (assq 'page a))))
+            (puthash pn (append
+                         (gethash pn pdf-annot-annotations)
+                         (list (pdf-annot-new (current-buffer) a)))
+                     pdf-annot-annotations))))
       (when (eq 0 (cdr pages)) ;;0 stands for last page.
         (setcdr pages (pdf-info-number-of-pages)))
       (setcar pages (max 1 (car pages)))
@@ -230,23 +237,9 @@ current buffer."
         (dotimes (i (1+ (- (cdr pages) (car pages))))
           (let* ((pn (+ i (car pages)))
                  (anots (gethash pn pdf-annot-annotations)))
-            (unless anots ;;Fetch all necessary pages at once.
-              (dolist (a (pdf-info-getannots pages))
-                (let ((pn (cdr (assq 'page a))))
-                  (puthash pn (append
-                               (gethash pn pdf-annot-annotations)
-                               (list (pdf-annot-new (current-buffer) a)))
-                           pdf-annot-annotations)))
-              ;; Remember pages w/o annotations.
-              (dotimes (i (1+ (- (cdr pages) (car pages))))
-                (or (gethash (+ i (car pages))
-                             pdf-annot-annotations)
-                    (puthash (+ i (car pages)) 'none
-                             pdf-annot-annotations)))
-              (setq anots (gethash pn pdf-annot-annotations)))
             (when (consp anots)
               (if (null types)
-                  (setq annotations (append annotations anots))
+                  (setq annotations (append annotations anots nil))
                 (setq annotations
                       (append annotations
                               (cl-remove-if-not
@@ -559,18 +552,18 @@ used as a reference."
                pdf-annot-annotations)
       a)))
 
-(defun pdf-annot-revert-document (&optional interactive no-redisplay)
+(defun pdf-annot-revert-document (&optional interactive)
   (interactive (list t))
   (pdf-util-assert-pdf-buffer)
   (when (or (null interactive)
-            (pdf-annot-y-or-n-p
-             'revert-document
-             "Abandon all modifications of all annotations in this buffer ?"))
+            (pdf-annot-y-or-n-p 'revert-document
+              "Abandon all modifications of all annotations in this buffer ?"))
     (setq pdf-annot-annotations nil)
     (set-buffer-modified-p nil)
-    (unless no-redisplay
-      (pdf-render-redisplay-current-page)
-      (pdf-render-redraw-document))))
+    (pdf-annot-run-pages-modified-hooks
+     (mapcar (lambda (a) (pdf-annot-get a 'page))
+             (pdf-annot-getannots)))))
+
 
   
 (defun pdf-annot-revert-page (&optional page interactive no-redisplay)
@@ -584,19 +577,16 @@ used as a reference."
     (setq page (doc-view-current-page)))
   (when (or (null interactive)
             (pdf-annot-y-or-n-p 'revert-page
-             (format "Abandon all modifications of the annotations on %s ?"
-                     (if (= page (ignore-errors
-                                   (doc-view-current-page)))
-                         "the current page"
-                       (format "page %d" page)))))
-    (let ((modified (cl-remove-if-not (lambda (a)
-                                        (or (pdf-annot-modified-properties a)
-                                            (pdf-annot-deleted-p a)))
-                                      (pdf-annot-getannots page))))
-      (puthash page nil pdf-annot-annotations)
-      (when modified
-        (set-buffer-modified-p t)
-        (pdf-annot-run-pages-modified-hooks page)))))
+              (format "Abandon all modifications of the annotations on %s ?"
+                      (if (= page (ignore-errors
+                                    (doc-view-current-page)))
+                          "the current page"
+                        (format "page %d" page)))))
+    (puthash page (mapcar (lambda (al)
+                            (pdf-annot-new (current-buffer) al))
+                          (pdf-info-getannots page))
+             pdf-annot-annotations)
+    (pdf-annot-run-pages-modified-hooks page)))
 
 (defun pdf-annot-print-property (a prop)
   (or (and pdf-annot-print-property-function
@@ -797,7 +787,8 @@ To be registered with `pdf-render-register-layer-function'."
   (let ((annots
          (cl-mapcon (lambda (type)
                       (pdf-annot-getannots page type))
-                    pdf-annot-rendered-types))
+                    (remove-duplicates
+                     pdf-annot-rendered-types)))
         (size (pdf-util-png-image-size))
         cmds)
     (dolist (a annots)
@@ -1233,6 +1224,8 @@ i.e. a non mouse-movement event is read."
 (defun pdf-annot-list-annotations ()
   (interactive)
   (pdf-util-assert-pdf-buffer)
+  (unless (cl-remove-if 'pdf-annot-deleted-p (pdf-annot-getannots))
+    (error "No annotations in this buffer"))
   (let ((buffer (current-buffer)))
     (with-current-buffer (get-buffer-create
                           (format "*%s's annots*"
@@ -1434,8 +1427,7 @@ i.e. a non mouse-movement event is read."
 (defun pdf-annot-save-document ()
   (interactive)
   (when (buffer-modified-p)
-    (unless pdf-info-writing-supported
-      (error "Sorry, writing PDFs not supported by this version of epdfinfo"))
+    (pdf-info-assert-writable-annotations)
     (let (write-needed)
       (dolist (a (pdf-annot-getannots))
         (when (and (null (pdf-annot-get a 'id))
@@ -1512,8 +1504,7 @@ i.e. a non mouse-movement event is read."
         (smap (make-sparse-keymap)))
     (define-key kmap [remap doc-view-revert-buffer] 'doc-view-reconvert-doc)
     (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap)
-    (define-key smap (kbd "C-f") 'pdf-attach-dired)
-    (define-key smap (kbd "f") 'pdf-attach-dired)
+    (define-key kmap (kbd "C-c C-f") 'pdf-attach-dired)
     (define-key smap (kbd "C-a") 'pdf-annot-add-text-annot)
     (define-key smap (kbd "a") 'pdf-annot-add-text-annot)
     (define-key smap (kbd "C-l") 'pdf-annot-list-annotations)
@@ -1556,7 +1547,8 @@ after this package was loaded."
            'doc-view-pdf->png-converter-ghostscript))
     (make-local-variable 'doc-view-ghostscript-options)
     (pdf-render-ghostscript-configure 0)
-    (add-hook 'write-contents-functions 'pdf-annot-save-document nil t)
+    (when (pdf-info-writable-annotations-p)
+      (add-hook 'write-contents-functions 'pdf-annot-save-document nil t))
     (pdf-render-register-layer-function 'pdf-annot-render-function 9)
     (pdf-render-register-annotate-image-function 'pdf-annot-annotate-image 9)
     (add-hook 'pdf-annot-pages-modified-functions 'pdf-annot-redraw-pages nil t)
@@ -1590,6 +1582,7 @@ after this package was loaded."
 Effective symbols are `delete', `revert-document' and `revert-page'.")
   
 (defun pdf-annot-y-or-n-p (op &optional prompt)
+  (declare (indent 1))
   (or (memq op pdf-annot-no-confirm)
       (y-or-n-p
        (or prompt

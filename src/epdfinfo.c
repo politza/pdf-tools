@@ -89,12 +89,12 @@ static void cmd_getattachments (const ctxt_t *ctx, const arg_t *args);
 static void cmd_getannots(const ctxt_t *ctx, const arg_t *args);
 static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
 
-#ifdef HAVE_POPPLER_WRITE_ANNOTS
+#ifdef HAVE_POPPLER_ANNOT_WRITE
 static void cmd_addannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_relocannot (const ctxt_t *ctx, const arg_t *args);
-#endif  /* HAVE_POPPLER_WRITE_ANNOTS */
+#endif  /* HAVE_POPPLER_ANNOT_WRITE */
 
 
 /* command specs */
@@ -186,7 +186,7 @@ const args_spec_t cmd_getattachments_spec[] =
     ARG_FLAG,        /* save attachments */
   };
 
-#ifdef HAVE_POPPLER_WRITE_ANNOTS
+#ifdef HAVE_POPPLER_ANNOT_WRITE
 const args_spec_t cmd_save_spec[] =
   {
     ARG_DOC,
@@ -227,7 +227,7 @@ const args_spec_t cmd_addannot_spec[] =
     ARG_EDGE                    /* y1 */
   };
 
-#endif  /* HAVE_POPPLER_WRITE_ANNOTS */
+#endif  /* HAVE_POPPLER_ANNOT_WRITE */
 
 static const cmd_t cmds [] =
   {
@@ -249,7 +249,7 @@ static const cmd_t cmds [] =
     /* Annotations */
     {"getannots", cmd_getannots, cmd_getannots_spec , G_N_ELEMENTS (cmd_getannots_spec)},
     {"getannot", cmd_getannot, cmd_getannot_spec, G_N_ELEMENTS (cmd_getannot_spec)},
-#ifdef HAVE_POPPLER_WRITE_ANNOTS
+#ifdef HAVE_POPPLER_ANNOT_WRITE
     {"addannot", cmd_addannot, cmd_addannot_spec, G_N_ELEMENTS (cmd_addannot_spec)},
     {"delannot", cmd_delannot, cmd_delannot_spec, G_N_ELEMENTS (cmd_delannot_spec)},
     {"editannot", cmd_editannot, cmd_editannot_spec
@@ -1042,12 +1042,12 @@ static void
 cmd_features (const ctxt_t *ctx, const arg_t *args)
 {
   const char *features[] = {
-#ifndef HAVE_POPPLER_FIND_OPTS
-    "case-sensitive-search"
+#ifdef HAVE_POPPLER_FIND_OPTS
+    "case-sensitive-search",
 #else
-    "no-case-sensitive-search"
+    "no-case-sensitive-search",
 #endif
-#ifndef HAVE_POPPLER_WRITE_ANNOTS
+#ifdef HAVE_POPPLER_ANNOT_WRITE
     "write-annotations"
 #else
     "no-write-annotations"
@@ -1634,7 +1634,7 @@ cmd_getattachments (const ctxt_t *ctx, const arg_t *args)
   OK_END ();
 }
 
-#ifdef HAVE_POPPLER_WRITE_ANNOTS
+#ifdef HAVE_POPPLER_ANNOT_WRITE
 /* Name: addannot
    Args: filename page edges
    Returns: The new annotation.
@@ -1905,7 +1905,7 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
   g_object_unref (page);
 }
 
-#endif  /* HAVE_POPPLER_WRITE_ANNOTS */
+#endif  /* HAVE_POPPLER_ANNOT_WRITE */
 
 
 /* utility functions */

@@ -410,15 +410,17 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
       '(menu-item "--" nil
                   :visible (bound-and-true-p pdf-annot-minor-mode)))
     
-    (define-key menu [revert-page]
-      '(menu-item "Revert page's annotations" pdf-annot-revert-page
-                  :help "Revert annotations on this page to their saved state"
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
-    
     (define-key menu [revert-document]
       '(menu-item "Revert all annotations" pdf-annot-revert-document
                   :help "Revert all annotations to their saved state"
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
+                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
+                                (pdf-info-writable-annotations-p))))
+    
+    (define-key menu [revert-page]
+      '(menu-item "Revert page's annotations" pdf-annot-revert-page
+                  :help "Revert annotations on this page to their saved state"
+                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
+                                (pdf-info-writable-annotations-p))))
 
     (define-key menu [sep-1]
       '(menu-item "--" nil
@@ -451,12 +453,12 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
     (define-key menu [sep-2] menu-bar-separator)
 
     (define-key menu [list-annotations]
-      '(menu-item "Display annotations" pdf-annot-list-annotations
+      '(menu-item "Display Annotations" pdf-annot-list-annotations
                   :help "List all annotations"
                   :visible (bound-and-true-p pdf-annot-minor-mode)))
 
     (define-key menu [dired-attachments]
-      '(menu-item "Display attachments" pdf-attach-dired
+      '(menu-item "Display Attachments" pdf-attach-dired
                   :help "Display attachments in a dired buffer"
                   :visible (featurep 'pdf-attach)))
 
