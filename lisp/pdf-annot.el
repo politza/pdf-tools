@@ -1415,13 +1415,13 @@ i.e. a non mouse-movement event is read."
   "Offer to save modifications to annotations, before switching modes."
   (when (and (pdf-util-pdf-buffer-p)
              pdf-annot-minor-mode
-             pdf-info-writing-supported
+             (pdf-info-writable-annotations-p)
              (buffer-modified-p)
              (y-or-n-p "Save changes in PDF document ?"))
     (save-buffer)))
 
 (defun pdf-annot-property-writable-p (a prop)
-  (and pdf-info-writing-supported
+  (and (pdf-info-writable-annotations-p)
        (or (memq prop '(edges color))
            (and (pdf-annot-is-markup-p a)
                 (memq prop '(label contents popup-isopen)))
@@ -1600,7 +1600,8 @@ Effective symbols are `delete', `revert-document' and `revert-page'.")
   
 (defun pdf-annot-create-context-menu (a)
   (let ((menu (make-sparse-keymap)))
-    (when pdf-misc-install-popup-menu
+    (when (and (bound-and-true-p pdf-misc-menu-bar-minor-mode)
+               (bound-and-true-p pdf-misc-install-popup-menu))
       (set-keymap-parent menu
                          (lookup-key pdf-misc-menu-bar-minor-mode-map
                                      [menu-bar pdf-tools]))
