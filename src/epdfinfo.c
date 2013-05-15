@@ -111,11 +111,6 @@ const args_spec_t cmd_close_spec[] =
     ARG_STRING_NONEMPTY         /* filename */
   };
 
-const args_spec_t cmd_save_spec[] =
-  {
-    ARG_DOC,
-  };
-
 const args_spec_t cmd_search_spec[] =
   {
     ARG_DOC,
@@ -177,17 +172,6 @@ const args_spec_t cmd_getannot_spec[] =
     ARG_STRING_NONEMPTY,        /* annotation's key */
   };
 
-
-const args_spec_t cmd_addannot_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE                    /* y1 */
-  };
-
 const args_spec_t cmd_getattachment_from_annot_spec[] =
   {
     ARG_DOC,
@@ -201,6 +185,13 @@ const args_spec_t cmd_getattachments_spec[] =
     ARG_DOC,
     ARG_FLAG,        /* save attachments */
   };
+
+#ifdef HAVE_POPPLER_WRITE_ANNOTS
+const args_spec_t cmd_save_spec[] =
+  {
+    ARG_DOC,
+  };
+
 
 const args_spec_t cmd_delannot_spec[] =
   {
@@ -226,13 +217,24 @@ const args_spec_t cmd_editannot_spec[] =
     ARG_STRING,                 /* icon (text only) */
   };
 
+const args_spec_t cmd_addannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x0 */
+    ARG_EDGE,                   /* y0 */
+    ARG_EDGE,                   /* x1 */
+    ARG_EDGE                    /* y1 */
+  };
+
+#endif  /* HAVE_POPPLER_WRITE_ANNOTS */
+
 static const cmd_t cmds [] =
   {
     /* Basic */
     {"features", cmd_features, cmd_features_spec, G_N_ELEMENTS (cmd_features_spec)},
     {"open", cmd_open, cmd_open_spec, G_N_ELEMENTS (cmd_open_spec)},
     {"close", cmd_close, cmd_close_spec, G_N_ELEMENTS (cmd_close_spec)},
-    {"save", cmd_save, cmd_save_spec, G_N_ELEMENTS (cmd_save_spec)} ,
     {"quit", cmd_quit, cmd_quit_spec, G_N_ELEMENTS (cmd_quit_spec)},
 
     /* General Informations */
@@ -247,11 +249,13 @@ static const cmd_t cmds [] =
     /* Annotations */
     {"getannots", cmd_getannots, cmd_getannots_spec , G_N_ELEMENTS (cmd_getannots_spec)},
     {"getannot", cmd_getannot, cmd_getannot_spec, G_N_ELEMENTS (cmd_getannot_spec)},
+#ifdef HAVE_POPPLER_WRITE_ANNOTS
     {"addannot", cmd_addannot, cmd_addannot_spec, G_N_ELEMENTS (cmd_addannot_spec)},
     {"delannot", cmd_delannot, cmd_delannot_spec, G_N_ELEMENTS (cmd_delannot_spec)},
     {"editannot", cmd_editannot, cmd_editannot_spec
      , G_N_ELEMENTS (cmd_editannot_spec)},
-    
+    {"save", cmd_save, cmd_save_spec, G_N_ELEMENTS (cmd_save_spec)} ,
+#endif
     /* Attachments */
     {"getattachment-from-annot", cmd_getattachment_from_annot,
      cmd_getattachment_from_annot_spec,
