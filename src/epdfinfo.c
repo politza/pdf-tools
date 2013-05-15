@@ -73,10 +73,8 @@ cmd_search_regex(PopplerDocument *doc, const char *regex,
 static void
 cmd_search_string(PopplerDocument *doc, const char *string,
                   int first, int last, gboolean ignore_case);
-#ifdef HAVE_POPPLER_INDEX_ITER
 static void
 cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth);
-#endif
 static void cmd_outline (const ctxt_t *ctx, const arg_t *args);
 static void cmd_metadata (const ctxt_t *ctx, const arg_t *args);
 static void cmd_quit (const ctxt_t *ctx, const arg_t *args);
@@ -84,14 +82,19 @@ static void cmd_npages (const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagelinks(const ctxt_t *ctx, const arg_t *args);
 static void cmd_gettext(const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagesize(const ctxt_t *ctx, const arg_t *args);
-static void cmd_getannots(const ctxt_t *ctx, const arg_t *args);
-static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
-static void cmd_addannot (const ctxt_t *ctx, const arg_t *args);
+
 static void cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_getattachments (const ctxt_t *ctx, const arg_t *args);
+
+static void cmd_getannots(const ctxt_t *ctx, const arg_t *args);
+static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
+
+#ifdef HAVE_POPPLER_WRITE_ANNOTS
+static void cmd_addannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_relocannot (const ctxt_t *ctx, const arg_t *args);
+#endif  /* HAVE_POPPLER_WRITE_ANNOTS */
 static void cmd_test_text_layout (const ctxt_t *ctx, const arg_t *args);
 
 
@@ -1050,45 +1053,25 @@ print_attachment (PopplerAttachment *att, gboolean do_save)
 static void
 cmd_features (const ctxt_t *ctx, const arg_t *args)
 {
-  char *features[] = {"index-iter", "get-title", "get-metadata",
-                      "get-text", "write-pdf" , "find-opts"};
-  int i,j;
-  
-#ifndef HAVE_POPPLER_INDEX_ITER
-  features[0] = NULL;
-#endif
-#ifndef HAVE_POPPLER_GET_TITLE
-  features[1] = NULL;
-#endif
-#ifndef HAVE_POPPLER_GET_METADATA
-  features[2] = NULL;
-#endif
-#ifndef HAVE_POPPLER_GET_TEXT
-  features[3] = NULL;
-#endif
-#ifndef HAVE_POPPLER_WRITE_PDF
-  features[4] = NULL;
-#endif
+  const char *features[] = {
 #ifndef HAVE_POPPLER_FIND_OPTS
-  features[5] = NULL;
+    "case-sensitive-search"
+#else
+    "no-case-sensitive-search"
 #endif
-
+#ifndef HAVE_POPPLER_WRITE_ANNOTS
+    "write-annotations"
+#else
+    "no-write-annotations"
+#endif
+  };
+  int i;
   OK_BEG ();
   for (i = 0; i < G_N_ELEMENTS (features); ++i)
     {
-      if (features[i])
-        {
-          printf (features[i]);
-          for (j = i + 1; j < G_N_ELEMENTS (features); ++j)
-            {
-              if (features[j])
-                {
-                  putchar (':');
-                  break;
-                }
-            }
-   
-        }
+      printf ("%s", features[i]);
+      if (i < G_N_ELEMENTS (features) - 1)
+        putchar (':');
     }
   putchar ('\n');
   OK_END ();
@@ -1222,14 +1205,10 @@ cmd_search(const ctxt_t *ctx, const arg_t *args)
           printf ("%d:%f %f %f %f:", pn
                   , r->x1 / width, r->y1 / height
                   , r->x2 / width, r->y2 / height);
-#ifdef HAVE_POPPLER_GET_TEXT
           line = strchomp (poppler_page_get_selected_text
                            (page, POPPLER_SELECTION_LINE, r));
           print_escaped (line, NL);
           g_free (line);
-#else
-          putchar ('\n');
-#endif
           poppler_rectangle_free (r);
         }
       g_list_free (list);
@@ -1254,7 +1233,6 @@ cmd_search(const ctxt_t *ctx, const arg_t *args)
 static void
 cmd_metadata (const ctxt_t *ctx, const arg_t *args)
 {
-#ifdef HAVE_POPPLER_GET_TITLE
   PopplerDocument *doc = args[0].value.doc->pdf;
   time_t date;
   guint minor = 0, major = 0;
@@ -1269,9 +1247,6 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   print_escaped (title, COLON);
   g_free (title);
 
-#ifndef HAVE_POPPLER_GET_METADATA
-  putchar ('\n');
-#else
   md[0] = poppler_document_get_author (doc);
   md[1] = poppler_document_get_subject (doc);
   md[2] = poppler_document_get_keywords (doc);
@@ -1291,17 +1266,12 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   date = poppler_document_get_modification_date (doc);
   time_str = strchomp (ctime (&date));
   print_escaped (time_str ? time_str : "", NL);
-#endif
   OK_END ();
-#else
-  printf_error ("The metadata command is not supported by this version of epdfinfo");
-#endif  /* HAVE_POPPLER_GET_TITLE */
 }
 
                 
 //static void print_pdf_dest (const ctxt_t *ctx, Poppler
 
-#ifdef HAVE_POPPLER_INDEX_ITER
 static void
 cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
 {
@@ -1328,7 +1298,6 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
       poppler_index_iter_free (child);
     } while (poppler_index_iter_next (iter));
 }
-#endif
 
 /* Name: outline
    Args: filename
@@ -1346,7 +1315,6 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
 static void
 cmd_outline (const ctxt_t *ctx, const arg_t *args)
 {
-#ifdef HAVE_POPPLER_INDEX_ITER  
   PopplerIndexIter *iter = poppler_index_iter_new (args->value.doc->pdf);
   OK_BEG ();
   if (iter)
@@ -1355,9 +1323,6 @@ cmd_outline (const ctxt_t *ctx, const arg_t *args)
       poppler_index_iter_free (iter);
     }
   OK_END ();
-#else
-  printf_error ("The outline command is not supported by this version of epdfinfo");
-#endif
 }
 
 /* Name: quit
@@ -1459,7 +1424,6 @@ cmd_pagelinks(const ctxt_t *ctx, const arg_t *args)
 static void
 cmd_gettext(const ctxt_t *ctx, const arg_t *args)
 {
-#ifdef HAVE_POPPLER_GET_TEXT
   PopplerDocument *doc = args[0].value.doc->pdf;
   int pn = args[1].value.natnum;
   double x1 = args[2].value.edge; 
@@ -1491,9 +1455,6 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
 
   g_free (text);
   g_object_unref (page);
-#else
-  printf_error ("The gettext command is not supported by this version of epdfinfo");
-#endif
 }
 
 /* Name: pagesize
@@ -1623,6 +1584,69 @@ cmd_getannot (const ctxt_t *ctx, const arg_t *args)
   g_object_unref (page);
 }
 
+/* Name: getannot_attachment
+   Args: filename name [output-filename]
+   Returns: name description size mtime ctime output-filename
+   Errors: If no annotation named ,name' exists or output-filename is
+   not writable.
+*/
+
+static void
+cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args->value.doc;
+  const gchar *key = args[1].value.string;
+  gboolean do_save = args[2].value.flag;
+  PopplerAttachment *att;
+  time_t time;
+  
+  annot_t *a = get_annot_by_key (doc, key);
+  gint index;
+  if (! a)
+    {
+      printf_error ("No such annotation: %s", key);
+      return;
+    }
+  if (! POPPLER_IS_ANNOT_FILE_ATTACHMENT (a->amap->annot))
+    {
+      printf_error ("Not a file annotation: %s", key);
+      return;
+    }
+  att = poppler_annot_file_attachment_get_attachment
+    (POPPLER_ANNOT_FILE_ATTACHMENT (a->amap->annot));
+  if (! att)
+    {
+      printf_error ("Unable to get attachment: %s", key);
+      return;
+    }
+  
+  OK_BEG ();
+  print_attachment (att, do_save);
+  g_object_unref (att);
+  OK_END ();
+}
+
+static void
+cmd_getattachments (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args->value.doc;
+  gboolean do_save = args[1].value.flag;
+  GList *item;
+  GList *attmnts = poppler_document_get_attachments (doc->pdf);
+  
+  OK_BEG ();
+  for (item = attmnts; item; item = item->next)
+    {
+      PopplerAttachment *att = (PopplerAttachment*) item->data;
+      print_attachment (att, do_save);
+      g_object_unref (att);
+    }
+  g_list_free (attmnts);
+
+  OK_END ();
+}
+
+#ifdef HAVE_POPPLER_WRITE_ANNOTS
 /* Name: addannot
    Args: filename page edges
    Returns: The new annotation.
@@ -1685,68 +1709,6 @@ cmd_addannot (const ctxt_t *ctx, const arg_t *args)
   print_annot (annot, page);
   OK_END ();
   g_object_unref (page);
-}
-
-/* Name: getannot_attachment
-   Args: filename name [output-filename]
-   Returns: name description size mtime ctime output-filename
-   Errors: If no annotation named ,name' exists or output-filename is
-   not writable.
-*/
-
-static void
-cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args)
-{
-  doc_t *doc = args->value.doc;
-  const gchar *key = args[1].value.string;
-  gboolean do_save = args[2].value.flag;
-  PopplerAttachment *att;
-  time_t time;
-  
-  annot_t *a = get_annot_by_key (doc, key);
-  gint index;
-  if (! a)
-    {
-      printf_error ("No such annotation: %s", key);
-      return;
-    }
-  if (! POPPLER_IS_ANNOT_FILE_ATTACHMENT (a->amap->annot))
-    {
-      printf_error ("Not a file annotation: %s", key);
-      return;
-    }
-  att = poppler_annot_file_attachment_get_attachment
-    (POPPLER_ANNOT_FILE_ATTACHMENT (a->amap->annot));
-  if (! att)
-    {
-      printf_error ("Unable to get attachment: %s", key);
-      return;
-    }
-  
-  OK_BEG ();
-  print_attachment (att, do_save);
-  g_object_unref (att);
-  OK_END ();
-}
-
-static void
-cmd_getattachments (const ctxt_t *ctx, const arg_t *args)
-{
-  doc_t *doc = args->value.doc;
-  gboolean do_save = args[1].value.flag;
-  GList *item;
-  GList *attmnts = poppler_document_get_attachments (doc->pdf);
-  
-  OK_BEG ();
-  for (item = attmnts; item; item = item->next)
-    {
-      PopplerAttachment *att = (PopplerAttachment*) item->data;
-      print_attachment (att, do_save);
-      g_object_unref (att);
-    }
-  g_list_free (attmnts);
-
-  OK_END ();
 }
 
 static void
@@ -1994,6 +1956,7 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
   g_object_unref (page);
 }
 
+#endif  /* HAVE_POPPLER_WRITE_ANNOTS */
 static void
 cmd_test_text_layout (const ctxt_t *ctx, const arg_t *args)
 {
