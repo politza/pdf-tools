@@ -127,7 +127,7 @@ Returns a number with the following meaning.
     (when interactive
       (message "Ghostscript is configured %sto render %s"
                (if (= 0 value) "not " "")
-               (case value
+               (cl-case value
                  (0 "annotations or links.")
                  (1 "annotations, but not links.")
                  (2 "annotations and links."))))
@@ -201,6 +201,7 @@ exit code.  And if this checks out, advice DocView about it."
           (nreverse (pdf-render-sorted-layer-functions
                      pdf-render-annotate-functions))
           (page size)
+        page size               ;Avoid warning about unused variables.
         props))))
       
 (defun pdf-render-sorted-layer-functions (functions)
@@ -517,14 +518,14 @@ exit code.  And if this checks out, advice DocView about it."
       (pdf-render-display-image out-file)
       nil)
      ((null spec)
-      (pdf-util-redisplay-current-page)
+      (pdf-render-redisplay-current-page)
       nil)
      (t
       (apply
        'pdf-util-convert-asynch
        in-file out-file
        `(,@spec
-         ,(lambda (proc status)
+         ,(lambda (_proc status)
             (when (and (equal status "finished\n")
                        (window-live-p window)
                        (eq (window-buffer window) buffer)
