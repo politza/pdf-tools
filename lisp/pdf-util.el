@@ -780,8 +780,7 @@ the selected window, stops displaying the buffer it currently
 displays (e.g., by switching buffers or because it was deleted)
 AWINDOW is deleted."
   (unless window (setq window (selected-window)))
-  (let ((abuffer (window-buffer awindow))
-        (buffer (window-buffer window))
+  (let ((buffer (window-buffer window))
         (hook (make-symbol "window-attach-hook")))
     (fset hook
           (lambda ()
