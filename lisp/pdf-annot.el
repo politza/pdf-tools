@@ -31,11 +31,13 @@
 ;;   - Create annotation (global menu)
 ;;
 
+(require 'pdf-info)
 (require 'pdf-render)
-(require 'pdf-attach)
+(require 'pdf-misc)
 (require 'facemenu) ;;for list-colors-duplicates
 (require 'faces) ;;for color-values
 (require 'org)   ;;org-with-gensyms, org-create-formula-image-with-dvipng
+(require 'cl-lib)
 
 ;;; Code:
 
@@ -194,9 +196,9 @@ annoyed while reading the annotations."
 (defvar-local pdf-annot-annotations nil
   "A hash table of all annotations in the current buffer.")
 
-(defstruct (pdf-annot
-            (:constructor pdf-annot-new (buffer properties))
-            (:constructor nil))
+(cl-defstruct (pdf-annot
+               (:constructor pdf-annot-new (buffer properties))
+               (:constructor nil))
   ;;Annotation's designated buffer.
   buffer
   ;;A list of properties to be written to the PDF later.
@@ -332,7 +334,7 @@ current buffer."
                 (format "Invalid color spec: %s" val)))
              (contents
               (unless (stringp val)
-                (format "Contents should be a string: %s")))
+                (format "Contents should be a string: %s" val)))
              (popup-isopen
               (unless (symbolp val)
                 (format "Popup-isopen should be a flag value: %s" val)))
@@ -360,8 +362,7 @@ current buffer."
   (pdf-annot-deleted-p a))
 
 (defun pdf-annot-set-property-modified-p (a prop flag)
-  (let ((set (memq prop (pdf-annot-modified-properties a)))
-        (mod (remq prop (pdf-annot-modified-properties a))))
+  (let ((mod (remq prop (pdf-annot-modified-properties a))))
     (setf (pdf-annot-modified-properties a)
           (if flag (cons prop mod) mod))
     flag))
@@ -570,7 +571,7 @@ used as a reference."
 
 
   
-(defun pdf-annot-revert-page (&optional page interactive no-redisplay)
+(defun pdf-annot-revert-page (&optional page interactive)
   (interactive "P\np")
   (pdf-util-assert-pdf-buffer)
   (unless page
@@ -791,7 +792,7 @@ To be registered with `pdf-render-register-layer-function'."
   (let ((annots
          (cl-mapcon (lambda (type)
                       (pdf-annot-getannots page type))
-                    (remove-duplicates
+                    (cl-remove-duplicates
                      pdf-annot-rendered-types)))
         (size (pdf-util-png-image-size))
         cmds)
@@ -873,7 +874,7 @@ To be registered with `pdf-render-register-annotate-image-function'."
                   map)
             (local-set-key
              (vector (nth i ids) 'down-mouse-3)
-             (lambda (ev)
+             (lambda (_ev)
                (interactive "@e")
                (popup-menu (pdf-annot-create-context-menu a))))
             (local-set-key
@@ -968,7 +969,6 @@ i.e. a non mouse-movement event is read."
            (buffer (current-buffer))
            (offset (cons (- (car mpos) (car apos))
                          (- (cdr mpos) (cdr apos))))
-           (edges (pdf-annot-get a 'edges))
            (asize (pdf-annot-image-size a))
            (awidth (car asize))
            (aheight  (cdr asize))
@@ -996,18 +996,17 @@ i.e. a non mouse-movement event is read."
                 (while (eq 'mouse-movement (event-basic-type ev))
                   (when (eq 'image (car-safe (posn-object (event-start ev))))
                     (let ((xy (posn-object-x-y (event-start ev))))
-                      (pdf-util-with-edges (edges)
-                        (cond
-                         ((or hresize vresize)
-                          (pdf-annot-image-set-size
-                           a (if hresize
-                                 (max 5 (+ awidth (- (car xy) (car mpos)))))
-                           (if vresize
-                               (max 5 (+ aheight (- (cdr xy) (cdr mpos)))))))
-                         (t
-                          (pdf-annot-image-set-position
-                           a (- (car xy) (car offset))
-                           (- (cdr xy) (cdr offset)))))))
+                      (cond
+                       ((or hresize vresize)
+                        (pdf-annot-image-set-size
+                         a (if hresize
+                               (max 5 (+ awidth (- (car xy) (car mpos)))))
+                         (if vresize
+                             (max 5 (+ aheight (- (cdr xy) (cdr mpos)))))))
+                       (t
+                        (pdf-annot-image-set-position
+                         a (- (car xy) (car offset))
+                         (- (cdr xy) (cdr offset))))))
                     (redraw))
                   (track-mouse
                     (setq ev (read-event))))
@@ -1328,9 +1327,9 @@ i.e. a non mouse-movement event is read."
            (when window
              (select-window window))))))
     (complete
-     (cl-destructuring-bind (id column _string _pos)
+     (cl-destructuring-bind (_id column _string _pos)
          args
-       (let ((prop (case column
+       (let ((prop (cl-case column
                      (2 'color)
                      (3 'icon))))
          (when prop
@@ -1377,14 +1376,11 @@ i.e. a non mouse-movement event is read."
                  'pdf-annot-display-annotation t))))
 
    
-(provide 'pdf-annot)
-;;; pdf-annot.el ends here
-
 ;; *Utility functions
 ;; 
 
 (defun pdf-annot-property-completions (prop)
-  (case prop
+  (cl-case prop
     (color (pdf-annot-color-completions))
     (icon (copy-sequence pdf-annot-standard-icons))))
 
@@ -1410,6 +1406,64 @@ i.e. a non mouse-movement event is read."
                     values)))))
 
 ;; 
+
+(defcustom pdf-annot-minor-mode-map-prefix "C-c C-a"
+  "The prefix to use for `pdf-annot-minor-mode-map'.
+
+Use `pdf-annot-update-minor-mode-map' if yout set this variable
+after this package was loaded."
+  :group 'pdf-annot
+  :set (lambda (sym value)
+         (set-default sym value)
+         (pdf-annot-update-minor-mode-map)))
+
+(defvar pdf-annot-minor-mode-map nil)
+
+;;;###autoload
+(define-minor-mode pdf-annot-minor-mode
+  "Annotation support."
+  nil nil nil
+  (cond
+   (pdf-annot-minor-mode
+    (unless pdf-annot-minor-mode-map
+      (pdf-annot-update-minor-mode-map))
+    (when pdf-annot-tweak-tooltips
+      (when (boundp 'x-gtk-use-system-tooltips)
+        (setq x-gtk-use-system-tooltips nil))
+      (setq tooltip-hide-delay 3600))
+    (when (boundp 'doc-view-pdf->png-converter-function)
+      (set (make-local-variable 'doc-view-pdf->png-converter-function)
+           'doc-view-pdf->png-converter-ghostscript))
+    (make-local-variable 'doc-view-ghostscript-options)
+    (pdf-render-ghostscript-configure 0)
+    (when (pdf-info-writable-annotations-p)
+      (add-hook 'write-contents-functions 'pdf-annot-save-document nil t))
+    (pdf-render-register-layer-function 'pdf-annot-render-function 9)
+    (pdf-render-register-annotate-image-function 'pdf-annot-annotate-image 9)
+    (add-hook 'pdf-annot-pages-modified-functions 'pdf-annot-redraw-pages nil t)
+    (add-hook 'pdf-annot-pages-modified-functions
+              'pdf-annot-reannotate-pages nil t)
+    (add-hook 'pdf-info-after-close-document-hook
+              'pdf-annot-revert-document nil t)
+    (add-hook 'pdf-util-after-reconvert-hook
+              'pdf-render-redraw-document nil t))
+   
+   (t
+    (kill-local-variable 'doc-view-ghostscript-options)
+    (when (boundp 'doc-view-pdf->png-converter-function)
+      (kill-local-variable 'doc-view-pdf->png-converter-function))
+    (remove-hook 'write-contents-functions 'pdf-annot-save-document t)
+    (pdf-render-unregister-layer-function 'pdf-annot-render-function)
+    (pdf-render-unregister-annotate-function 'pdf-annot-annotate-image)
+    (remove-hook 'pdf-annot-pages-modified-functions
+                 'pdf-annot-redraw-pages t)
+    (remove-hook 'pdf-annot-pages-modified-functions
+                 'pdf-annot-reannotate-pages t)
+    (remove-hook 'pdf-info-after-close-document-hook
+                 'pdf-annot-revert-document t)
+    (remove-hook 'pdf-util-after-reconvert-hook 'pdf-render-redraw-document t)))
+  (pdf-render-redraw-document)
+  (pdf-render-redisplay-current-page))
 
 (defadvice doc-view-toggle-display (before pdf-annot-save-document activate)
   "Offer to save modifications to annotations, before switching modes."
@@ -1460,7 +1514,6 @@ i.e. a non mouse-movement event is read."
         (let ((tmpfile (pdf-info-save))
               (old-cache (doc-view-current-cache-dir)))
           (rename-file tmpfile (buffer-file-name) t)
-          (setq f tmpfile)
           (unless (file-equal-p
                    (buffer-file-name)
                    doc-view-buffer-file-name)
@@ -1484,7 +1537,7 @@ i.e. a non mouse-movement event is read."
               (if (memq 'text pdf-annot-rendered-types)
                   (if (memq 'link pdf-annot-rendered-types)
                       '(link))
-                (remove-duplicates
+                (cl-remove-duplicates
                  (append pdf-annot-rendered-types
                          `(text file)))))
   (pdf-render-redisplay-current-page)
@@ -1524,62 +1577,6 @@ i.e. a non mouse-movement event is read."
       (when elt
         (setcdr elt pdf-annot-minor-mode-map)))))
 
-(defcustom pdf-annot-minor-mode-map-prefix "C-c C-a"
-  "The prefix to use for `pdf-annot-minor-mode-map'.
-
-Use `pdf-annot-update-minor-mode-map' if yout set this variable
-after this package was loaded."
-  :group 'pdf-annot
-  :set (lambda (sym value)
-         (set-default sym value)
-         (pdf-annot-update-minor-mode-map)))
-
-(defvar pdf-annot-minor-mode-map nil)
-
-(define-minor-mode pdf-annot-minor-mode
-  "Annotation support."
-  nil nil nil
-  (cond
-   (pdf-annot-minor-mode
-    (unless pdf-annot-minor-mode-map
-      (pdf-annot-update-minor-mode-map))
-    (when pdf-annot-tweak-tooltips
-      (when (boundp 'x-gtk-use-system-tooltips)
-        (setq x-gtk-use-system-tooltips nil))
-      (setq tooltip-hide-delay 3600))
-    (when (boundp 'doc-view-pdf->png-converter-function)
-      (set (make-local-variable 'doc-view-pdf->png-converter-function)
-           'doc-view-pdf->png-converter-ghostscript))
-    (make-local-variable 'doc-view-ghostscript-options)
-    (pdf-render-ghostscript-configure 0)
-    (when (pdf-info-writable-annotations-p)
-      (add-hook 'write-contents-functions 'pdf-annot-save-document nil t))
-    (pdf-render-register-layer-function 'pdf-annot-render-function 9)
-    (pdf-render-register-annotate-image-function 'pdf-annot-annotate-image 9)
-    (add-hook 'pdf-annot-pages-modified-functions 'pdf-annot-redraw-pages nil t)
-    (add-hook 'pdf-annot-pages-modified-functions
-              'pdf-annot-reannotate-pages nil t)
-    (add-hook 'pdf-info-after-close-document-hook
-              'pdf-annot-revert-document nil t)
-    (add-hook 'pdf-util-after-reconvert-hook
-              'pdf-render-redraw-document nil t))
-   
-   (t
-    (kill-local-variable 'doc-view-ghostscript-options)
-    (when (boundp 'doc-view-pdf->png-converter-function)
-      (kill-local-variable 'doc-view-pdf->png-converter-function))
-    (remove-hook 'write-contents-functions 'pdf-annot-save-document t)
-    (pdf-render-unregister-layer-function 'pdf-annot-render-function)
-    (pdf-render-unregister-annotate-function 'pdf-annot-annotate-image)
-    (remove-hook 'pdf-annot-pages-modified-functions
-                 'pdf-annot-redraw-pages t)
-    (remove-hook 'pdf-annot-pages-modified-functions
-                 'pdf-annot-reannotate-pages t)
-    (remove-hook 'pdf-info-after-close-document-hook
-                 'pdf-annot-revert-document t)
-    (remove-hook 'pdf-util-after-reconvert-hook 'pdf-render-redraw-document t)))
-  (pdf-render-redraw-document)
-  (pdf-render-redisplay-current-page))
 
 (defvar pdf-annot-no-confirm nil
   "A list of operations requiring no confirmation.
@@ -1645,3 +1642,255 @@ Effective symbols are `delete', `revert-document' and `revert-page'.")
     menu))
   
 ;;
+;; *Attachments
+;; 
+
+(cl-defstruct (pdf-annot-attach
+            (:constructor pdf-annot-attach-new (buffer page id properties))
+            (:constructor nil))
+  buffer
+  id
+  page
+  properties)
+
+(defun pdf-annot-attach-getattachments ()
+  "Return the attachments of the current buffer.
+
+The return value includes all attachments from annotations as
+well as global, document-level ones."
+  (let* ((annots (pdf-annot-getannots nil 'file))
+         (docatt (pdf-info-getattachments nil))
+         attachments)
+    ;; Identify document level attachments by their order.
+    ;; Identification is needed for later retrieval of the
+    ;; attachment's data.
+    (dotimes (i (length docatt))
+      (push (pdf-annot-attach-new (current-buffer)
+                            0 i (nth i docatt)) attachments))
+    ;; Annotations have a unique key attached, no problem here.
+    (dolist (a annots)
+      (let ((pn (pdf-annot-get a 'page))
+            (id (pdf-annot-get a 'id)))
+        (push (pdf-annot-attach-new
+               (current-buffer)
+               pn id
+               (pdf-info-getattachment-from-annot id))
+              attachments)))
+    attachments))
+
+(defun pdf-annot-attach-get-from-annot (a)
+  "Return annotation A's attached data.
+
+A should be a file-annotation, otherwise the result is an error."
+  (unless (eq (pdf-annot-get a 'type) 'file)
+    (error "Annotation has no data attached: %s" a))
+  (let* ((id (pdf-annot-get a 'id))
+         (buffer (pdf-annot-buffer a))
+         (page (pdf-annot-get a 'page))
+         (alist (pdf-info-getattachment-from-annot id buffer)))
+    (pdf-annot-attach-new buffer page id alist)))
+
+(defun pdf-annot-attach-get (a prop &optional default)
+  (or (cdr (assq prop (pdf-annot-attach-properties a)))
+      default))
+
+(defun pdf-annot-attach-name (a)
+  "Return attachment A's specified filename or nil."
+  (cdr (assq 'name (pdf-annot-attach-properties a))))
+
+(defun pdf-annot-attach-description (a)
+  "Return attachment A's description or nil."
+  (cdr (assq 'description (pdf-annot-attach-properties a))))
+
+(defun pdf-annot-attach-size (a)
+  "Return attachment A's size or nil."
+  (cdr (assq 'size (pdf-annot-attach-properties a))))
+
+(defun pdf-annot-attach-mtime (a)
+  "Return attachment A's modification time or nil."
+  (cdr (assq 'mtime (pdf-annot-attach-properties a))))
+
+(defun pdf-annot-attach-ctime (a)
+  "Return attachment A's creation time or nil."
+  (cdr (assq 'ctime (pdf-annot-attach-properties a))))
+
+(defun pdf-annot-attach-checksum (a)
+  "Return attachment A's checksum or nil."
+  (cdr (assq 'checksum (pdf-annot-attach-properties a))))
+
+(defun pdf-annot-attach-print-tooltip (a)
+  "Return a string describing attachment A."
+  (let ((header (propertize
+                 (format "File attachment `%s' of %s\n"
+                         (or (pdf-annot-attach-name a) "unnamed")
+                         (if (pdf-annot-attach-size a)
+                             (format "size %d" (file-size-human-readable
+                                                (pdf-annot-attach-size a)))
+                           "unknown size"))
+                 'face 'header-line 'intangible t
+                 'read-only t)))
+    (concat
+     (propertize
+      (make-string (length header) ?\s)
+      'display
+      header)
+     (or (pdf-annot-attach-description a) "No description"))))         
+  
+(defun pdf-annot-attach-from-annotation-p (a)
+  "Return t, if attachment A belongs to some annotation.
+
+There are two kinds of attachments,
+
+i.  attachments associated with an annotation and
+ii. attachment associated with the whole document.
+
+This function returns t in case i. and nil in case ii. ."
+  (symbolp (pdf-annot-attach-id a)))
+  
+(defun pdf-annot-attach-create-file (a)
+  "Return a filename containing the data of attachment A.
+
+The caller owns this file and should delete it, when it is no
+longer needed."
+  (cl-check-type a pdf-annot-attach)
+  (let ((id (pdf-annot-attach-id a)))
+    (cond
+     ((numberp id)
+      ;; This is not very elegant.
+      (let ((attachments (pdf-info-getattachments
+                          t (pdf-annot-attach-buffer a)))
+            data)
+        (dotimes (i (length attachments))
+          (let ((file (cdr (assq 'file (nth i attachments)))))
+            (if (= id i)
+                (setq data file)
+              (delete-file file))))
+        data))
+     (t
+      (cdr (assq 'file (pdf-info-getattachment-from-annot
+                        id t (pdf-annot-attach-buffer a))))))))  
+
+(defun pdf-annot-attach-create-named-file (a &optional dir)
+  "Copy attachment A's data to DIR.
+
+This uses A's specified filename and creates directories below
+DIR appropriately.  (This may not be entirely accurate,
+e.g. directory parts which can't be, for what ever reasons,
+created, are simply ignored.)  If DIR already contains a filename
+of the same name (inclusive directories), return that name and
+don't overwrite it.
+
+DIR defaults to `pdf-annot-attach-default-directory'.  If A does not
+specify a filename, the name is chosen randomly and put in DIR.
+
+In any case, return the absolute filename of the created or found
+file."
+
+  (unless dir
+    (setq dir (pdf-annot-attach-default-directory (pdf-annot-attach-buffer a))))
+  (unless (file-directory-p dir)
+    (error "Not a directory: %s" dir))
+  (unless (file-writable-p dir)
+    (error "Directory not writable: %s" dir))
+  
+  (let (datafile)
+    (unwind-protect
+        (let* ((name (pdf-annot-attach-name a))
+               (default-directory (expand-file-name dir))
+               newfile)
+
+          (setq datafile (pdf-annot-attach-create-file a)
+                newfile  (file-name-nondirectory datafile))
+          (when name
+            (let* ;; Name may be a unix or dos filename, I guess.
+                ((parts (split-string name "[/\\]" t))
+                 (dirs (butlast parts)))
+
+              (setq newfile (car (last parts)))
+
+              (dolist (d dirs)
+                (condition-case nil
+                    (progn
+                      (unless (file-exists-p d)
+                        (make-directory d))
+                      (when (file-directory-p d)
+                        (setq default-directory (expand-file-name d))))
+                  (file-error)
+                  (file-already-exists)))))
+
+          (condition-case nil
+              (copy-file datafile newfile)
+            (file-already-exists))
+          (expand-file-name newfile))
+      (when (file-exists-p datafile)
+        (delete-file datafile)))))
+
+(defun pdf-annot-attach-find-file (a)
+  (when (pdf-annot-p a)
+    (setq a (pdf-annot-attach-get-from-annot a)))
+  (find-file
+   (pdf-annot-attach-create-named-file a)))
+
+(defun pdf-annot-attach-find-file-other-window (a)
+  (when (pdf-annot-p a)
+    (setq a (pdf-annot-attach-get-from-annot a)))
+  (pop-to-buffer
+   (find-file-noselect
+    (pdf-annot-attach-create-named-file a))))
+  
+(defun pdf-annot-attach-write-directory (&optional buffer directory)
+  "Extract all attachments of BUFFER and put them in DIRECTORY.
+
+BUFFER defaults to the current buffer and DIRECTORY to the
+subdirectory `doc-view-current-cache-dir'/${PDF-NAME}_attachments.  
+
+The attachments are written under their specified name, if
+possible, but existing files are not overwritten.
+
+If BUFFER has no attachments, do nothing and return nil,
+otherwise return DIRECTORY."
+  
+  (pdf-util-assert-pdf-buffer buffer)
+  (save-current-buffer
+    (when buffer (set-buffer buffer))
+    (let ((dir (or (and directory
+                        (expand-file-name directory))
+                   (pdf-annot-attach-default-directory)))
+          (attachments (pdf-annot-attach-getattachments)))
+      
+      (when attachments
+        (unless (file-exists-p dir)
+          (make-directory dir t))
+
+        (unless (file-directory-p dir)
+          (error "Not a directory: %s" dir))
+
+        (dolist (a attachments)
+          (pdf-annot-attach-create-named-file a dir))
+        dir))))
+
+
+(defun pdf-annot-attach-default-directory (&optional buffer)
+  (save-current-buffer
+    (when buffer (set-buffer buffer))
+    (expand-file-name
+     (format "%s_attachments"
+             (file-name-sans-extension (buffer-name)))
+     (doc-view-current-cache-dir))))
+  
+(defun pdf-annot-attach-dired (&optional buffer)
+  "Visit all attachments of the PDF of BUFFER in dired."
+  (interactive)
+  (pdf-util-assert-pdf-buffer buffer)
+  (save-current-buffer
+    (when buffer (set-buffer buffer))
+    (let ((dir (pdf-annot-attach-default-directory)))
+      (unless (file-exists-p dir)
+        (setq dir (pdf-annot-attach-write-directory nil dir)))
+      (unless dir
+        (error "Document has no data attached"))
+      (dired-other-window dir))))
+
+(provide 'pdf-annot)
+;;; pdf-annot.el ends here
+
