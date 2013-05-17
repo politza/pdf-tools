@@ -1,7 +1,7 @@
 SUBDIRS = src
 LISP_PACKAGES = pdf-history.el pdf-info.el pdf-isearch.el		\
  pdf-links.el pdf-misc.el pdf-occur.el pdf-outline.el pdf-tools.el	\
- pdf-util.el
+ pdf-util.el pdf-render.el pdf-annot.el
 LISP_FILES = $(addprefix lisp/,$(LISP_PACKAGES))
 EPKG_FILES = $(LISP_FILES) src/epdfinfo README.org
 EPKG_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
