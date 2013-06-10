@@ -32,6 +32,7 @@
 (defvar pdf-occur-buffer-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "RET") 'pdf-occur-goto-occurrence)
+    (define-key kmap (kbd "C-o") 'pdf-occur-view-occurrence)
     kmap)
   "The keymap used for `pdf-occur-buffer-mode'.")
   
@@ -100,6 +101,26 @@ If EVENT is nil, use occurrence at current line."
       (pop-to-buffer (car link))
       (doc-view-goto-page (cadr link))
       (pdf-util-tooltip-arrow (nth 1 (nth 2 link)) 2))))
+
+(defun pdf-occur-view-occurrence (&optional event)
+  "View the occurrence at EVENT.
+
+If EVENT is nil, use occurrence at current line."
+  (interactive (list last-nonmenu-event))
+  (let ((link
+         (if (null event)
+             ;; Actually `event-end' works correctly with a nil argument as
+             ;; well, so we could dispense with this test, but let's not
+             ;; rely on this undocumented behavior.
+             (tabulated-list-get-id)
+           (with-current-buffer (window-buffer (posn-window (event-end event)))
+             (save-excursion
+               (goto-char (posn-point (event-end event)))
+               (tabulated-list-get-id))))))
+    (when link
+      (with-selected-window (display-buffer (car link))
+        (doc-view-goto-page (cadr link))
+        (pdf-util-tooltip-arrow (nth 1 (nth 2 link)) 2)))))
 
 ;;;###autoload
 (defun pdf-occur (string &optional buffer)
