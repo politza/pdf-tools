@@ -157,7 +157,7 @@ If EVENT is nil, use occurrence at current line."
         (tabulated-list-init-header)
         (tabulated-list-print)
         (setq next-error-last-buffer (current-buffer))
-        (display-buffer (current-buffer))))))
+        (pop-to-buffer (current-buffer))))))
     
 (defun pdf-occur-create-entries (buffer string matches)
   (let ((case-fold-search (buffer-local-value
