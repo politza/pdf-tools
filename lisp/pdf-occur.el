@@ -38,8 +38,9 @@
   
 (define-derived-mode pdf-occur-buffer-mode tabulated-list-mode "PDFOccur"
   "Major mode for output from \\[pdf-occur].
-\\<pdf-occur-mode-map>Move point to one of the items in this buffer, then use
-\\[pdf-occur-mode-goto-occurrence] to go to the occurrence that the item refers to.
+\\<pdf-occur-buffer-mode-map>Move point to one of the items in this buffer, then use
+\\[pdf-occur-goto-occurrence] to go to the occurrence that the item refers to,
+and \\[pdf-occur-view-occurrence] to view the item in the other window.
 Alternatively, click \\[pdf-occur-mode-mouse-goto] on an item to go to it.
 
 \\{pdf-occur-buffer-mode-map}"
