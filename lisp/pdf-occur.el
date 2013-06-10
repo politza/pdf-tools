@@ -42,7 +42,7 @@
 \\[pdf-occur-mode-goto-occurrence] to go to the occurrence that the item refers to.
 Alternatively, click \\[pdf-occur-mode-mouse-goto] on an item to go to it.
 
-\\{pdf-occur-mode-map}"
+\\{pdf-occur-buffer-mode-map}"
   (setq truncate-lines t)
   (setq next-error-function 'pdf-occur-next-error))
   
