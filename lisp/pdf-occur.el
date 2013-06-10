@@ -186,6 +186,11 @@ If EVENT is nil, use occurrence at current line."
        'face 'match))
     (buffer-string)))
 
+;; Add support for follow mode (fm.el).
+(unless (not (featurep 'fm))
+  (add-to-list 'fm-modes '(pdf-occur-buffer-mode pdf-occur-goto-occurrence))
+  (add-hook 'pdf-occur-buffer-mode-hook 'fm-start))
+
 (provide 'pdf-occur)
 
 ;;; pdf-occur.el ends here
