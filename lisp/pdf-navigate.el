@@ -87,7 +87,7 @@
 ;;
 
 ;;; Require
-
+(eval-when-compile (require 'cl))
 
 ;;; Code:
 
@@ -128,6 +128,11 @@
 
 (defcustom pdf-navigate-window-size 5
   "The size (in lines) of the *PDF-History* window."
+  :group 'pdf-navigate
+  :type 'integer)
+
+(defcustom pdf-navigate-display-lines 5
+  "The number of lines of text to display for each page in the `pdf-history-stack'."
   :group 'pdf-navigate
   :type 'integer)
 
@@ -184,9 +189,15 @@
                                    'face
                                    (list :background "red"
                                          :foreground "black")))
-             (page-txt (pdf-info-gettext page 0 0 1 0.1 buffer)))
-        (push (list (list buffer page)
-                    (vector page-str page-txt))
+             (page-txt (pdf-info-gettext page 0 0 1 1 buffer))
+             (txt
+              (loop for i from 1 to pdf-navigate-display-lines
+                    with start = 0
+                    if (string-match "\\(.*\n\\)" page-txt start)
+                    do (setq start (match-end 0))
+                    and
+                    concat (match-string 1 page-txt))))
+        (push (list (list buffer page) (vector page-str txt))
               entries)))
     entries))
 
