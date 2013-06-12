@@ -1375,7 +1375,7 @@ i.e. a non mouse-movement event is read."
     (remove-hook 'tablist-selection-changed-functions
                  'pdf-annot-display-annotation t))))
 
-   
+;;   
 ;; *Utility functions
 ;; 
 

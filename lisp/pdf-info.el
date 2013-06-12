@@ -393,8 +393,8 @@ or a PDF file."
   (when (file-remote-p file-or-buffer)
     (error "Processing remote files not supported :%s"
            file-or-buffer))
-  (unless (file-readable-p file-or-buffer)
-    (error "File not readable :%s" file-or-buffer))
+  ;; (unless (file-readable-p file-or-buffer)
+  ;;   (error "File not readable :%s" file-or-buffer))
   file-or-buffer)
 
 (defun pdf-info-valid-page-spec-p (pages)
