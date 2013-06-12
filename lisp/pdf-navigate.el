@@ -15,7 +15,7 @@
 ;;
 ;; Features that might be required by this library:
 ;;
-;; pdf-tools
+;; pdf-history
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -88,6 +88,7 @@
 
 ;;; Require
 (eval-when-compile (require 'cl))
+(require 'pdf-history)
 
 ;;; Code:
 
