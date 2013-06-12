@@ -95,14 +95,36 @@
   "Commands for viewing and navigating the `pdf-history-stack'."
   :group 'pdf-tools)
 
+(defmacro pdf-navigate-key-cmd (cmd)
+  "Call command CMD interactively in the associated pdf file buffer."
+  `(lambda nil (interactive)
+    (with-selected-window
+        (get-buffer-window pdf-navigate-source-buffer)
+      (call-interactively ',cmd))))
+
 (defvar pdf-navigate-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "RET") 'pdf-navigate-goto-item)
     (define-key kmap (kbd "C-o") 'pdf-navigate-view-item)
     (define-key kmap (kbd "<down>") 'pdf-navigate-next-item)
     (define-key kmap (kbd "<up>") 'pdf-navigate-previous-item)
+    (define-key kmap (kbd "<C-down>") (pdf-navigate-key-cmd doc-view-next-line-or-next-page))
+    (define-key kmap (kbd "<C-up>") (pdf-navigate-key-cmd doc-view-previous-line-or-previous-page))
+    (define-key kmap (kbd "C-<") (pdf-navigate-key-cmd image-bob))
+    (define-key kmap (kbd "C->") (pdf-navigate-key-cmd image-eob))
+    (define-key kmap (kbd "<C-prior>") (pdf-navigate-key-cmd doc-view-previous-page))
+    (define-key kmap (kbd "<C-next>") (pdf-navigate-key-cmd doc-view-next-page))
+    (define-key kmap (kbd "C-M-<") (pdf-navigate-key-cmd doc-view-first-page))
+    (define-key kmap (kbd "C-M->") (pdf-navigate-key-cmd doc-view-last-page))
+    (define-key kmap (kbd "C-w") (pdf-navigate-key-cmd pdf-misc-copy-page))
     kmap)
   "The keymap used for `pdf-navigate-mode'.")
+
+(define-key pdf-history-minor-mode-map (kbd "C-S-n") 'pdf-navigate)
+
+(defvar pdf-navigate-source-buffer nil
+  "The buffer associated with this *PDF-History* buffer")
+(make-variable-buffer-local 'pdf-navigate-source-buffer)
 
 (defcustom pdf-navigate-window-size 5
   "The size (in lines) of the *PDF-History* window."
@@ -123,17 +145,22 @@
 (defun pdf-navigate (buffer)
   "Display the `pdf-history-stack' in the *PDF-History* buffer."
   (interactive (list (current-buffer)))
-  (with-current-buffer (get-buffer-create "*PDF-History*")
-    (let* ((page-cmp
-            (lambda (e1 e2)
-              (let ((p1 (string-to-number
-                         (aref (cadr e1) 0)))
-                    (p2 (string-to-number
-                         (aref (cadr e2) 0))))
-                (<= p1 p2)))))
+  (let ((filename (buffer-file-name buffer))
+        (page-cmp
+         (lambda (e1 e2)
+           (let ((p1 (string-to-number
+                      (aref (cadr e1) 0)))
+                 (p2 (string-to-number
+                      (aref (cadr e2) 0))))
+             (<= p1 p2)))))
+    (with-current-buffer (get-buffer-create
+                          (concat "*PDF-History:"
+                                  (file-name-nondirectory filename)
+                                  "*"))
       (let ((inhibit-read-only t))
         (erase-buffer))
       (pdf-navigate-mode)
+      (setq pdf-navigate-source-buffer buffer)
       (setq tabulated-list-format
             (apply 'vector
                    `(("Page" 4 ,page-cmp :right-align t)
