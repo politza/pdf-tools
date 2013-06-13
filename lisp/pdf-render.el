@@ -65,10 +65,14 @@
                                +file+)             
                               (string-to-number (match-string 1 +file+))))))
           (when +page+
-            (ad-set-arg 0 (pdf-render-image-file +page+)))))
-      (ad-set-args 1 (pdf-render-annotate-image
-                      (doc-view-current-page)
-                      (ad-get-args 1))))))
+            (ad-set-arg
+             0
+             ;; Defined below.
+             (with-no-warnings (pdf-render-image-file +page+))))))
+      (ad-set-args 1 (with-no-warnings  ;Defined below.
+                       (pdf-render-annotate-image
+                        (doc-view-current-page)
+                        (ad-get-args 1)))))))
 
 (defun pdf-render-ghostscript-configure (render-opt)
   "Set ghostscript options from RENDER-OPT.
