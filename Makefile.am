@@ -1,7 +1,7 @@
 SUBDIRS = src
 LISP_PACKAGES = pdf-history.el pdf-info.el pdf-isearch.el		\
  pdf-links.el pdf-misc.el pdf-occur.el pdf-outline.el pdf-tools.el	\
- pdf-util.el pdf-render.el pdf-annot.el
+ pdf-util.el pdf-render.el pdf-annot.el tablist.el tablist-filter.el
 LISP_FILES = $(addprefix lisp/,$(LISP_PACKAGES))
 EPKG_FILES = $(LISP_FILES) src/epdfinfo README.org
 EPKG_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
@@ -23,7 +23,7 @@ package:
 	echo "(define-package \"$(PACKAGE_NAME)\" \"$(PACKAGE_VERSION)\" \
 	 	\"Support library for PDF documents.\")"  \
 		> $(EPKG_NAME)/$(PACKAGE_NAME)-pkg.el
-	cp  $(EPKG_FILES) $(EPKG_NAME)/
+	cp $(EPKG_FILES) $(EPKG_NAME)/
 	tar cf $(EPKG_TAR_NAME) $(EPKG_NAME)
 	rm -r -- $(EPKG_NAME)
 
