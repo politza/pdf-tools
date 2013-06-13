@@ -37,6 +37,7 @@
 (require 'facemenu) ;;for list-colors-duplicates
 (require 'faces) ;;for color-values
 (require 'org)   ;;org-with-gensyms, org-create-formula-image-with-dvipng
+(require 'tablist)
 (require 'cl-lib)
 
 ;;; Code:
@@ -402,7 +403,7 @@ current buffer."
 (defun pdf-annot-get-attachment (a)
   (unless (pdf-annot-has-attachment-p a)
     (error "Annotation has no data attached: %s" a))
-  (pdf-attach-get-from-annot a))
+  (pdf-annot-attach-get-from-annot a))
 
 (defun pdf-annot-date (a)
   (or (cdr (assq 'modified (pdf-annot-properties a)))
@@ -629,7 +630,7 @@ used as a reference."
   (or (run-hook-with-args-until-success
        'pdf-annot-print-tooltip-functions a)
       (if (pdf-annot-has-attachment-p a)
-          (pdf-attach-print-tooltip
+          (pdf-annot-attach-print-tooltip
            (pdf-annot-get-attachment a))
         (concat
          (pdf-annot-print-tooltip-header a)
@@ -885,7 +886,7 @@ To be registered with `pdf-render-register-annotate-image-function'."
                  ev ',(nth i ops) ',a
                  ',(cl-case (pdf-annot-type a)
                      (text 'pdf-annot-edit-text)
-                     (file 'pdf-attach-find-file-other-window)))))
+                     (file 'pdf-annot-attach-find-file-other-window)))))
             (pdf-util-image-map-divert-mouse-clicks (nth i ids) '(2 4 5 6))))))
   (plist-put props
              :map
@@ -1561,7 +1562,7 @@ after this package was loaded."
         (smap (make-sparse-keymap)))
     (define-key kmap [remap doc-view-revert-buffer] 'doc-view-reconvert-doc)
     (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap)
-    (define-key kmap (kbd "C-c C-f") 'pdf-attach-dired)
+    (define-key kmap (kbd "C-c C-f") 'pdf-annot-attach-dired)
     (define-key smap (kbd "C-l") 'pdf-annot-list-annotations)
     (define-key smap (kbd "l") 'pdf-annot-list-annotations)
     (define-key smap (kbd "C-d") 'pdf-annot-toggle-display-annotations)
@@ -1621,7 +1622,7 @@ Effective symbols are `delete', `revert-document' and `revert-page'.")
          `(menu-item "Open attachment"
                      ,(lambda ()
                         (interactive)
-                        (pdf-attach-find-file-other-window a))
+                        (pdf-annot-attach-find-file-other-window a))
                      :help "Find this attachment in another window")))
       (t
        (define-key menu [goto-annotation]
