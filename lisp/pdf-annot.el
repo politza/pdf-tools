@@ -1408,6 +1408,28 @@ i.e. a non mouse-movement event is read."
 
 ;; 
 
+(defun pdf-annot-update-minor-mode-map ()
+  (interactive)
+  (let ((kmap (make-sparse-keymap))
+        (smap (make-sparse-keymap)))
+    (define-key kmap [remap doc-view-revert-buffer] 'doc-view-reconvert-doc)
+    (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap)
+    (define-key kmap (kbd "C-c C-f") 'pdf-annot-attach-dired)
+    (define-key smap (kbd "C-l") 'pdf-annot-list-annotations)
+    (define-key smap (kbd "l") 'pdf-annot-list-annotations)
+    (define-key smap (kbd "C-d") 'pdf-annot-toggle-display-annotations)
+    (define-key smap (kbd "d") 'pdf-annot-toggle-display-annotations)
+    (when (pdf-info-writable-annotations-p)
+      (define-key smap (kbd "C-a") 'pdf-annot-add-text-annot)
+      (define-key smap (kbd "a") 'pdf-annot-add-text-annot)
+      (define-key smap (kbd "C-r") 'pdf-annot-revert-page)
+      (define-key smap (kbd "r") 'pdf-annot-revert-page)
+      (define-key smap (kbd "R") 'pdf-annot-revert-document))
+    (setq-default pdf-annot-minor-mode-map kmap)
+    (let ((elt (assq 'pdf-annot-minor-mode minor-mode-map-alist)))
+      (when elt
+        (setcdr elt pdf-annot-minor-mode-map)))))
+
 (defcustom pdf-annot-minor-mode-map-prefix "C-c C-a"
   "The prefix to use for `pdf-annot-minor-mode-map'.
 
@@ -1554,30 +1576,6 @@ after this package was loaded."
                 (cons 'link pdf-annot-rendered-types)))
   (pdf-render-redisplay-current-page)
   (pdf-render-redraw-document))
-
-
-(defun pdf-annot-update-minor-mode-map ()
-  (interactive)
-  (let ((kmap (make-sparse-keymap))
-        (smap (make-sparse-keymap)))
-    (define-key kmap [remap doc-view-revert-buffer] 'doc-view-reconvert-doc)
-    (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap)
-    (define-key kmap (kbd "C-c C-f") 'pdf-annot-attach-dired)
-    (define-key smap (kbd "C-l") 'pdf-annot-list-annotations)
-    (define-key smap (kbd "l") 'pdf-annot-list-annotations)
-    (define-key smap (kbd "C-d") 'pdf-annot-toggle-display-annotations)
-    (define-key smap (kbd "d") 'pdf-annot-toggle-display-annotations)
-    (when (pdf-info-writable-annotations-p)
-      (define-key smap (kbd "C-a") 'pdf-annot-add-text-annot)
-      (define-key smap (kbd "a") 'pdf-annot-add-text-annot)
-      (define-key smap (kbd "C-r") 'pdf-annot-revert-page)
-      (define-key smap (kbd "r") 'pdf-annot-revert-page)
-      (define-key smap (kbd "R") 'pdf-annot-revert-document))
-    (setq-default pdf-annot-minor-mode-map kmap)
-    (let ((elt (assq 'pdf-annot-minor-mode minor-mode-map-alist)))
-      (when elt
-        (setcdr elt pdf-annot-minor-mode-map)))))
-
 
 (defvar pdf-annot-no-confirm nil
   "A list of operations requiring no confirmation.
