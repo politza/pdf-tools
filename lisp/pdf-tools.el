@@ -83,6 +83,7 @@ In order to customize dark and light colors use
     pdf-links-minor-mode
     pdf-misc-minor-mode
     pdf-outline-minor-mode
+    pdf-misc-size-indication-minor-mode
     pdf-misc-menu-bar-minor-mode
     pdf-misc-tool-bar-minor-mode
     pdf-annot-minor-mode
@@ -162,7 +163,14 @@ See `pdf-tools-enabled-modes'."
     (customize-group 'pdf-tools-faces)
     (with-current-buffer buffer
       (set (make-local-variable 'custom-face-default-form) 'all))))
-  
+
+(when (fboundp 'doc-view--current-cache-dir)
+  ;; Compatibility aliases for recent renaming in bzr doc-view.el .
+  (defalias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
+  (defvaralias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
+  (defvaralias 'doc-view-current-converter-processes 'doc-view--current-converter-processes)
+  (defvaralias 'doc-view-buffer-file-name 'doc-view--buffer-file-name))
+
 (provide 'pdf-tools)
 
 ;;; pdf-tools.el ends here
