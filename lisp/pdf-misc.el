@@ -199,20 +199,22 @@ Leave a border of MARGIN."
 (defun pdf-misc-auto-fit-maybe ()
   (when (pdf-util-pdf-window-p)
     (condition-case err
-    (let ((window-configuration-change-hook ;set-window-parameter triggers it.
-           (remq 'pdf-misc-auto-fit-maybe
-                 window-configuration-change-hook)))
-      (cl-destructuring-bind (&optional buffer &rest width)
-          (window-parameter nil 'pdf-misc-auto-fit-data)
-        (when (and (or (not (eq buffer (current-buffer)))
-                       (or (null width) (/= width (window-width))))
-                   (pdf-util-page-displayed-p))
-          (doc-view-fit-width-to-window)
-          (set-window-parameter nil 'pdf-misc-auto-fit-data
-                                (cons (current-buffer)
-                                      (window-width)))
-          (pdf-util-set-window-pixel-vscroll 0))))
-    (error (message "%s" (error-message-string err))))))
+        (let ((window-configuration-change-hook
+               ;;set-window-parameter triggers it.
+               (remq 'pdf-misc-auto-fit-maybe
+                     window-configuration-change-hook)))
+          (cl-destructuring-bind (&optional buffer &rest width)
+              (window-parameter nil 'pdf-misc-auto-fit-data)
+            (when (and (or (not (eq buffer (current-buffer)))
+                           (null width)
+                           (/= width (window-width)))
+                       (pdf-util-page-displayed-p))
+              (doc-view-fit-width-to-window)
+              (set-window-parameter nil 'pdf-misc-auto-fit-data
+                                    (cons (current-buffer)
+                                          (window-width)))
+              (pdf-util-set-window-pixel-vscroll 0))))
+      (error (message "%s" (error-message-string err))))))
 
 ;;
 
