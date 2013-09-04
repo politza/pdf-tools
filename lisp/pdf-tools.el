@@ -126,6 +126,16 @@ MODES defaults to `pdf-tools-enabled-modes'."
   (interactive)
   (pdf-tools-set-modes-enabled nil modes))
 
+(defun pdf-tools-enable-maybe (&optional modes)
+  "Maybe enable MODES in the current buffer.
+
+MODES defaults to `pdf-tools-enabled-modes'.
+
+Does nothing, if current buffer is not in DocViewPDF Mode."
+  (interactive)
+  (when (pdf-util-pdf-buffer-p)
+    (pdf-tools-enable modes)))
+
 ;;;###autoload
 (defun pdf-tools-install ()
   "Install PdfTools in all current and future PDF buffers.
@@ -136,7 +146,7 @@ See `pdf-tools-enabled-modes'."
     (with-current-buffer buf
       (when (pdf-util-pdf-buffer-p buf)
         (pdf-tools-enable))))
-  (add-hook 'doc-view-mode-hook 'pdf-tools-enable))
+  (add-hook 'doc-view-mode-hook 'pdf-tools-enable-maybe))
 
 (defun pdf-tools-uninstall ()
   "Uninstall PdfTools in all current and future PDF buffers."
