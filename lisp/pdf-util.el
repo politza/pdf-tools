@@ -669,7 +669,11 @@ to)."
   (let ((dir (pdf-util-cache--get-root-dir)))
     (when (and dir
                (file-exists-p dir))
-      (delete-directory dir t))))
+      (with-temp-buffer
+        ;; Switch to multibyte buffer, because delete-directory has a
+        ;; filename encoding bug when deleting recursively from
+        ;; unibyte buffer.
+        (delete-directory dir t)))))
 
 (defun pdf-util-cache--get-root-dir ()
   (when (and (pdf-util-docview-buffer-p)
