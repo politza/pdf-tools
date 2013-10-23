@@ -20,6 +20,30 @@
 
 ;;; Commentary:
 ;;
+;; This library represents the Lisp side of the epdfinfo server.  This
+;; program works on a command/response basis, but there should be no
+;; need to understand the protocol, since every command has a
+;; corresponding Lisp-function (see below under `High level
+;; interface').
+;;
+;; Most of these functions receive a file-or-buffer argument, which
+;; may be what it says and defaults to the current buffer.  Also, most
+;; functions return some sort of alist, with, in most cases,
+;; straight-forward key-value-pairs.  Though some may be only
+;; understandable in the context of Adobe's PDF spec \(Adobe
+;; PDF32000\) or the poppler documentation (e.g. annotation flags).
+;;
+;; If the poppler library is fairly recent (>= 0.19.4, older versions
+;; have a bug, which may corrupt the document), annotations maybe
+;; modified to a certain degree, deleted and text-annotations created.
+;; The state of these modifications is held in the server.  In order
+;; to realize, annotations retrieved or created are referenced by a
+;; unique symbol.  Saving these changes creates a new file, the
+;; original document is never touched.
+ 
+;;; Todo:
+;;
+;; 
 
 ;;; Code:
 
@@ -45,7 +69,7 @@
   "The name of the log buffer.
 
 If this is non-nil, all communication with the epdfinfo programm
-  will be logged to this buffer."
+will be logged to the buffer with this name."
   :group 'pdf-info
   :type '(choice
           (const "*pdf-info-log*")
@@ -65,15 +89,23 @@ ask -- ask whether to restart or not."
                  (const :tag "Always ask" ask)))
 
 (defconst pdf-info-text-annot-writable-properties
-  '(color contents label icon isopen edges))
+  '(color contents label icon isopen edges)
+  "A list of writable annotation properties.")
+
+(defvar pdf-info-after-close-document-hook nil
+  "A hook ran after a document was closed in the server.")
 
 ;;
 ;; Internal Variables and Functions
-  
+;; 
+
 (defvar pdf-info-features nil)
 
 (defvar pdf-info-queue t
-  "Internally used transmission-queue for the epdfinfo server.")
+  "Internally used transmission-queue for the server.
+
+This variable is initially `t', telling the code starting the
+server, that it never ran.")
 
 (defun pdf-info-process ()
   "Return the process object or nil."
@@ -82,13 +114,13 @@ ask -- ask whether to restart or not."
        (tq-process pdf-info-queue)))
 
 (defun pdf-info-process-assert-running (&optional force)
-  "Assert that the epdfinfo process is running.
+  "Assert a running process.
 
 If it never ran, i.e. `pdf-info-process' is t, start it
 unconditionally.
 
-If FORCE is non-nil unconditionally start it, if it is not
-running.  Otherwise restart it with respect to the variable
+Otherwise, if FORCE is non-nil start it, if it is not running.
+Else restart it with respect to the variable
 `pdf-info-restart-process-p', which see.
 
 If getting the process to run fails, this function throws an
@@ -120,8 +152,8 @@ error."
       (setq pdf-info-queue (tq-create proc))))
   pdf-info-queue)
 
-(defun pdf-info-log (string &optional outgoing-p)
-  "Log STRING as query/response, depending on OUTGOING-P.
+(defun pdf-info-log (string &optional query-p)
+  "Log STRING as query/response, depending on QUERY-P.
 
 This is a no-op, if `pdf-info-log-buffer' is nil."
   (when pdf-info-log-buffer
@@ -134,13 +166,13 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
          (propertize
           (concat (current-time-string) ":")
           'face
-          (if outgoing-p
+          (if query-p
               'font-lock-keyword-face
             'font-lock-function-name-face))
          string)))))
 
 (defun pdf-info-query (cmd &rest args)
-  "Query the server useing CMD and ARGS."
+  "Query the server using CMD and ARGS."
   (pdf-info-process-assert-running)
   (unless (symbolp cmd)
     (setq cmd (intern cmd)))
@@ -211,6 +243,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
         ;; (Is it really stdout ? Yes it is : Catalog.cc, function NameTree::lookup)
         ;; (while (re-search-forward "failed to look up [A-Z.0-9]+\n" nil t)
         ;;   (replace-match ""))
+        ;; FIXME: I can't tell if this is still necessary.
         )
       (let (result)
         (forward-line)
@@ -219,7 +252,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
         (pdf-info-query--transform-response
          cmd (nreverse result))))
      (t
-      (error "Got invalid response from epdfinfo server")))))
+      (error "Invalid server response")))))
 
 (defun pdf-info-query--read-record ()
   "Read a single record of the response in current buffer."
@@ -242,7 +275,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
     (nreverse records)))
 
 (defun pdf-info-query--transform-response (cmd response)
-  "Transform a RESPONSE to CMD into a convenient lisp form."
+  "Transform a RESPONSE to CMD into a Lisp form."
   (cl-macrolet ((pop-not-empty (l)
                   `(let ((str (pop ,l)))
                      (and (> (length str) 0) str))))
@@ -352,7 +385,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
       (t response))))
 
 (defun pdf-info-query--transform-action (action)
-  "Transform ACTION response into a convenient Lisp form."
+  "Transform ACTION response into a Lisp form."
 (let ((type (intern (pop action))))
     (cons type
           (cons (pop action)
@@ -505,12 +538,11 @@ PAGES may be one of
 ;;
 
 (defun pdf-info-features ()
-  "Return a list of symbols describing compile-time features."
+  "Return a list of symbols describing server compile-time features."
   (unless pdf-info-features
     (setq pdf-info-features
           (pdf-info-query 'features)))
   pdf-info-features)
-      
                           
 (defun pdf-info-open (&optional file-or-buffer password)
   "Open the docüment FILE-OR-BUFFER using PASSWORD.
@@ -525,9 +557,6 @@ Manually opened docüments are never closed automatically."
    'open (pdf-info--normalize-file-or-buffer file-or-buffer)
    password))
 
-(defvar pdf-info-after-close-document-hook nil
-  "A hook ran after a document was closed in the server.")
-
 (defun pdf-info-close (&optional file-or-buffer)
   "Close the document FILE-OR-BUFFER.
 
@@ -540,13 +569,12 @@ This command is rarely needed, see also `pdf-info-open'."
       (save-current-buffer
         (when (buffer-live-p buffer) (set-buffer buffer))
         (run-hooks 'pdf-info-after-close-document-hook)))))
-      
   
-
 (defun pdf-info-metadata (&optional file-or-buffer)
   "Extract the metadata from the document FILE-OR-BUFFER.
 
-This returns an alist of key-value-pairs."
+This returns an alist containing some information about the
+document."
   (pdf-info-query
    'metadata
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
@@ -556,13 +584,13 @@ This returns an alist of key-value-pairs."
 
 See `pdf-info--normalize-pages' for valid PAGES formats.
 
-This function returns an alist \(\((PAGE . MATCHES\) ... \),
-where MATCHES represents a list of matches on PAGE.  Each MATCHES
-item has the form of \(EDGES TEXT\), where EDGES represent the
+This function returns a list \(\((PAGE . MATCHES\) ... \), where
+MATCHES represents a list of matches on PAGE.  Each MATCHES item
+has a form of \(EDGES TEXT\), where EDGES represent the
 coordinates of the match as a list of four values \(LEFT TOP
-RIGHT BOTTOM\), these values are relative, i.e. from the interval
-\[0;1\].  TEXT is the matched text and may be empty, if extracting
-text is not available."
+RIGHT BOTTOM\). These values are relative, i.e. in the interval
+\[0;1\].  TEXT is the matched text and may be empty, if
+extracting text is not available in the server."
 
   (let ((pages (pdf-info--normalize-pages pages)))
     (pdf-info-query
@@ -581,26 +609,25 @@ See `pdf-info--normalize-pages' for valid PAGES formats.
 This function returns a list \(\(EDGES . ACTION\) ... \), where
 EDGES has the same form as in `pdf-info-search'.  ACTION
 represents a PDF Action and has the form \(TYPE TITLE . ARGS\),
-there TYPE is the type of action, TITLE is, a possibly empty,
-name for this action and ARGS is a list of the action's
-arguments.
+there TYPE is the type of the action, TITLE is a, possibly empty,
+name for this action and ARGS a list of the action's arguments.
 
 TYPE may be one of
 
-goto-dest -- An internal link to some page.
-ARGS has the form \(PAGE TOP\), where PAGE is the page of the
-link and TOP it's (relative) vertical position.
+goto-dest -- This is a internal link to some page.  ARGS has the
+form \(PAGE TOP\), where PAGE is the page of the link and TOP
+it's (relative) vertical position.
 
-goto-remote -- An external link to some document.
-ARGS is \(PDFFILE PAGE TOP\), where PDFFILE is the file-name of
-the PDF, PAGE the page number and TOP the (relative) horizontal
-position.
+goto-remote -- This a external link to some document.  ARGS is of
+the form \(PDFFILE PAGE TOP\), where PDFFILE is the filename of
+the external PDF, PAGE the page number and TOP the (relative)
+vertical position.
 
-ur -- An link in form of a URI.
-ARGS contains one element, the URI string.
+uri -- A link in form of some URI.  ARGS contains a single
+element, namely the URI.
 
-In all casses PAGE may be 0, which means unspecified.  Equally
-TOP may be nil."
+In the first two cases, PAGE may be 0 and TOP be nil, which means
+these data is unspecified."
   (cl-check-type page natnum)
   (pdf-info-query
    'pagelinks
@@ -617,9 +644,9 @@ TOP may be nil."
   "Return the PDF outline of document FILE-OR-BUFFER.
 
 This function returns a list \(\(DEPTH . ACTION\) ... \) of
-outline items, where DEPTH >= 1 is the depth of this item in the tree
-and ACTION has the same format as in `pdf-info-pagelinks', which
-see."
+outline items, where DEPTH >= 1 is the depth of this element in
+the tree and ACTION has the same format as in
+`pdf-info-pagelinks', which see."
 
   (pdf-info-query
    'outline
@@ -628,9 +655,10 @@ see."
 (defun pdf-info-gettext (page x0 y0 x1 y1 &optional file-or-buffer)
   "On PAGE extract the text of the selection X0 Y0 X1 and Y1.
 
-The coordinates of the selection have to be relative, i.e. in the
-interval [0;1].  It may extend to multiple lines, which works as
-usual (e.g. like the region in Emacs).
+The coordinates of the selection are assumed to be relative,
+i.e. in the interval [0;1].  The selection may extend over
+multiple lines, which works as usual \(e.g. like the region in
+Emacs\).
 
 Return the text contained in the selection."
 
@@ -665,34 +693,35 @@ The size is in pixel."
 (defun pdf-info-getannots (&optional pages file-or-buffer)
   "Return the annotations on PAGE.
 
-See `pdf-info--normalize-pages' for valid PAGES formats.  This
-function returns the annotations for pages PAGE as a list of
-alists.  A element of this list contains the following
-key-value-pairs.
+See `pdf-info--normalize-pages' for valid PAGES formats.
 
-page     - It's page number                                         . 
-edges    - It's area in relative coordinates                       . 
-type     - A symbol describing it' type                             . 
-id       - A document-wide unique symbol referencing this annotation . 
-flags    - It's flags, binary encoded                              . 
-color    - It's color in standard Emacs notation                   . 
-contents - The text of this annotation                          . 
-modified - The last date of modification                        . 
+This function returns the annotations for PAGES as a list of
+alists.  Each element of this list describes one annotation and
+contains the following keys.
+
+page     - It's page number. 
+edges    - It's (relative) area.
+type     - A symbol describing the annotation's type.
+id       - A document-wide unique symbol referencing this annotation.
+flags    - It's flags, binary encoded.
+color    - It's color in standard Emacs notation.
+contents - The text of this annotation.
+modified - The last modification date of this annotation.
 
 Additionally, if the annotation is a markup annotation, the
-following:
+following keys are present.
 
-label        - It's label.
+label        - The annotation's label.
 subject      - The subject addressed.
 opacity      - The level of relative opacity.
-popup-edges  - The edges of a possibly associated popup window.
+popup-edges  - The edges of a associated popup window or nil.
 popup-isopen - Whether this window should be displayed open.
 created      - The date this markup annotation was created.
 
-Additionally, if the annotation is a markup text annotation, the
-following:
+If the annotation is also a markup text annotation, the alist
+contains the following keys.
 
-text-icon  - A string kind of describing the purpose of this annotation.
+text-icon  - A string describing the purpose of this annotation.
 text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
   
   (let ((pages (pdf-info--normalize-pages pages)))
@@ -706,7 +735,8 @@ text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
   "Return the annotation for ID.
 
 ID should be a symbol, which was previously returned in a
-`pdf-info-getannots' query.
+`pdf-info-getannots' query.  Signal an error, if an annotation
+with ID is not available.
 
 See `pdf-info-getannots' for the kind of return value of this
 function."
@@ -718,8 +748,8 @@ function."
 (defun pdf-info-addannot (page x0 y0 x1 y1 &optional file-or-buffer)
   "Add a new text annotation to PAGE with edges X0, Y0, X1 and Y1.
 
-See `pdf-info-getannots' for the kind of return value of this
-function."
+See `pdf-info-getannots' for the kind of value of this function
+returns."
   (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'addannot
@@ -728,7 +758,11 @@ function."
    x0 y0 x1 y1))
 
 (defun pdf-info-delannot (id &optional file-or-buffer)
-  "Delete annotation with ID in FILE-OR-BUFFER."
+  "Delete the annotation with ID in FILE-OR-BUFFER.
+
+ID should be a symbol, which was previously returned in a
+`pdf-info-getannots' query.  Signal an error, if annotation ID
+does not exist."
   (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'delannot
@@ -736,14 +770,25 @@ function."
    id))
 
 (defun pdf-info-mvannot (id edges &optional file-or-buffer)
-  "Move/Resize annotation ID to fit EDGES. 
+  "Move/Resize annotation ID to fit EDGES.
 
 ID should be a symbol, which was previously returned in a
-`pdf-info-getannots' query."
+`pdf-info-getannots' query.  Signal an error, if annotation ID
+does not exist."
   (pdf-info-editannot id `((edges . ,edges)) file-or-buffer))
 
 (defun pdf-info-editannot (id modifications &optional file-or-buffer)
-  "Send modifications to annotation ID to the server."
+  "Send modifications to annotation ID to the server.
+
+ID should be a symbol, which was previously returned in a
+`pdf-info-getannots' query.  Signal an error, if annotation ID
+does not exist.
+
+MODIFICATIONS is an alist of properties and their new values.
+
+The server must support modifying annotations for this to work.
+See `pdf-info-text-annot-writable-properties' for a list of
+modifiable properties."
 
   (pdf-info-assert-writable-annotations)
   (let ((properties (mapcar 'car modifications)))
@@ -776,19 +821,18 @@ ID should be a symbol, which was previously returned in a
   "Save FILE-OR-BUFFER.
 
 This saves the document to a new temporary file, which is
-returned."
+returned and owned by the caller."
   (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'save
-   (pdf-info--normalize-file-or-buffer file-or-buffer)))
-   
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))   
 
 (defun pdf-info-getattachment-from-annot (id &optional do-save file-or-buffer)
   "Return the attachment associated with annotation ID.
 
 ID should be a symbol which was previously returned in a
 `pdf-info-getannots' query, and referencing an attachment of type
-`file', otherwise the result in an error.
+`file', otherwise an error is signalled.
 
 See `pdf-info-getattachments' for the kind of return value of this
 function and the meaning of DO-SAVE."
@@ -800,25 +844,23 @@ function and the meaning of DO-SAVE."
    (if do-save 1 0)))
 
 (defun pdf-info-getattachments (&optional do-save file-or-buffer)
-  "Return the document level attachments.
+  "Return all document level attachments.
 
-Attachments may be associated with the document or an annotation.
-If DO-SAVE is non-nil, also save the attachments data to a local
-file, see below.
+If DO-SAVE is non-nil, save the attachments data to a local file,
+which is then owned by the caller, see below.
 
-This function returns the former as a list of alist, where every
-element has the following key-value-pairs:
+This function returns a list of alists, where every element
+contains the following keys.
 
 name        - The filename of this attachment.
 description - A description of this attachment.
-size        - The size in bytes or -1 if n/a.
-modified    - The last date of modification.
+size        - The size in bytes or -1 if this is not available.
+modified    - The last modification date.
 created     - The date of creation.
-checksum    - A checksum of this attachment.
-file        - The name of a tempfile containing the data, only if DO-SAVE is non-nil.
+checksum    - A MD5 checksum of this attachment's data.
+file        - The name of a tempfile containing the data (only present if
+              DO-SAVE is non-nil)."
 
-If DO-SAVE is non-nil, the caller should use the
-tempfile (e.g. move it) and delete it afterwards."
   (pdf-info-query
    'getattachments
    (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -827,10 +869,11 @@ tempfile (e.g. move it) and delete it afterwards."
 (add-hook 'kill-emacs-hook 'pdf-info-quit)
 
 (define-minor-mode pdf-info-auto-revert-minor-mode
-  "Close the document, when the buffer was reverted.
+  "Close the document, after the buffer is reverted.
 
-This ensures, that the information retrieves is not outdated, but
-will, of course, abandon all changes made to the buffer."
+This ensures that the information retrieved is not outdated, but
+will abandon all changes made to annotations."
+
   nil nil t
   (pdf-util-assert-pdf-buffer)
   (cond
