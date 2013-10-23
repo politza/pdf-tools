@@ -209,6 +209,8 @@ Leave a border of MARGIN."
                            (null width)
                            (/= width (window-width)))
                        (pdf-util-page-displayed-p))
+              ;; FIXME: If the image is sliced, it'll get screwed
+              ;; cause of rounding errors.
               (doc-view-fit-width-to-window)
               (set-window-parameter nil 'pdf-misc-auto-fit-data
                                     (cons (current-buffer)

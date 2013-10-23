@@ -1,4 +1,4 @@
-;;; pdf-annot.el ---  -*- lexical-binding: t -*-
+;;; pdf-annot.el --- Annotation support for PDF files.  -*- lexical-binding: t -*-
 
 
 ;; Copyright (C) 2013  Andreas Politz

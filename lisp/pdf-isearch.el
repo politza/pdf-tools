@@ -20,7 +20,8 @@
 
 ;;; Commentary:
 ;;
-;; TODO:
+;;; Todo:
+;; 
 ;; * Add the possibility to limit the search to a range of pages.
 
 (require 'doc-view)

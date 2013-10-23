@@ -20,7 +20,8 @@
 
 ;;; Commentary:
 ;;
-;; TODO:
+;;; Todo:
+;; 
 ;; * Handle remote and locally cached documents.
 
 ;;; Code:
@@ -688,9 +689,6 @@ to)."
       (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t)
       dir)))
 
-
-;;
-;; 
 ;;
 ;; Various Functions
 ;; 

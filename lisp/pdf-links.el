@@ -1,4 +1,4 @@
-;;; pdf-links.el --- -*- lexical-binding: t -*-
+;;; pdf-links.el --- Handle PDF links. -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2013  Andreas Politz
 
