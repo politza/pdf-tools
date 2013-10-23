@@ -376,7 +376,7 @@ exit code.  And if this checks out, advice DocView about it."
                               (setq pdf-render-pages-to-render
                                     (remq page pdf-render-pages-to-render))
                               (pdf-render-redraw--1 buffer))))))))))))))
-    (force-mode-line-update t)))
+    (force-mode-line-update)))
 
 (defvar pdf-render-max-processes 3) 
 (defun pdf-render-current-number-of-processes ()
