@@ -32,6 +32,7 @@
 (defvar pdf-occur-buffer-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "RET") 'pdf-occur-goto-occurrence)
+    (define-key kmap (kbd "C-c C-f") 'next-error-follow-minor-mode)
     kmap)
   "The keymap used for `pdf-occur-buffer-mode'.")
   
