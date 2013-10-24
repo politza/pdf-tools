@@ -2,7 +2,7 @@
 #+AUTHOR:    Andreas Politz
 #+EMAIL:     politza@fh-trier.de
 
-* Building
+** Building
   This should be as simple as
 #+begin_src sh
   ./configure && make
@@ -22,7 +22,7 @@
      This is obviously a prerequisite for poppler-glib and the version
      should match it.
 
-* Installation
+** Installation
   Assuming the epdfinfo server build correctly and a Emacs package was
   created.  The next step is to install this package, with make
   via
@@ -44,7 +44,7 @@
 #+end_src
   somewhere in your .emacs.
 
-* Features
+** Features
 *** Render
    Display search results, links and annotations directly on the page,
    with customizable styles.
