@@ -224,9 +224,17 @@ And when in `isearch-mode', also the following, via
 
 (define-minor-mode pdf-isearch-active-mode
   "" nil nil nil
-  ;; (set-buffer-multibyte pdf-isearch-active-mode)
-  )
+  (cond
+   (pdf-isearch-active-mode
+    ;; The PDF buffer is usually in binary mode, but we probably want
+    ;; to search for multibyte characters.
+    (add-hook 'minibuffer-setup-hook 'pdf-isearch-enable-multibyte))
+   (t
+    (remove-hook 'minibuffer-setup-hook 'pdf-isearch-enable-multibyte))))
 
+(defun pdf-isearch-enable-multibyte ()
+  (set-buffer-multibyte t))
+  
 (define-minor-mode pdf-isearch-batch-mode
   "Incrementally search PDF documents in batches.
 
