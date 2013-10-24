@@ -8,7 +8,7 @@
   ./configure && make
 #+end_src
   which compiles the c source and creates a ELPA package.
-** Prerequisites for c part
+** Prerequisites
    + GNU/Linux OS
    + convert
      See http://www.imagemagick.org .
