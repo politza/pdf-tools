@@ -43,7 +43,7 @@
   
 (defcustom pdf-isearch-convert-commands
   '("-fuzz" "30%%" "-region" "%g"
-    "-fill" "%b" "-draw" "color 1,0 replace")
+    "-fill" "%b" "-draw" "color 0,2 replace")
   "The commands  for the external convert program.
 
 This should be a list of strings, possibly containing special
