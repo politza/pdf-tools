@@ -22,8 +22,8 @@
 ;;
 ;; This package adds marks and filters to tabulated-list-mode.  
 ;;
-;; It can be used by either deriving from tablist-mode, or by using
-;; tablist-minor-mode inside a tabulated-list-mode buffer.
+;; It can be used by deriving from tablist-mode and some features by
+;; using tablist-minor-mode inside a tabulated-list-mode buffer.
 ;;
 ;;
 ;; Ideas:
@@ -87,7 +87,7 @@
 
 (defvar tablist-mode-regexp-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap "&" 'tablist-flag-gargabe-items)
+    ;; (define-key kmap "&" 'tablist-flag-gargabe-items)
     (define-key kmap "m" 'tablist-mark-items-regexp)
     kmap))
 
@@ -95,16 +95,6 @@
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap "m" 'tablist-mark-forward)
     (define-key kmap (kbd "DEL") 'tablist-unmark-backward)
-    (define-key kmap "d" 'tablist-flag-forward)
-    (define-key kmap (kbd "RET") 'tablist-find-entry)
-    (define-key kmap "f" 'tablist-find-entry)
-    ;; (define-key kmap "~" 'tablist-flag-gargabe-items)
-    (define-key kmap "D" 'tablist-do-delete)
-    ;; (define-key kmap "C" 'tablist-do-copy)
-    ;; (define-key kmap "R" 'tablist-do-rename)
-    (define-key kmap "x" 'tablist-do-flagged-delete)
-    ;; (define-key kmap "F" 'tablist-find-marked-items)
-    ;; (define-key kmap (kbd "C-o") 'tablist-display-item)
     (define-key kmap "k" 'tablist-do-kill-lines)
     (define-key kmap "U" 'tablist-unmark-all-marks)
     (define-key kmap "u" 'tablist-unmark-forward)
@@ -118,8 +108,8 @@
     (define-key kmap "*" tablist-mode-mark-map)
     (define-key kmap "/" tablist-mode-filter-map)
 
-    (define-key kmap "e" 'tablist-edit-column)
-    (define-key kmap "i" 'tablist-insert-entry)
+    ;; (define-key kmap "e" 'tablist-edit-column)
+    ;; (define-key kmap "i" 'tablist-insert-entry)
     (define-key kmap "s" 'tablist-sort)
     (define-key kmap [remap back-to-indentation] 'tablist-move-to-major-column)
     (define-key kmap [remap next-line] 'tablist-next-line)
@@ -134,6 +124,16 @@
 (defvar tablist-mode-map
   (let ((kmap (copy-keymap tablist-minor-mode-map)))
     (set-keymap-parent kmap tabulated-list-mode-map)
+    (define-key kmap "d" 'tablist-flag-forward)
+    (define-key kmap (kbd "RET") 'tablist-find-entry)
+    (define-key kmap "f" 'tablist-find-entry)
+    ;; (define-key kmap "~" 'tablist-flag-gargabe-items)
+    (define-key kmap "D" 'tablist-do-delete)
+    (define-key kmap "C" 'tablist-do-copy)
+    (define-key kmap "R" 'tablist-do-rename)
+    (define-key kmap "x" 'tablist-do-flagged-delete)
+    ;; (define-key kmap "F" 'tablist-find-marked-items)
+    ;; (define-key kmap (kbd "C-o") 'tablist-display-item)
     kmap))
 
   
