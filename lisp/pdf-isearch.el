@@ -210,7 +210,8 @@ And when in `isearch-mode', also the following, via
       (setq imagemagick-render-type 1))
     (add-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize nil t)
     (add-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup nil t)
-    (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t))
+    (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t)
+    (advice-add 'isearch-done :around 'pdf-isearch-done-advice))
    (t
     (kill-local-variable 'search-exit-option)
     (kill-local-variable 'isearch-allow-scroll)
@@ -220,7 +221,19 @@ And when in `isearch-mode', also the following, via
     (kill-local-variable 'isearch-lazy-highlight)
     (remove-hook 'isearch-update-post-hook 'pdf-isearch-update t)
     (remove-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize t)
-    (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t))))
+    (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t)
+    (advice-remove 'isearch-done 'pdf-isearch-done-advice))))
+
+(defvar pdf-isearch-suspended-p nil
+  "Non-nil in `isearch-mode-end-hook', if isearch is suspended.")
+
+(defun pdf-isearch-done-advice (fn &optional nopush edit)
+  "Make a supsended isearch distinguishable from a quit.
+
+Binds `pdf-isearch-suspended-p' to the EDIT argument around
+`isearch-done'."
+  (let ((pdf-isearch-suspended-p edit))
+    (funcall fn nopush edit)))
 
 (define-minor-mode pdf-isearch-active-mode
   "" nil nil nil
@@ -228,13 +241,11 @@ And when in `isearch-mode', also the following, via
    (pdf-isearch-active-mode
     ;; The PDF buffer is usually in binary mode, but we probably want
     ;; to search for multibyte characters.
-    (add-hook 'minibuffer-setup-hook 'pdf-isearch-enable-multibyte))
+    (set-buffer-multibyte t))
    (t
-    (remove-hook 'minibuffer-setup-hook 'pdf-isearch-enable-multibyte))))
+    (unless pdf-isearch-suspended-p
+      (set-buffer-multibyte nil)))))
 
-(defun pdf-isearch-enable-multibyte ()
-  (set-buffer-multibyte t))
-  
 (define-minor-mode pdf-isearch-batch-mode
   "Incrementally search PDF documents in batches.
 
