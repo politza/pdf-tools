@@ -32,16 +32,18 @@
 (defvar pdf-occur-buffer-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "RET") 'pdf-occur-goto-occurrence)
+    (define-key kmap (kbd "C-o") 'pdf-occur-view-occurrence)
     kmap)
   "The keymap used for `pdf-occur-buffer-mode'.")
   
 (define-derived-mode pdf-occur-buffer-mode tabulated-list-mode "PDFOccur"
   "Major mode for output from \\[pdf-occur].
-\\<pdf-occur-mode-map>Move point to one of the items in this buffer, then use
-\\[pdf-occur-mode-goto-occurrence] to go to the occurrence that the item refers to.
+\\<pdf-occur-buffer-mode-map>Move point to one of the items in this buffer, then use
+\\[pdf-occur-goto-occurrence] to go to the occurrence that the item refers to,
+and \\[pdf-occur-view-occurrence] to view the item in the other window.
 Alternatively, click \\[pdf-occur-mode-mouse-goto] on an item to go to it.
 
-\\{pdf-occur-mode-map}"
+\\{pdf-occur-buffer-mode-map}"
   (setq truncate-lines t)
   (setq next-error-function 'pdf-occur-next-error))
   
@@ -101,6 +103,26 @@ If EVENT is nil, use occurrence at current line."
       (doc-view-goto-page (cadr link))
       (pdf-util-tooltip-arrow (nth 1 (nth 2 link)) 2))))
 
+(defun pdf-occur-view-occurrence (&optional event)
+  "View the occurrence at EVENT.
+
+If EVENT is nil, use occurrence at current line."
+  (interactive (list last-nonmenu-event))
+  (let ((link
+         (if (null event)
+             ;; Actually `event-end' works correctly with a nil argument as
+             ;; well, so we could dispense with this test, but let's not
+             ;; rely on this undocumented behavior.
+             (tabulated-list-get-id)
+           (with-current-buffer (window-buffer (posn-window (event-end event)))
+             (save-excursion
+               (goto-char (posn-point (event-end event)))
+               (tabulated-list-get-id))))))
+    (when link
+      (with-selected-window (display-buffer (car link))
+        (doc-view-goto-page (cadr link))
+        (pdf-util-tooltip-arrow (nth 1 (nth 2 link)) 2)))))
+
 ;;;###autoload
 (defun pdf-occur (string &optional buffer)
   "List lines containing STRING in BUFFER."
@@ -136,7 +158,7 @@ If EVENT is nil, use occurrence at current line."
         (tabulated-list-init-header)
         (tabulated-list-print)
         (setq next-error-last-buffer (current-buffer))
-        (display-buffer (current-buffer))))))
+        (pop-to-buffer (current-buffer))))))
     
 (defun pdf-occur-create-entries (buffer string matches)
   (let ((case-fold-search (buffer-local-value
@@ -164,6 +186,11 @@ If EVENT is nil, use occurrence at current line."
        (match-end 0)
        'face 'match))
     (buffer-string)))
+
+;; Add support for follow mode (fm.el).
+(unless (not (featurep 'fm))
+  (add-to-list 'fm-modes '(pdf-occur-buffer-mode pdf-occur-goto-occurrence))
+  (add-hook 'pdf-occur-buffer-mode-hook 'fm-start))
 
 (provide 'pdf-occur)
 

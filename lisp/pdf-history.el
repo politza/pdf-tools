@@ -35,6 +35,7 @@
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "B") 'pdf-history-backward)
     (define-key kmap (kbd "N") 'pdf-history-forward)
+    (define-key kmap (kbd "C-SPC") 'pdf-history-push)
     kmap)
   "Keymap used in `pdf-history-minor-mode'.")
 
@@ -49,8 +50,9 @@
   (cond
    (pdf-history-minor-mode
     (pdf-history-push)
-    (add-hook 'pdf-util-after-change-page-hook
-              'pdf-history-after-change-page-hook nil t))
+    ;; (add-hook 'pdf-util-after-change-page-hook
+    ;;           'pdf-history-after-change-page-hook nil t)
+    )
    (t
     (remove-hook 'pdf-util-after-change-page-hook
                  'pdf-history-after-change-page-hook t))))
@@ -66,6 +68,7 @@
 
 This function does nothing, if current stack item already
 represents the current page."
+  (interactive)
   (let ((item (pdf-history-create-item)))
     (unless (and pdf-history-stack
                  (equal (nth pdf-history-index
