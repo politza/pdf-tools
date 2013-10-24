@@ -10,19 +10,15 @@
   which compiles the c source and creates a ELPA package.
 ** Prerequisites
    + GNU/Linux OS
-   + convert
-
+   + convert ::
      See http://www.imagemagick.org .
-   + GNU Emacs 24 
-
+   + GNU Emacs 24 ::
      Preferably with imagemagick support.  
-   + poppler-glib (>= 0.16)
-
+   + poppler-glib (>= 0.16) ::
      Some features require a more recent version.
      - >= 0.19.4 :: Creating and modifying text-annotations.
      - >= 0.22 :: Searching case-sensitive.
-   + glib
-
+   + glib ::
      This is obviously a prerequisite for poppler-glib and the version
      should match it.
 
