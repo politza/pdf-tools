@@ -2,27 +2,25 @@
 #+AUTHOR:    Andreas Politz
 #+EMAIL:     politza@fh-trier.de
 
-* Prerequisites
-** GNU/Linux OS
-** convert
-   http://www.imagemagick.org
-** GNU Emacs 24 
-   Preferably with imagemagick support.  
-** poppler-glib
-   Any version will do, but some will do better.
-    - >= 0.12 :: Extracting outline and document title.
-    - >= 0.16 :: Extracting metadata and document text.
-    - >= 0.22 :: Searching case-sensitive.
-** glib
-   This is obviously a prerequisite for poppler-glib.  I don't know
-   the minimally required version at the moment.
-            
 * Building
   This should be as simple as
 #+begin_src sh
   ./configure && make
 #+end_src
   which compiles the c source and creates a ELPA package.
+** Prerequisites for c part
+   + GNU/Linux OS
+   + convert
+     See http://www.imagemagick.org .
+   + GNU Emacs 24 
+     Preferably with imagemagick support.  
+   + poppler-glib (>= 0.16)
+     Some features require a more recent version.
+     - >= 0.19.4 :: Creating and modifying text-annotations.
+     - >= 0.22 :: Searching case-sensitive.
+   + glib
+     This is obviously a prerequisite for poppler-glib and the version
+     should match it.
 
 * Installation
   Assuming the epdfinfo server build correctly and a Emacs package was
@@ -44,30 +42,34 @@
 #+begin_src elisp
   (pdf-tools-install)
 #+end_src
-  in your .emacs and that's it.
+  somewhere in your .emacs.
 
-* Usage (in a nutshell):
-** Isearch
-   Press C-s to enter isearch, try it.  While in isearch mode, C-v
-   and C-M-v turn pages, C-b enters batch mode (try it), C-d enters
-   dark mode (try it).
+* Features
+** Render
+   Display search results, links and annotations directly on the page,
+   with customizable styles.
+** Isearch 
+   Interactively search PDF documents like any other buffer, though
+   there is currently no regexp support. 
+** Following links
+   Click on highlighted links, moving to some part of a different
+   page, some external file, a website or any other URI.  Links may
+   also be followed by keyboard commands.
+** Annotations
+   Display and list text-annotations, edit their contents and some
+   attributes, move them around, delete them or create new ones and
+   then save the modifications back to the PDF file.
+** Attachments
+   Save files attached to the PDF-file or list them in a dired buffer.
 ** Outline
-   Press o to enter the outline buffer, assuming the PDF has one.
-   Or use the menu-bar item 'PDF Outline', the tool bar or the imenu
-   command.
-** Links and the History
-   After DocView has converted the document, you should start to see
-   links underlined by some red pixel. (This is purely a visual
-   cue.)  Click on such a link to activate it, or press f and select
-   it with the keyboard. Press B to return to the original page and
-   N to move (again) to the page of the just followed link.
-** Miscellaneous
-   Drag the mouse over a region, this kills the selected text.  Press
-   C-w to copy the whole page.  M-s o invokes pdf-occur (but no
-   regexp). The key I displays some meta-information about the
-   document, s p and s w optimize the display to the page,
-   respectively window-width. C-c C-d enters dark mode, which
-   influences the color choices made (but not retroactively).
+   Use imenu or a special buffer to examine and navigate the PDF's
+   outline.
+** Misc
+   + Select and copy text from the PDF.
+   + Search for occurences of a string.
+   + Keep track of visited pages via a history.
+   + Auto-fit pages to the current window size.
+   + View multiple pages in multiple windows.
 
 # Local Variables:
 # mode: org
