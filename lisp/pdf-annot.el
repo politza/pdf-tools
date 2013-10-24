@@ -1368,16 +1368,6 @@ i.e. a non mouse-movement event is read."
 
 ;; 
 
-(defcustom pdf-annot-minor-mode-map-prefix "C-c C-a"
-  "The prefix to use for `pdf-annot-minor-mode-map'.
-
-Use `pdf-annot-update-minor-mode-map' if yout set this variable
-after this package was loaded."
-  :group 'pdf-annot
-  :set (lambda (sym value)
-         (set-default sym value)
-         (pdf-annot-update-minor-mode-map)))
-
 (defvar pdf-annot-minor-mode-map nil)
 
 (defun pdf-annot-update-minor-mode-map ()
@@ -1385,7 +1375,8 @@ after this package was loaded."
   (let ((kmap (make-sparse-keymap))
         (smap (make-sparse-keymap)))
     (define-key kmap [remap doc-view-revert-buffer] 'doc-view-reconvert-doc)
-    (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap)
+    (with-no-warnings
+      (define-key kmap (kbd pdf-annot-minor-mode-map-prefix) smap))
     (define-key kmap (kbd "C-c C-f") 'pdf-annot-attach-dired)
     (define-key smap (kbd "C-l") 'pdf-annot-list-annotations)
     (define-key smap (kbd "l") 'pdf-annot-list-annotations)
@@ -1401,6 +1392,16 @@ after this package was loaded."
     (let ((elt (assq 'pdf-annot-minor-mode minor-mode-map-alist)))
       (when elt
         (setcdr elt pdf-annot-minor-mode-map)))))
+
+(defcustom pdf-annot-minor-mode-map-prefix "C-c C-a"
+  "The prefix to use for `pdf-annot-minor-mode-map'.
+
+Use `pdf-annot-update-minor-mode-map' if yout set this variable
+after this package was loaded."
+  :group 'pdf-annot
+  :set (lambda (sym value)
+         (set-default sym value)
+         (pdf-annot-update-minor-mode-map)))
 
 ;;;###autoload
 (define-minor-mode pdf-annot-minor-mode
