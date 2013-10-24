@@ -22,8 +22,9 @@
 ;;; Commentary:
 ;;
 ;; TODO:
-;; * Handle server quit and more generally outdated datastructures.
-;;
+;; * Handle server quits and more generally outdated datastructures.
+;; * Add more documentation.
+;; * The create convert commands code seems confused.
 
 (require 'pdf-info)
 (require 'pdf-render)
@@ -125,7 +126,7 @@ uncompressed format, e.g. bmp2."
 (defvar pdf-annot-render-found-images nil
   "Alist of image filenames to resolved absolute filenames.")
 
-(defvar pdf-annot-annotate-resize-pixel 0)
+(defvar pdf-annot-annotate-resize-pixel 5)
 
 (defcustom pdf-annot-print-tooltip-functions
   '(pdf-annot-print-tooltip-latex-maybe)
@@ -157,11 +158,15 @@ order to display text properties;
 annoyed while reading the annotations."
   :group 'pdf-annot)
 
+(defvar pdf-annot-latex-string-predicate
+  (lambda (str)
+    (string-match "\\`[[:space:]\n]*[$\\]" str)))
+
 (defconst pdf-annot-types
-  '( unknown text link free-text line square
-             circle polygon poly-line highlight underline squiggly
-             strike-out stamp caret ink popup file sound movie widget screen
-             printer-mark trap-net watermark 3d ))
+  '(unknown text link free-text line square
+            circle polygon poly-line highlight underline squiggly
+            strike-out stamp caret ink popup file sound movie widget screen
+            printer-mark trap-net watermark 3d ))
   
 (defconst pdf-annot-standard-icons
   '("Note"
@@ -464,8 +469,9 @@ used as a reference."
     (isopen . nil))
   "An alist of default properties for new text annotations.")
   
-;; Standard size for text annotations is 24x24 pixel.
-;; Standard origin is roughly at (6,24) .
+;; Standard size for text annotations is 24x24 pixel.  Standard origin
+;; is roughly at (6,24).  (For some value of standard, i.e. Adobe
+;; Reader)
 (defun pdf-annot-add-text-annot (x y &optional page window)
   "Create a new text-annot pointing at X,Y on PAGE in WINDOW."
   (interactive
@@ -533,8 +539,6 @@ used as a reference."
      (mapcar (lambda (a) (pdf-annot-get a 'page))
              (pdf-annot-getannots)))))
 
-
-  
 (defun pdf-annot-revert-page (&optional page interactive)
   (interactive "P\np")
   (pdf-util-assert-pdf-buffer)
@@ -623,16 +627,10 @@ used as a reference."
           'face 'header-line)))
     (propertize header 'display header)))
 
-
-(defvar pdf-annot-latex-string-predicate
-  (lambda (str)
-    (string-match "\\`[[:space:]\n]*[$\\]" str)))
-  
 (defun pdf-annot-print-tooltip-latex-maybe (a)
   (when (funcall pdf-annot-latex-string-predicate
                  (pdf-annot-get a 'contents))
     (pdf-annot-print-tooltip-latex a)))
-
   
 (defun pdf-annot-print-tooltip-latex (a)
   (with-current-buffer (pdf-annot-buffer a)
