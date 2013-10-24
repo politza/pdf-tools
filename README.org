@@ -45,26 +45,26 @@
   somewhere in your .emacs.
 
 * Features
-** Render
+*** Render
    Display search results, links and annotations directly on the page,
    with customizable styles.
-** Isearch 
+*** Isearch 
    Interactively search PDF documents like any other buffer, though
    there is currently no regexp support. 
-** Following links
+*** Following links
    Click on highlighted links, moving to some part of a different
    page, some external file, a website or any other URI.  Links may
    also be followed by keyboard commands.
-** Annotations
+*** Annotations
    Display and list text-annotations, edit their contents and some
    attributes, move them around, delete them or create new ones and
    then save the modifications back to the PDF file.
-** Attachments
+*** Attachments
    Save files attached to the PDF-file or list them in a dired buffer.
-** Outline
+*** Outline
    Use imenu or a special buffer to examine and navigate the PDF's
    outline.
-** Misc
+*** Misc
    + Select and copy text from the PDF.
    + Search for occurences of a string.
    + Keep track of visited pages via a history.
