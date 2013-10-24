@@ -189,7 +189,7 @@ annoyed while reading the annotations."
   buffer
   ;;A list of properties to be written to the PDF later.
   modified-properties
-  ;;List of modified properties and events.
+  ;;Whether this annotation was deleted by the user.
   deleted-p
   ;; The annotations properties.
   properties)
