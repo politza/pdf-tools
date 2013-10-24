@@ -200,8 +200,6 @@ The function should return a collection for this column, suitable
 as argument for the function `completion-in-region'.")
 
 ;; Differentiating columns
-(defvar-local tablist-minor-columns nil
-  "Uninteresting, boring columns.")
 (defvar-local tablist-major-columns nil
   "Columns used to mark and when querying.")
 
@@ -230,6 +228,7 @@ as argument for the function `completion-in-region'.")
 ;; *Setup
 ;;
 
+(defvar savehist-additional-variables)
 (add-hook 'savehist-save-hook 
   (lambda nil
     (add-to-list 'savehist-additional-variables 'tablist-named-filter)))
@@ -772,7 +771,7 @@ STATE is a return value of `tablist-get-mark-state'."
   (interactive "p")
   (unless (tabulated-list-get-id)
     (error "No entry on this line"))
-  (let* ((columns (tablist-column-offsets t))
+  (let* ((columns (tablist-column-offsets))
          (current (1- (length columns))))
     ;; find current column
     (while (and (>= current 0)
@@ -790,8 +789,7 @@ STATE is a return value of `tablist-get-mark-state'."
       (setq n (* (cl-signum n) (1- (abs n)))))
     (when (/= n 0)
       (tablist-move-to-column
-       (+ (length tablist-minor-columns)
-          (mod (+ current n) (length columns)))))))
+       (mod (+ current n) (length columns))))))
 
 (defun tablist-backward-column (n)
   "Move n columns backward, while wrapping around."
@@ -1144,7 +1142,7 @@ Optional REVERT-P means, revert the display afterwards."
       (if columns
           0))))
 
-(defun tablist-column-offsets (&optional exclude-minor-columns-p)
+(defun tablist-column-offsets ()
   "Return a list of column positions.
 
 This is a list of offsets from the beginning of the line."
@@ -1155,9 +1153,7 @@ This is a list of offsets from the beginning of the line."
              (len (nth 1 c))
              (pad (or (plist-get (nthcdr 3 c) :pad-right)
                       1)))
-        (unless (and exclude-minor-columns-p
-                     (memq i tablist-minor-columns))
-          (push cc columns))
+        (push cc columns)
         (when (numberp len)
           (cl-incf cc len))
         (when pad

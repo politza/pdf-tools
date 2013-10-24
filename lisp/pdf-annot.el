@@ -1241,8 +1241,7 @@ i.e. a non mouse-movement event is read."
       (tabulated-list-print)
       (setq tablist-context-window-function 'pdf-annot-list-context-function
             tablist-operations-function 'pdf-annot-list-operation-function
-            tablist-major-columns '(1 2 3 4 5)
-            tablist-minor-columns '(0))
+            tablist-major-columns '(1 2 3 4 5))
       (let ((list-buffer (current-buffer)))
         (with-current-buffer buffer
           (setq pdf-annot-list-buffer list-buffer)))
