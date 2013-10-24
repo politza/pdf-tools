@@ -23,6 +23,7 @@
 
 (require 'pdf-util)
 (require 'pdf-info)
+(require 'tablist)
 
 ;;; Code:
 
@@ -31,14 +32,14 @@
 
 (defvar pdf-occur-buffer-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (set-keymap-parent kmap tabulated-list-mode-map)
+    (set-keymap-parent kmap tablist-mode-map)
     (define-key kmap (kbd "RET") 'pdf-occur-goto-occurrence)
     (define-key kmap (kbd "C-o") 'pdf-occur-view-occurrence)
     (define-key kmap (kbd "C-c C-f") 'next-error-follow-minor-mode)
     kmap)
   "The keymap used for `pdf-occur-buffer-mode'.")
   
-(define-derived-mode pdf-occur-buffer-mode tabulated-list-mode "PDFOccur"
+(define-derived-mode pdf-occur-buffer-mode tablist-mode "PDFOccur"
   "Major mode for output from \\[pdf-occur]. \\<pdf-occur-buffer-mode-map>
 
 Move point to one of the items in this buffer, then use \\[pdf-occur-goto-occurrence] to go
