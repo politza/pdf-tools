@@ -230,6 +230,10 @@ as argument for the function `completion-in-region'.")
 ;; *Setup
 ;;
 
+(add-hook 'savehist-save-hook 
+  (lambda nil
+    (add-to-list 'savehist-additional-variables 'tablist-named-filter)))
+
 (define-minor-mode tablist-minor-mode
   nil nil nil nil
   (unless (derived-mode-p 'tabulated-list-mode)
@@ -237,19 +241,15 @@ as argument for the function `completion-in-region'.")
   (tablist-init (not tablist-minor-mode)))
 
 (define-derived-mode tablist-mode tabulated-list-mode "TL"
-  (use-local-map tablist-mode-map)      ;FIXME: Mhh.
   (tablist-init))
 
 (defun tablist-init (&optional disable)
-  (when (boundp 'savehist-additional-variables)
-    (add-to-list 'savehist-additional-variables 'tablist-named-filter))
   (let ((cleaned-misc (cl-remove 'tablist-current-filter
                                  mode-line-misc-info :key 'car)))
     (cond
      ((not disable)
       (set (make-local-variable 'mode-line-misc-info)
            (append
-            
             (list
              (list 'tablist-current-filter
                    '(:eval (format " [%s]"
