@@ -20,7 +20,8 @@
 
 ;;; Commentary:
 ;;
-;; This package adds marks and filters to tabulated-list-mode.  
+;; This package adds marks and filters to tabulated-list-mode.  It
+;; also kind of puts a dired face on tabulated list buffers.
 ;;
 ;; It can be used by deriving from tablist-mode and some features by
 ;; using tablist-minor-mode inside a tabulated-list-mode buffer.
@@ -1409,7 +1410,8 @@ also determines the default COLUMN and direction.
 
 The main difference to `tabulated-list-sort' is, that this
 function sorts the buffer in-place and it ignores a nil sort
-entry in `tabulated-list-format' and sorts on the column anyway."
+entry in `tabulated-list-format' and sorts on the column
+anyway (why not ?)."
 
   (interactive
    (list
