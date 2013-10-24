@@ -23,12 +23,6 @@
 ;;
 ;; TODO:
 ;; * Handle server quit and more generally outdated datastructures.
-;; * Create a context menu
-;;   - Delete annotation
-;;   - Open attachment
-;;   - Browse annotations (-> tablist)
-;;   - Hide annotations (global menu)
-;;   - Create annotation (global menu)
 ;;
 
 (require 'pdf-info)
@@ -94,15 +88,6 @@ considered for rendering.
 
 There should be corresponding formats and maybe images for all
 types in this list, see `pdf-annot-convert-commands' and
-`pdf-annot-render-images'."
-  :group 'pdf-annot)
-  
-(defcustom pdf-annot-renderable-types '(text file)
-  "A list of annoatation types potentially renderable.
-
-This list is used when querying the user about what to render.
-Corresponding formats and maybe images for all types in this list
-should be defined, see `pdf-annot-convert-commands' and
 `pdf-annot-render-images'."
   :group 'pdf-annot)
 
