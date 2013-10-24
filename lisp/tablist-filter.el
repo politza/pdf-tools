@@ -97,7 +97,7 @@
       (setq tablist-filter-wisent-parser
             ;; Trick the byte-compile into not using the byte-compile
             ;; handler in semantic/wisent/comp.el, since it does not
-            ;; work (wisent-context-compile-grammar n/a).
+            ;; always work (wisent-context-compile-grammar n/a).
             (funcall wisent-compile-grammar*
                      tablist-filter-wisent-grammar))))
   (when interactive
@@ -153,10 +153,11 @@
     (condition-case error
         (wisent-parse tablist-filter-wisent-parser
                       'tablist-filter-wisent-lexer
-                      (lambda (msg) (signal 'error
-                                            (replace-regexp-in-string
-                                             "\\$EOI" "end of input"
-                                             msg t t))))
+                      (lambda (msg)
+                        (signal 'error
+                                (replace-regexp-in-string
+                                 "\\$EOI" "end of input"
+                                 msg t t))))
       (error
        (signal 'error
                (append (if (consp (cdr error))
@@ -325,20 +326,17 @@
            (side . bottom)))
      nil
      (princ "Filter entries with the following operators.\n\n")
-     (princ "~~~ Binary operator ~~~\n")
      (princ "&&  - FILTER1 && FILTER2 : Locical and.\n")
      (princ "||  - FILTER1 || FILTER2 : Locical or.\n")
      (dolist (op tablist-filter-binary-operator)
        (princ-op op))
-     (princ "\n~~~ Unary operator ~~~\n")
      (princ "!  - ! FILTER : Locical not.\n\n")
      (dolist (op tablist-filter-unary-operator)
        (princ-op op))
-     (princ "\"...\" may be used to quote names and values if necessary, and \(...\) to group expressions.")
+     (princ "\"...\" may be used to quote names and values if necessary,
+and \(...\) to group expressions.")
      (with-current-buffer standard-output
-       (help-mode)))))
-                           
-                           
+       (help-mode)))))                           
   
 ;; 
 ;; **Filter Functions
