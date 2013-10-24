@@ -69,6 +69,7 @@
    Use imenu or a special buffer to examine and navigate the PDF's
    outline.
 *** Misc
+   + Display PDF's metadata.
    + Select and copy text from the PDF.
    + Search for occurences of a string.
    + Keep track of visited pages via a history.
