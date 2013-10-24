@@ -456,28 +456,6 @@ used as a reference."
               edges-top
               (if dx (+ edges-left dx) edges-right)
               (if dy (+ edges-top dy) edges-bot))))))
-      
-
-(defun pdf-annot-image-edges (a &optional image-size)
-  "Return annotation A's edges in image coordinats.
-
-If IMAGE-SIZE is not given, the image in the selected window is
-used as a reference."
-  (pdf-util-scale-edges
-   (pdf-annot-get a 'edges)
-   (or image-size (pdf-util-image-size))))
-
-(defun pdf-annot-image-set-edges (a edges &optional image-size)
-  "Set annotation A's edges in it's image.
-
-If IMAGE-SIZE is not given, the image in the selected window is
-used as a reference."
-  (unless image-size
-    (setq image-size (pdf-util-image-size)))
-  (let ((scale (cons (/ 1.0 (car image-size))
-                     (/ 1.0 (cdr image-size)))))
-    (pdf-annot-set a 'edges
-      (pdf-util-scale-edges edges scale))))
 
 (defvar pdf-annot-text-annot-defaults
   `((icon . "Note")
