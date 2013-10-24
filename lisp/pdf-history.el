@@ -66,6 +66,7 @@
 
 This function does nothing, if current stack item already
 represents the current page."
+  (interactive)
   (let ((item (pdf-history-create-item)))
     (unless (and pdf-history-stack
                  (equal (nth pdf-history-index
@@ -122,6 +123,7 @@ represents the current page."
   
 (defun pdf-history-goto (n)
   "Go to item N in the history."
+  (interactive "p")
   (when (null pdf-history-stack)
     (error "The history is empty"))
   (cond
