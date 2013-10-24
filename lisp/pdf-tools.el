@@ -174,13 +174,6 @@ See `pdf-tools-enabled-modes'."
     (with-current-buffer buffer
       (set (make-local-variable 'custom-face-default-form) 'all))))
 
-(when (fboundp 'doc-view--current-cache-dir)
-  ;; Compatibility aliases for recent renaming in bzr doc-view.el .
-  (defalias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
-  (defvaralias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
-  (defvaralias 'doc-view-current-converter-processes 'doc-view--current-converter-processes)
-  (defvaralias 'doc-view-buffer-file-name 'doc-view--buffer-file-name))
-
 (provide 'pdf-tools)
 
 ;;; pdf-tools.el ends here

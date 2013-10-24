@@ -30,6 +30,19 @@
 (require 'format-spec)
 (require 'gnus-range)
          
+;; Compatibility aliases for recent renaming in bzr doc-view.el .
+(when (fboundp 'doc-view--current-cache-dir)
+  (defalias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
+  (defvaralias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
+  (defvaralias 'doc-view-current-converter-processes 'doc-view--current-converter-processes)
+  (defvaralias 'doc-view-buffer-file-name 'doc-view--buffer-file-name))
+
+(eval-when-compile
+  (declare-function doc-view-current-cache-dir "pdf-util.el" nil t)
+  (defvar doc-view-buffer-file-name)
+  (defvar doc-view-current-converter-processes)
+  (defvar doc-view-buffer-file-name))
+
 ;;
 ;; Variables
 ;;
