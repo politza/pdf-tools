@@ -28,7 +28,7 @@
   "Jump from TeX sources to PDF pages and back."
   :group 'pdf-tools)
   
-(defcustom pdf-sync-tex-goto-pdf-key "C-c C-g"
+(defcustom pdf-sync-tex-display-pdf-key "C-c C-g"
   "Key to jump from a TeX buffer to it's PDF file.
 
 This key is added to `TeX-source-correlate-method', when
@@ -47,14 +47,30 @@ This key is added to `TeX-source-correlate-method', when
 
 ;;;###autoload
 (define-minor-mode pdf-sync-minor-mode
-  "Correlate a PDF position with the TeX file."
+  "Correlate a PDF position with the TeX file.
+\\<pdf-sync-minor-mode-map>
+This works via SyncTeX, which means the TeX sources need to have
+been compiled with `--synctex=1'.  In AUCTeX this can be done by
+setting `TeX-source-correlate-method' to 'synctex \(before AUCTeX
+is loaded\) and enabling `TeX-source-correlate-mode'.
+
+Then \\[pdf-sync-mouse-goto-tex] in the PDF buffer will open the
+corresponding TeX location.
+
+If AUCTeX is loaded when this mode is enabled, it'll bind
+`pdf-sync-tex-display-pdf-key' \(the default is `C-c C-g'\) to
+`pdf-sync-display-pdf' in `TeX-source-correlate-map'.  This
+function displays the PDF page corresponding to the current
+position in the TeX buffer.  This function works only together
+with AUCTeX."
+
   nil nil nil
   (cond
    (pdf-sync-minor-mode
-    (when (and pdf-sync-tex-goto-pdf-key
+    (when (and pdf-sync-tex-display-pdf-key
                (boundp 'TeX-source-correlate-map))
       (define-key TeX-source-correlate-map
-        (kbd pdf-sync-tex-goto-pdf-key)
+        (kbd pdf-sync-tex-display-pdf-key)
         'pdf-sync-display-pdf)))))
   
 (defun pdf-sync-mouse-goto-tex (ev)
