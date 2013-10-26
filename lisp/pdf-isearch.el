@@ -179,7 +179,7 @@ colors, are used (see variable `frame-background-mode' etc.),
 rather than the light ones.
 
 \\{pdf-isearch-minor-mode-map}
-In `isearch-mode' the following keys are available.
+While in `isearch-mode' the following keys are available.
 
 \\{pdf-isearch-active-mode-map}"
   :group 'pdf-isearch

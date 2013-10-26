@@ -46,7 +46,11 @@
 #+begin_src elisp
   (pdf-tools-install)
 #+end_src
-  somewhere in your .emacs.
+  somewhere in your .emacs.  Try
+#+begin_src elisp
+  M-x pdf-tools-help RET
+#+end_src
+  for a overview of most features.
 
 ** Features
 *** Render

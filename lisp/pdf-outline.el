@@ -124,6 +124,10 @@
 (define-minor-mode pdf-outline-minor-mode
   "Display an outline of a PDF document.
 
+This provides a PDF's outline on the menu bar via imenu.
+Additionally the same outline may be viewed in a designated
+buffer.
+
 \\{pdf-outline-minor-mode-map}"
   nil nil nil
   (pdf-util-assert-pdf-buffer)

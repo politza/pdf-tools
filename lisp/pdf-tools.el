@@ -176,6 +176,7 @@ See `pdf-tools-enabled-modes'."
     (with-current-buffer buffer
       (set (make-local-variable 'custom-face-default-form) 'all))))
 
+;;;###autoload
 (defun pdf-tools-help ()
   (interactive)
   (help-setup-xref (list #'pdf-tools-help)
