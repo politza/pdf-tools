@@ -534,3 +534,7 @@ exit code.  And if this checks out, advice DocView about it."
 
 (provide 'pdf-render)
 ;;; pdf-render.el ends here
+
+;; Local Variables:
+;; byte-compile-warnings: (not obsolete)
+;; End:
