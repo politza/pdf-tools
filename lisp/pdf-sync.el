@@ -72,9 +72,11 @@ with AUCTeX."
 (eval-after-load "tex"
   '(when (and pdf-sync-tex-display-pdf-key
               (boundp 'TeX-source-correlate-map)
-              (null (lookup-key
-                     TeX-source-correlate-map
-                     (kbd pdf-sync-tex-display-pdf-key))))
+              (let ((key (lookup-key
+                          TeX-source-correlate-map
+                          (kbd pdf-sync-tex-display-pdf-key))))
+                (or (null key)
+                    (numberp key))))
      (define-key TeX-source-correlate-map
        (kbd pdf-sync-tex-display-pdf-key)
        'pdf-sync-display-pdf)))
