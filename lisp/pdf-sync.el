@@ -140,9 +140,8 @@ Returns a list \(SOURCE LINE COLUMN\)."
   "Find the PDF location corresponding to LINE, COLUMN.
 
 Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
-  (unless (and (fboundp 'TeX-master-file)
-               (derived-mode-p 'tex-mode))
-    (error "Buffer is not in AUCTeX mode"))
+  (unless (fboundp 'TeX-master-file)
+    (error "This function works only with AUCTeX"))
   (save-restriction
     (widen)
     (unless line (setq line (line-number-at-pos)))
