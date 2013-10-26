@@ -634,6 +634,8 @@ to)."
 ;; Caching Converted Images
 ;;
 
+(defvar pdf-util-cache-directories nil)
+
 (defun pdf-util-cache-make-filename (dir &optional extension &rest keys)
   (when (symbolp dir)
     (setq dir (symbol-name dir)))
@@ -647,8 +649,12 @@ to)."
                   dir
                   root))))
       (unless (file-exists-p dir)
-        (make-directory dir))
-      (expand-file-name file dir))))
+        (make-directory dir)
+        (push dir pdf-util-cache-directories))
+      (setq file (expand-file-name file dir))
+      (when (file-exists-p file)
+        (set-file-times file))
+      file)))
 
 (defun pdf-util-cache-files (dir)
   (when (symbolp dir)
@@ -701,6 +707,68 @@ to)."
         (make-directory dir))
       (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t)
       dir)))
+
+(defun pdf-util-cache-clean-globally ()
+  "Remove all not recently used cached images."
+  (let ((dvcd (expand-file-name doc-view-cache-directory)))
+    (setq pdf-util-cache-directories
+          (cl-remove-if-not
+           (lambda (d)
+             (and (file-readable-p d)
+                  (string-prefix-p dvcd d)))
+           pdf-util-cache-directories)))
+  (let ((now (current-time)))
+    (dolist (dir pdf-util-cache-directories)
+      (when (file-readable-p dir)
+        (dolist (file (directory-files
+                       dir t directory-files-no-dot-files-regexp t))
+          (let ((mtime (nth 5 (file-attributes file))))
+            (when (and (time-less-p
+                        (time-add mtime (seconds-to-time (* 5 60)))
+                        now)
+                       (not (pdf-util-image-in-use-p file)))
+              (if (file-directory-p file)
+                  (let ((pdf-util-cache-directories
+                         (list file)))
+                    (pdf-util-cache-clean-globally))
+                (clear-image-cache file)
+                (delete-file file)))))
+        (when (and (file-readable-p dir)
+                   (null (directory-files
+                          dir t directory-files-no-dot-files-regexp t)))
+          (delete-directory dir))))))
+
+(run-with-timer 0 (* 5 60) 'pdf-util-cache-clean-globally)
+    
+(defun pdf-util-image-in-use-p (file)
+  "Return t if image FILE is displayed in some window."
+  (cl-labels
+    ((check-buffer (buffer &optional window)
+       ;; Deleting a used image-file with imagemagick may crash Emacs,
+       ;; be thorough.
+       (with-current-buffer buffer
+         (save-excursion
+           (goto-char (point-min))
+           (catch 'found
+             (while (not (eobp))
+               (let ((display (get-char-property
+                               (point) 'display window))
+                     image-file)
+                 (when (and (consp display)
+                            (eq 'image (car display))
+                            (setq image-file (plist-get (cdr display) :file))
+                            image-file
+                            (file-equal-p image-file file))
+                   (throw 'found t)))
+               (goto-char (next-single-char-property-change
+                           (point) 'display nil (point-max)))))))))
+    (or (get-window-with-predicate
+         (lambda (win)
+           (check-buffer (window-buffer win) win))
+         'no-mini t)
+        (let ((tip  (get-buffer " *tip*")))
+          (and (buffer-live-p tip)
+               (check-buffer tip))))))
 
 ;;
 ;; Various Functions
