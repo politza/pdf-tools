@@ -42,7 +42,11 @@
 (define-minor-mode pdf-history-minor-mode
   "Keep a history of previously visited pages.
 
-\\{pdf-history-minor-mode-map}."
+This is a simple stack-based history.  Turning the page or
+following a link pushes the left-behind page on the stack, which
+may be naviagted with the following keys.
+
+\\{pdf-history-minor-mode-map}"
   nil nil nil
   (pdf-util-assert-pdf-buffer)
   (pdf-history-clear)

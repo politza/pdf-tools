@@ -178,13 +178,8 @@ Colors may also be influenced by the minor-mode
 colors, are used (see variable `frame-background-mode' etc.),
 rather than the light ones.
 
-The following keys are currently bound in keymap
-`pdf-isearch-minor-mode-map'.
-
 \\{pdf-isearch-minor-mode-map}
-
-And when in `isearch-mode', also the following, via
-`pdf-isearch-active-mode-map'.
+In `isearch-mode' the following keys are available.
 
 \\{pdf-isearch-active-mode-map}"
   :group 'pdf-isearch

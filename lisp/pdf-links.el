@@ -105,11 +105,12 @@ do something with it."
 
 ;;;###autoload
 (define-minor-mode pdf-links-minor-mode
-  "Handle links in PDF documents.
+  "Handle links in PDF documents.\\<pdf-links-minor-mode-map>
 
-\\<pdf-links-minor-mode-map>If this mode is enabled, most links in
-the document may be activated by clicking on them or by pressing
-\\[pdf-links-do-action].
+If this mode is enabled, most links in the document may be
+activated by clicking on them or by pressing \\[pdf-links-do-action] and selecting
+one of the displayed keys, or by using isearch limited to
+links via \\[pdf-links-isearch-link].
 
 \\{pdf-links-minor-mode-map}"
 

@@ -321,7 +321,8 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 ;;
 
 (define-minor-mode pdf-misc-size-indication-minor-mode
-  "" nil nil nil
+  "Provide a working size indication in the mode-line."
+  nil nil nil
   (pdf-util-assert-docview-buffer)
   (cond
    (pdf-misc-size-indication-minor-mode

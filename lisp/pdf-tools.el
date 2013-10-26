@@ -175,6 +175,19 @@ See `pdf-tools-enabled-modes'."
     (with-current-buffer buffer
       (set (make-local-variable 'custom-face-default-form) 'all))))
 
+(defun pdf-tools-help ()
+  (interactive)
+  (help-setup-xref (list #'pdf-tools-help)
+                   (called-interactively-p 'interactive))
+  (with-help-window (help-buffer)
+    (princ "PDF Tools Help\n\n")
+    (princ "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+    (dolist (m (sort (copy-sequence pdf-tools-modes) 'string<))
+      (princ (format "`%s' is " m))
+      (describe-function-1 m)
+      (terpri) (terpri)
+      (princ "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"))))
+  
 (provide 'pdf-tools)
 
 ;;; pdf-tools.el ends here

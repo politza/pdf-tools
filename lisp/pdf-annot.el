@@ -1405,7 +1405,9 @@ after this package was loaded."
 
 ;;;###autoload
 (define-minor-mode pdf-annot-minor-mode
-  "Annotation support."
+  "Support for PDF Annotations.
+
+\\{pdf-annot-minor-mode-map}"
   nil nil nil
   (cond
    (pdf-annot-minor-mode
