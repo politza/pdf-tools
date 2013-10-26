@@ -404,6 +404,11 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 
     (define-key menu [sep-4] menu-bar-separator)
 
+    (define-key menu [copy-page]
+      '(menu-item "Copy page" pdf-misc-copy-page
+                  :help "Copy the text of the page to the kill-ring"
+                  :visible (featurep 'pdf-misc)))
+    
     (define-key menu [occur]
       '(menu-item "Occur Document" pdf-occur
                   :help "Display lines containing a string"
@@ -436,19 +441,29 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                   :help "Display documents outline"
                   :visible (featurep 'pdf-outline)))
 
-    (define-key menu [sep-5] menu-bar-separator)
-
-    (define-key menu [copy-page]
-      '(menu-item "Copy page" pdf-misc-copy-page
-                  :help "Copy the text of the page to the kill-ring"
-                  :visible (featurep 'pdf-misc)))
-
+    ;; Context menu only
+    (define-key menu [sep-5]
+      '(menu-item "--"
+        :visible (equal last-command-event
+                        last-nonmenu-event)))
+    
+    ;; Context menu only
+    (define-key menu [locate-source]
+      '(menu-item "Locate TeX source" pdf-sync-mouse-goto-tex
+                  :help "Open the TeX source corresponding to this position."
+                  :visible (and (featurep 'pdf-sync)
+                                (equal last-command-event
+                                       last-nonmenu-event))))
+    
+    ;; Context menu only
     (define-key menu [add-text-annotation]
       '(menu-item "Add text annotation" pdf-annot-add-text-annot-at-event
                   :help "Add a new text annotation"
                   :keys "\\[pdf-annot-add-text-annot]"
                   :visible (and (bound-and-true-p pdf-annot-minor-mode)
-                                (pdf-info-writable-annotations-p))))
+                                (pdf-info-writable-annotations-p)
+                                (equal last-command-event
+                                       last-nonmenu-event))))
     
     (define-key menu [sep-6] menu-bar-separator)
     
