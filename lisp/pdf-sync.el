@@ -67,7 +67,7 @@ position in the TeX buffer.  This function only works together
 with AUCTeX."
 
   nil nil nil
-  (pdf-assert-pdf-buffer))
+  (pdf-util-assert-pdf-buffer))
 
 (eval-after-load "tex"
   '(when (and pdf-sync-tex-display-pdf-key
