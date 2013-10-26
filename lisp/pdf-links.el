@@ -257,7 +257,7 @@ scroll the current page."
              (doc-view-goto-page page))
            (when (and top
                       (pdf-util-page-displayed-p))
-             (pdf-util-tooltip-arrow top 2)))))
+             (pdf-util-tooltip-arrow top)))))
       (uri
        (funcall pdf-links-browse-uri-function (nth 2 action)))
       ;; (launch
