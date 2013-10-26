@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "synctex_parser.h"
 #include "epdfinfo.h"
 #include "config.h"
 
@@ -95,6 +96,8 @@ static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_relocannot (const ctxt_t *ctx, const arg_t *args);
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
+static void cmd_synctex_forward_search (const ctxt_t *ctx, const arg_t *args);
+static void cmd_synctex_backward_search (const ctxt_t *ctx, const arg_t *args);
 
 
 /* command specs */
@@ -229,6 +232,22 @@ const args_spec_t cmd_addannot_spec[] =
 
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
 
+const args_spec_t cmd_synctex_forward_search_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* source file */
+    ARG_NATNUM,                 /* line number */
+    ARG_NATNUM                  /* column number */
+  };
+
+const args_spec_t cmd_synctex_backward_search_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x */
+    ARG_EDGE                    /* y */
+  };
+
 static const cmd_t cmds [] =
   {
     /* Basic */
@@ -261,7 +280,12 @@ static const cmd_t cmds [] =
      cmd_getattachment_from_annot_spec,
      G_N_ELEMENTS (cmd_getattachment_from_annot_spec)},
     {"getattachments", cmd_getattachments, cmd_getattachments_spec,
-     G_N_ELEMENTS (cmd_getattachments_spec)} 
+     G_N_ELEMENTS (cmd_getattachments_spec)},
+    /* Synctex */
+    {"synctex-forward-search", cmd_synctex_forward_search, cmd_synctex_forward_search_spec,
+     G_N_ELEMENTS (cmd_synctex_forward_search_spec)},
+    {"synctex-backward-search", cmd_synctex_backward_search, cmd_synctex_backward_search_spec,
+     G_N_ELEMENTS (cmd_synctex_backward_search_spec)}
   };
 
 static const char *poppler_action_type_strings[] =
@@ -1906,6 +1930,116 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
 }
 
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
+
+static void
+cmd_synctex_forward_search (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args[0].value.doc;
+  const char *source = args[1].value.string;
+  int line = args[2].value.natnum;
+  int column = args[3].value.natnum;
+  synctex_scanner_t scanner =
+    synctex_scanner_new_with_output_file (doc->filename, NULL, 1);
+  synctex_node_t node;  
+
+  if (!scanner)
+    {
+      printf_error ("Unable to create synctex scanner,\
+ did you run latex with `--synctex=1' ?");
+      return;
+    }
+
+  if (! synctex_display_query (scanner, source, line, column)
+      || ! (node = synctex_next_result (scanner)))
+    {
+      printf_error ("Destination not found");
+      goto theend;
+    }
+
+  {
+    int pn = synctex_node_page (node);
+    PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
+    float x1 =  synctex_node_box_visible_h (node);
+    float y1 =  synctex_node_box_visible_v (node)
+      - synctex_node_box_visible_height (node);
+    float x2 = synctex_node_box_visible_width (node) + x1;
+    float y2 = synctex_node_box_visible_depth (node)
+      + synctex_node_box_visible_height (node) + y1;
+    double width, height;
+    
+    if (! page)
+      {
+        printf_error ("Destination not found");
+        goto theend;
+      }
+    poppler_page_get_size (page, &width, &height);
+    x1 /= width;
+    y1 /= height;
+    x2 /= width;
+    y2 /= height;
+    
+    OK_BEG ();
+    printf("%d:%f:%f:%f:%f\n", pn, x1, y1, x2, y2);
+    OK_END ();
+    g_object_unref (page);
+  }
+ theend:
+  synctex_scanner_free (scanner);
+}
+
+static void
+cmd_synctex_backward_search (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args[0].value.doc;
+  int pn = args[1].value.natnum;
+  double x = args[2].value.edge;
+  double y = args[3].value.edge;
+  synctex_scanner_t scanner =
+    synctex_scanner_new_with_output_file (doc->filename, NULL, 1);
+  const char *filename;
+  PopplerPage *page;
+  synctex_node_t node;  
+  double width, height;
+  int line, column;
+
+  if (!scanner)
+    {
+     printf_error ("Unable to create synctex scanner,\
+ did you run latex with `--synctex=1' ?");
+      return;
+    }
+
+  page = poppler_document_get_page(doc->pdf, pn - 1);
+  if (! page)
+    {
+      printf_error ("Destination not found");
+      goto free_scanner;
+    }
+  poppler_page_get_size (page, &width, &height);
+  x = x * width;
+  y = y * height;
+
+  if (! synctex_edit_query (scanner, pn, x, y)
+      || ! (node = synctex_next_result (scanner))
+      || ! (filename =
+            synctex_scanner_get_name (scanner, synctex_node_tag (node))))
+    {
+      printf_error ("Destination not found");
+      goto free_page_and_scanner;
+    }
+
+  line = synctex_node_line (node);
+  column = synctex_node_column (node);
+  OK_BEG ();
+  printf("%s:%d:%d\n", filename, line, column);
+  OK_END ();
+
+ free_page_and_scanner:
+  g_object_unref (page);
+ free_scanner:
+  synctex_scanner_free (scanner);
+}
+
 
 
 /* utility functions */

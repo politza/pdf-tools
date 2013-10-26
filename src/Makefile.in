@@ -46,11 +46,12 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_epdfinfo_OBJECTS = epdfinfo.$(OBJEXT) poppler-hack.$(OBJEXT)
+am_epdfinfo_OBJECTS = epdfinfo.$(OBJEXT) poppler-hack.$(OBJEXT) \
+	synctex_parser.$(OBJEXT) synctex_parser_utils.$(OBJEXT)
 epdfinfo_OBJECTS = $(am_epdfinfo_OBJECTS)
 am__DEPENDENCIES_1 =
 epdfinfo_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -172,10 +173,14 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+zlib_CFLAGS = @zlib_CFLAGS@
+zlib_LIBS = @zlib_LIBS@
 AM_CFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS) -w
 AM_CXXFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS) -w
-epdfinfo_LDADD = $(glib_LIBS) $(poppler_glib_LIBS) $(poppler_LIBS) 
-epdfinfo_SOURCES = epdfinfo.c epdfinfo.h poppler-hack.cc
+epdfinfo_LDADD = $(glib_LIBS) $(poppler_glib_LIBS) $(poppler_LIBS) $(zlib_LIBS)
+epdfinfo_SOURCES = epdfinfo.c epdfinfo.h poppler-hack.cc synctex_parser.c\
+	synctex_parser_utils.c
+
 CVSCLEANFILES = Makefile.in aclocal.m4 config.h.in configure \
 	depcomp install-sh missing autom4te.cache
 
@@ -280,6 +285,8 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/epdfinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/poppler-hack.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/synctex_parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/synctex_parser_utils.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

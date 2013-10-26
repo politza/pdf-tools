@@ -87,6 +87,7 @@ In order to customize dark and light colors use
     pdf-misc-menu-bar-minor-mode
     pdf-misc-tool-bar-minor-mode
     pdf-annot-minor-mode
+    pdf-sync-minor-mode
     pdf-info-auto-revert-minor-mode))
     
 (defcustom pdf-tools-enabled-modes pdf-tools-modes 

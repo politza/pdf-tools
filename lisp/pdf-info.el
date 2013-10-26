@@ -380,6 +380,11 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                     (checksum . ,(pop-not-empty a))
                     (file . ,(pop-not-empty a))))
                 response)))
+      (synctex-forward-search
+       (mapcar 'string-to-number (car response)))
+      (synctex-backward-search
+       (cons (caar response)
+             (mapcar 'string-to-number (cdar response))))
       (delannot nil)
       (save (caar response))
       (t response))))
@@ -866,7 +871,24 @@ file        - The name of a tempfile containing the data (only present if
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    (if do-save 1 0)))
 
-(add-hook 'kill-emacs-hook 'pdf-info-quit)
+(defun pdf-info-synctex-forward-search (source &optional line column file-or-buffer)
+  (let ((source (if (buffer-live-p (get-buffer source))
+                    (buffer-file-name (get-buffer source))
+                  source)))
+    (pdf-info-query
+     'synctex-forward-search
+     (pdf-info--normalize-file-or-buffer file-or-buffer)
+     source
+     (or line 1)
+     (or column 1))))
+                                        
+(defun pdf-info-synctex-backward-search (page &optional x y file-or-buffer)
+  (pdf-info-query
+   'synctex-backward-search
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   page
+   (or x 0)
+   (or y 0)))
 
 (define-minor-mode pdf-info-auto-revert-minor-mode
   "Close the document, after the buffer is reverted.
@@ -881,7 +903,9 @@ will abandon all changes made to annotations."
     (add-hook 'after-revert-hook 'pdf-info-close nil t))
    (t
     (remove-hook 'after-revert-hook 'pdf-info-close t))))
-  
+
+(add-hook 'kill-emacs-hook 'pdf-info-quit)
+
 (provide 'pdf-info)
 
 ;;; pdf-info.el ends here

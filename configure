@@ -602,6 +602,8 @@ LIBOBJS
 EGREP
 GREP
 CPP
+zlib_LIBS
+zlib_CFLAGS
 poppler_glib_LIBS
 poppler_glib_CFLAGS
 poppler_LIBS
@@ -725,6 +727,8 @@ poppler_CFLAGS
 poppler_LIBS
 poppler_glib_CFLAGS
 poppler_glib_LIBS
+zlib_CFLAGS
+zlib_LIBS
 CPP'
 
 
@@ -1378,6 +1382,8 @@ Some influential environment variables:
               C compiler flags for poppler_glib, overriding pkg-config
   poppler_glib_LIBS
               linker flags for poppler_glib, overriding pkg-config
+  zlib_CFLAGS C compiler flags for zlib, overriding pkg-config
+  zlib_LIBS   linker flags for zlib, overriding pkg-config
   CPP         C preprocessor
 
 Use these variables to override the choices made by `configure' or to help
@@ -4632,6 +4638,95 @@ if test -n "$PKG_CONFIG" && \
   HAVE_POPPLER_ANNOT_WRITE=yes
 fi
 
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for zlib" >&5
+$as_echo_n "checking for zlib... " >&6; }
+
+if test -n "$zlib_CFLAGS"; then
+    pkg_cv_zlib_CFLAGS="$zlib_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"zlib\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "zlib") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_zlib_CFLAGS=`$PKG_CONFIG --cflags "zlib" 2>/dev/null`
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$zlib_LIBS"; then
+    pkg_cv_zlib_LIBS="$zlib_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"zlib\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "zlib") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_zlib_LIBS=`$PKG_CONFIG --libs "zlib" 2>/dev/null`
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        zlib_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors "zlib" 2>&1`
+        else
+	        zlib_PKG_ERRORS=`$PKG_CONFIG --print-errors "zlib" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$zlib_PKG_ERRORS" >&5
+
+	as_fn_error $? "Package requirements (zlib) were not met:
+
+$zlib_PKG_ERRORS
+
+Consider adjusting the PKG_CONFIG_PATH environment variable if you
+installed software in a non-standard prefix.
+
+Alternatively, you may set the environment variables zlib_CFLAGS
+and zlib_LIBS to avoid the need to call pkg-config.
+See the pkg-config man page for more details." "$LINENO" 5
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "The pkg-config script could not be found or is too old.  Make sure it
+is in your PATH or set the PKG_CONFIG environment variable to the full
+path to pkg-config.
+
+Alternatively, you may set the environment variables zlib_CFLAGS
+and zlib_LIBS to avoid the need to call pkg-config.
+See the pkg-config man page for more details.
+
+To get pkg-config, see <http://pkg-config.freedesktop.org/>.
+See \`config.log' for more details" "$LINENO" 5 ; }
+else
+	zlib_CFLAGS=$pkg_cv_zlib_CFLAGS
+	zlib_LIBS=$pkg_cv_zlib_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+fi
+
 if test "$HAVE_POPPLER_FIND_OPTS" = yes; then
 
 $as_echo "#define HAVE_POPPLER_FIND_OPTS 1" >>confdefs.h
@@ -5253,7 +5348,7 @@ fi
 done
 
 
-ac_config_files="$ac_config_files src/Makefile Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5978,8 +6073,8 @@ do
   case $ac_config_target in
     "src/config.h") CONFIG_HEADERS="$CONFIG_HEADERS src/config.h" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
-    "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5 ;;
   esac

@@ -21,6 +21,7 @@ PKG_CHECK_MODULES([poppler], [poppler])
 PKG_CHECK_MODULES([poppler_glib], [poppler-glib >= 0.16.0])
 PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
 PKG_CHECK_EXISTS([poppler-glib >= 0.19.4], [HAVE_POPPLER_ANNOT_WRITE=yes])
+PKG_CHECK_MODULES([zlib], [zlib])
 
 if test "$HAVE_POPPLER_FIND_OPTS" = yes; then
   AC_DEFINE([HAVE_POPPLER_FIND_OPTS],1,
@@ -45,7 +46,7 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([strcspn strtol])
 
-AC_CONFIG_FILES([src/Makefile Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
 
 echo

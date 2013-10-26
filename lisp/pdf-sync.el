@@ -1,0 +1,134 @@
+;;; pdf-sync.el --- Use synctex to correlate LaTeX-Sources with PDF positions. -*- lexical-binding:t -*-
+;; Copyright (C) 2013  Andreas Politz
+
+;; Author: Andreas Politz <politza@fh-trier.de>
+;; Keywords: files, doc-view, pdf
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+;; 
+
+(require 'pdf-info)
+
+;;; Code:
+
+(defgroup pdf-sync nil
+  "Jump from TeX sources to PDF pages and back."
+  :group 'pdf-tools)
+  
+(defcustom pdf-sync-tex-goto-pdf-key "C-c C-g"
+  "Key to jump from a TeX buffer to it's PDF file.
+
+This key is added to `TeX-source-correlate-method', when
+`pdf-sync-minor-mode' is activated and this map is defined."
+  :type 'key-sequence)
+
+(defcustom pdf-sync-after-goto-tex-hook nil
+  "Hook ran after going to a source location."
+  :type 'hook)
+
+(defvar pdf-sync-minor-mode-map
+  (let ((kmap (make-sparse-keymap)))
+    (define-key kmap [down-mouse-1] 'ignore)
+    (define-key kmap [double-mouse-1] 'pdf-sync-mouse-goto-tex)
+    kmap))
+
+;;;###autoload
+(define-minor-mode pdf-sync-minor-mode
+  "Correlate a PDF position with the TeX file."
+  nil nil nil
+  (cond
+   (pdf-sync-minor-mode
+    (when (and pdf-sync-tex-goto-pdf-key
+               (boundp 'TeX-source-correlate-map))
+      (define-key TeX-source-correlate-map
+        (kbd pdf-sync-tex-goto-pdf-key)
+        'pdf-sync-display-pdf)))))
+  
+(defun pdf-sync-mouse-goto-tex (ev)
+  "Go to the source corresponding to position at event EV."
+  (interactive "@e")
+  (let* ((posn (event-start ev))
+         (image (posn-image posn))
+         (xy (posn-object-x-y posn)))
+    (unless image
+      (error "Outside of image area"))
+    (pdf-sync-goto-tex (car xy) (cdr xy))))
+  
+(defun pdf-sync-goto-tex (x y)
+  "Go to the source corresponding to image coordinates X, Y."
+  (cl-destructuring-bind (source line column)
+      (pdf-sync-correlate-tex x y)
+    (pop-to-buffer (or (find-buffer-visiting source)
+                       (find-file-noselect source)))
+    (when (> line 0)
+      (goto-char (point-min))
+      (forward-line (1- line)))
+    (when (> column 0)
+      (forward-char (1- column))))
+  (run-hooks 'pdf-sync-after-goto-tex-hook))
+
+(defun pdf-sync-correlate-tex (x y)
+  "Find the source corresponding to image coordinates X, Y.
+
+Returns a list \(SOURCE LINE COLUMN\)."
+
+  (pdf-util-assert-pdf-window)
+  (let ((offset (pdf-util-image-offset))
+        (size (pdf-util-image-size))
+        (page (doc-view-current-page)))
+    (setq x (/ (+ x (car offset))
+               (float (car size)))
+          y (/ (+ y (cdr offset))
+               (float (cdr size))))
+    (cl-destructuring-bind (source line column)
+        (pdf-info-synctex-backward-search page x y)
+      (list (expand-file-name source)
+            line column))))
+
+(defun pdf-sync-display-pdf (&optional line column)
+  "Display the PDF location corresponding to LINE, COLUMN."
+  (interactive)
+  (cl-destructuring-bind (pdf page _x1 y1 _x2 _y2)
+      (pdf-sync-correlate-pdf line column)
+    (with-selected-window (display-buffer
+                           (or (find-buffer-visiting pdf)
+                               (find-file-noselect pdf)))
+      (doc-view-goto-page page)
+      (when (pdf-util-page-displayed-p)
+        (let ((top (* y1 (cdr (pdf-util-image-size))))
+              (off (cdr (pdf-util-image-offset))))
+          (pdf-util-tooltip-arrow (round (- top off))))))))
+
+(defun pdf-sync-correlate-pdf (&optional line column)
+  "Find the PDF location corresponding to LINE, COLUMN.
+
+Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
+  (unless (and (fboundp 'TeX-master-file)
+               (derived-mode-p 'tex-mode))
+    (error "Buffer is not in AUCTeX mode"))
+  (save-restriction
+    (widen)
+    (unless line (setq line (line-number-at-pos)))
+    (unless column (setq column (current-column))))
+
+  (let ((pdf (expand-file-name
+              (with-no-warnings (TeX-master-file "pdf")))))
+    (cons pdf (pdf-info-synctex-forward-search
+               (current-buffer) line column pdf))))
+
+(provide 'pdf-sync)
+
+;;; pdf-sync.el ends here
