@@ -33,10 +33,12 @@
 
 This key is added to `TeX-source-correlate-method', when
 `pdf-sync-minor-mode' is activated and this map is defined."
+  :group 'pdf-sync
   :type 'key-sequence)
 
 (defcustom pdf-sync-after-goto-tex-hook nil
   "Hook ran after going to a source location."
+  :group 'pdf-sync
   :type 'hook)
 
 (defvar pdf-sync-minor-mode-map
@@ -57,21 +59,25 @@ is loaded\) and enabling `TeX-source-correlate-mode'.
 Then \\[pdf-sync-mouse-goto-tex] in the PDF buffer will open the
 corresponding TeX location.
 
-If AUCTeX is loaded when this mode is enabled, it'll bind
-`pdf-sync-tex-display-pdf-key' \(the default is `C-c C-g'\) to
-`pdf-sync-display-pdf' in `TeX-source-correlate-map'.  This
+If AUCTeX is your preferred tex-mode, this library arranges to
+bind `pdf-sync-tex-display-pdf-key' \(the default is `C-c C-g'\)
+to `pdf-sync-display-pdf' in `TeX-source-correlate-map'.  This
 function displays the PDF page corresponding to the current
-position in the TeX buffer.  This function works only together
+position in the TeX buffer.  This function only works together
 with AUCTeX."
 
   nil nil nil
-  (cond
-   (pdf-sync-minor-mode
-    (when (and pdf-sync-tex-display-pdf-key
-               (boundp 'TeX-source-correlate-map))
-      (define-key TeX-source-correlate-map
-        (kbd pdf-sync-tex-display-pdf-key)
-        'pdf-sync-display-pdf)))))
+  (pdf-assert-pdf-buffer))
+
+(eval-after-load "tex"
+  '(when (and pdf-sync-tex-display-pdf-key
+              (boundp 'TeX-source-correlate-map)
+              (null (lookup-key
+                     TeX-source-correlate-map
+                     (kbd pdf-sync-tex-display-pdf-key))))
+     (define-key TeX-source-correlate-map
+       (kbd pdf-sync-tex-display-pdf-key)
+       'pdf-sync-display-pdf)))
   
 (defun pdf-sync-mouse-goto-tex (ev)
   "Go to the source corresponding to position at event EV."
