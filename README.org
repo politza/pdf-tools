@@ -2,12 +2,6 @@
 #+AUTHOR:    Andreas Politz
 #+EMAIL:     politza@fh-trier.de
 
-** Building
-  This should be as simple as
-#+begin_src sh
-  ./configure && make
-#+end_src
-  which compiles the c source and creates a ELPA package.
 ** Prerequisites
    + GNU/Linux OS
    + convert 
@@ -26,6 +20,12 @@
      This is obviously a prerequisite for poppler-glib and the version
      should match it.
 
+** Building
+  This should be as simple as
+#+begin_src sh
+  ./configure && make
+#+end_src
+  which compiles the c source and creates a ELPA package.
 ** Installation
   Assuming the epdfinfo server build correctly and a Emacs package was
   created.  The next step is to install this package, with make
