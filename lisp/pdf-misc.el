@@ -467,29 +467,32 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
     map)
   "The keymap used in `pdf-misc-menu-bar-minor-mode'.")
 
-(defcustom pdf-misc-install-popup-menu t
-  "Whether mouse-3 should invoke a context menu."
-  :group 'pdf-misc
-  :type 'boolean)
-  
 (define-minor-mode pdf-misc-menu-bar-minor-mode
   "Display a PDF Tools menu in the menu-bar."
   nil nil nil
-  (pdf-util-assert-pdf-buffer)
-  (when pdf-misc-install-popup-menu
-    (pdf-misc-install-popup-menu)))
+  (pdf-util-assert-pdf-buffer))
 
-(defun pdf-misc-install-popup-menu ()
-  (interactive)
-  (local-set-key
-   [down-mouse-3]
-   (lambda
-     (ev)
-     (interactive "@e")
-     (popup-menu
-      (lookup-key pdf-misc-menu-bar-minor-mode-map
-                  [menu-bar pdf-tools])))))
+;;
+;; Context menu
 
+(defvar pdf-misc-context-menu-minor-mode-map
+  (let ((kmap (make-sparse-keymap)))
+    (define-key kmap [down-mouse-3] 'pdf-misc-popup-context-menu)
+    kmap))
+
+(define-minor-mode pdf-misc-context-menu-minor-mode
+  "Provide a context menu.
+
+\\{pdf-misc-context-menu-minor-mode-map}"
+  nil nil nil
+  (pdf-util-assert-pdf-buffer))
+  
+(defun pdf-misc-popup-context-menu (event)
+  "Popup a context menu at position determined by EVENT."
+  (interactive "@e")
+  (popup-menu
+   (lookup-key pdf-misc-menu-bar-minor-mode-map
+               [menu-bar pdf-tools])))
 
 ;;
 ;; Tool Bar
