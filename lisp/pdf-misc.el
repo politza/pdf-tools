@@ -443,7 +443,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 
     ;; Context menu only
     (define-key menu [sep-5]
-      '(menu-item "--"
+      '(menu-item "--" nil
         :visible (equal last-command-event
                         last-nonmenu-event)))
     
