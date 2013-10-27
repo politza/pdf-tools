@@ -738,7 +738,7 @@ to)."
                           dir t directory-files-no-dot-files-regexp t)))
           (delete-directory dir))))))
 
-(run-with-timer 0 (* 5 60) 'pdf-util-cache-clean-globally)
+;;(run-with-timer 0 (* 5 60) 'pdf-util-cache-clean-globally)
     
 (defun pdf-util-image-in-use-p (file)
   "Return t if image FILE is displayed in some window."
