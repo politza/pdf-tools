@@ -236,10 +236,12 @@ Binds `pdf-isearch-suspended-p' to the EDIT argument around
    (pdf-isearch-active-mode
     ;; The PDF buffer is usually in binary mode, but we probably want
     ;; to search for multibyte characters.
-    (set-buffer-multibyte t))
+    (unless enable-multibyte-characters
+      (set-buffer-multibyte t)))
    (t
-    (unless pdf-isearch-suspended-p
-      (set-buffer-multibyte nil)))))
+    ;; (unless pdf-isearch-suspended-p
+    ;;   (set-buffer-multibyte nil))
+    )))
 
 (define-minor-mode pdf-isearch-batch-mode
   "Incrementally search PDF documents in batches.
