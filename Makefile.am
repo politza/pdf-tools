@@ -14,11 +14,9 @@ CLEANFILES = $(EPKG_TAR_NAME)
 TESTS_ENVIRONMENT = $(EMACS) -Q $(EPKG_TAR_NAME) -batch -l
 TESTS = tests/install-basic.el
 
-.PHONY: package
+all-local: $(EPKG_TAR_NAME)
 
-all-local: package
-
-package: 
+$(EPKG_TAR_NAME): $(LISP_FILES)
 	rm -fr -- $(EPKG_NAME)
 	mkdir $(EPKG_NAME)
 	echo "(define-package \"$(PACKAGE_NAME)\" \"$(PACKAGE_VERSION)\" \
@@ -27,7 +25,6 @@ package:
 	cp -r $(EPKG_FILES) $(EPKG_NAME)/
 	tar cf $(EPKG_TAR_NAME) $(EPKG_NAME)
 	rm -r -- $(EPKG_NAME)
-
 
 install: all
 	if ! which -- "$(EMACS)"; then \
