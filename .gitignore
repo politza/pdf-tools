@@ -7,6 +7,7 @@ epdfinfo/depcomp
 epdfinfo/install-sh
 epdfinfo/missing
 epdfinfo/aux
+epdfinfo/.eproject.el
 loadit.el
 Makefile
 autom4te.cache/
