@@ -38,3 +38,9 @@ aux/
 pdf-tools-*.tar
 *~
 src/.eproject.el
+Makefile.in
+aclocal.m4
+autogen.sh
+depcomp
+install-sh
+missing
