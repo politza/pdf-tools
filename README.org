@@ -21,7 +21,7 @@
      should match it.
 
 ** Building
-  This should be as simple as
+  First run autogen.sh, then
 #+begin_src sh
   ./configure && make
 #+end_src
