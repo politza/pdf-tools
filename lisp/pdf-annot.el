@@ -1749,7 +1749,9 @@ In any case, return the absolute filename of the created or found
 file."
 
   (unless dir
-    (setq dir (pdf-annot-attach-default-directory (pdf-annot-attach-buffer a))))
+    (setq dir (pdf-annot-attach-default-directory (pdf-annot-attach-buffer a)))
+    (unless (file-exists-p dir)
+      (make-directory dir t)))
   (unless (file-directory-p dir)
     (error "Not a directory: %s" dir))
   (unless (file-writable-p dir)
