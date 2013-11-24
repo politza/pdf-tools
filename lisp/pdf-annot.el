@@ -632,6 +632,16 @@ used as a reference."
                  (pdf-annot-get a 'contents))
     (pdf-annot-print-tooltip-latex a)))
   
+(defcustom pdf-annot-latex-header
+  (concat org-format-latex-header
+          "\n\\setlength{\\textwidth}{12cm}")
+  "Header used when latex compiling annotations.
+
+The default value is `org-format-latex-header' + \
+\"\\n\\\\setlength{\\\\textwidth}{12cm}\"."
+  :group 'pdf-annot
+  :type 'string)
+
 (defun pdf-annot-print-tooltip-latex (a)
   (with-current-buffer (pdf-annot-buffer a)
     (let* ((header (pdf-annot-print-tooltip-header a))
@@ -644,8 +654,7 @@ used as a reference."
             (pdf-util-cache-make-filename
              'pdf-annot-latex "latex"))
            (org-format-latex-header
-            (concat org-format-latex-header
-                    "\n\\setlength{\\textwidth}{12cm}")))
+            pdf-annot-latex-header))
 
       (unless (file-exists-p temporary-file-directory)
         (make-directory temporary-file-directory))
