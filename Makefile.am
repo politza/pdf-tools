@@ -11,10 +11,14 @@ README_FILE = lisp/pdf-tools.el
 
 EXTRA_DIST = $(LISP_FILES)
 CLEANFILES = $(EPKG_TAR_NAME)
+DISTCLEANFILES = configure depcomp install-sh missing src/Makefile.in src/config.h.in
 TESTS_ENVIRONMENT = $(EMACS) -Q $(EPKG_TAR_NAME) -batch -l
 TESTS = tests/install-basic.el
 
 all-local: $(EPKG_TAR_NAME)
+
+distclean-local:
+	rm -rf -- aclocal.m4 autom4te.cache
 
 $(EPKG_TAR_NAME): $(LISP_FILES)
 	rm -fr -- $(EPKG_NAME)
