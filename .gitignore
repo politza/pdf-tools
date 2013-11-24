@@ -37,3 +37,4 @@ specs/
 aux/
 pdf-tools-*.tar
 *~
+src/.eproject.el
