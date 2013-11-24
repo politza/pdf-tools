@@ -643,8 +643,9 @@ used as a reference."
            (temporary-file-directory
             (pdf-util-cache-make-filename
              'pdf-annot-latex "latex"))
-           (org-format-latex-header-extra
-            "\\setlength{\\textwidth}{12cm}"))
+           (org-format-latex-header
+            (concat org-format-latex-header
+                    "\n\\setlength{\\textwidth}{12cm}")))
 
       (unless (file-exists-p temporary-file-directory)
         (make-directory temporary-file-directory))
@@ -696,10 +697,17 @@ This searches FILE in `pdf-annot-render-image-load-path' and then
 `pdf-annot-render-found-images'."
   
   (cdr (or (assoc file pdf-annot-render-found-images)
-           (car (push (cons file (image-search-load-path
-                                  file
-                                  (cons pdf-annot-render-image-load-path
-                                        image-load-path)))
+           (car (push (cons file
+                            (or (image-search-load-path
+                                 file
+                                 (cons pdf-annot-render-image-load-path
+                                       image-load-path))
+                                (image-search-load-path
+                                 "notavailable.xpm"
+                                 (cons pdf-annot-render-image-load-path
+                                       image-load-path))
+                                (error "Unable to find any images,\
+ check `pdf-annot-render-image-load-path'")))
                       pdf-annot-render-found-images)))))
 
 (defun pdf-annot-render-search-alist (a alist)
