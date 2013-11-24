@@ -1447,7 +1447,7 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
   gchar *text;
   PopplerRectangle r;
   
-  if (pn < 0 || pn > poppler_document_get_n_pages (doc))
+  if (pn <= 0 || pn > poppler_document_get_n_pages (doc))
     {
       printf_error ("No such page %d", pn);
       return;

@@ -97,6 +97,7 @@ with AUCTeX."
       (pdf-sync-correlate-tex x y)
     (pop-to-buffer (or (find-buffer-visiting source)
                        (find-file-noselect source)))
+    (push-mark)
     (when (> line 0)
       (goto-char (point-min))
       (forward-line (1- line)))
@@ -110,13 +111,10 @@ with AUCTeX."
 Returns a list \(SOURCE LINE COLUMN\)."
 
   (pdf-util-assert-pdf-window)
-  (let ((offset (pdf-util-image-offset))
-        (size (pdf-util-image-size))
+  (let ((size (pdf-util-image-size))
         (page (doc-view-current-page)))
-    (setq x (/ (+ x (car offset))
-               (float (car size)))
-          y (/ (+ y (cdr offset))
-               (float (cdr size))))
+    (setq x (/ x (float (car size)))
+          y (/ y (float (cdr size))))
     (cl-destructuring-bind (source line column)
         (pdf-info-synctex-backward-search page x y)
       (list (expand-file-name source)
@@ -132,9 +130,8 @@ Returns a list \(SOURCE LINE COLUMN\)."
                                (find-file-noselect pdf)))
       (doc-view-goto-page page)
       (when (pdf-util-page-displayed-p)
-        (let ((top (* y1 (cdr (pdf-util-image-size))))
-              (off (cdr (pdf-util-image-offset))))
-          (pdf-util-tooltip-arrow (round (- top off))))))))
+        (let ((top (* y1 (cdr (pdf-util-image-size)))))
+          (pdf-util-tooltip-arrow (round top)))))))
 
 (defun pdf-sync-correlate-pdf (&optional line column)
   "Find the PDF location corresponding to LINE, COLUMN.

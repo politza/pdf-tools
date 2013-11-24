@@ -802,7 +802,7 @@ to)."
           `((border-width . 0)
             (internal-border-width . 0)
             ,@tooltip-frame-parameters))
-         (tooltip-hide-delay (or timeout (* 60 60))))
+         (tooltip-hide-delay (or timeout 3)))
     (when vscroll
       (pdf-util-set-window-pixel-vscroll vscroll))
     (setq dy (max 0 (- dy

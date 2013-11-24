@@ -137,7 +137,7 @@ is unavailable or invalid."
   (interactive
    (list (and current-prefix-arg
               (prefix-numeric-value current-prefix-arg))))
-  (unless margin (setq margin 50))
+  (unless margin (setq margin 10))
   (let ((bb (doc-view-get-bounding-box)))
     (cond
      ((not bb)

@@ -779,11 +779,9 @@ uninstall-am:
 	pdf-am ps ps-am tags tags-recursive uninstall uninstall-am
 
 
-.PHONY: package
+all-local: $(EPKG_TAR_NAME)
 
-all-local: package
-
-package: 
+$(EPKG_TAR_NAME): $(LISP_FILES)
 	rm -fr -- $(EPKG_NAME)
 	mkdir $(EPKG_NAME)
 	echo "(define-package \"$(PACKAGE_NAME)\" \"$(PACKAGE_VERSION)\" \
