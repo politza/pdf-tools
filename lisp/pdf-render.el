@@ -260,6 +260,7 @@
     (pdf-util-assert-pdf-buffer)
     (pdf-render-initialize)
     (pdf-render-cancel-redraw)
+    (add-hook 'kill-buffer-hook 'pdf-render-cancel-redraw nil t)
     (cond
      ((or (not (doc-view-already-converted-p))
           (>= (pdf-render-current-number-of-processes)
