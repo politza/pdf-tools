@@ -404,15 +404,13 @@ Then quit the outline window."
   (back-to-indentation))
               
 (defun pdf-outline-position-of-page (page)
-  (let ((current 0)
-        (pos (point-max)))
+  (let (curpage)
     (save-excursion
       (goto-char (point-min))
-      (while (<= current page)
-        (setq pos (point))
-        (forward-line)
-        (setq current (nth 2 (pdf-outline-link-at-pos))))
-      pos)))
+      (while (and (setq curpage (nth 2 (pdf-outline-link-at-pos)))
+                  (< curpage page))
+        (forward-line))
+      (point))))
       
   
 
