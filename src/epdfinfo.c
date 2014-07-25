@@ -1879,7 +1879,7 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
       area->x1 = x1 * width;
       area->y2 = height - (y1 * height);
 
-      poppler_annot_set_rectangle (pannot, *area);
+      poppler_annot_set_rectangle (pannot, area);
       g_object_unref (page);
     }
 
