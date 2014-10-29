@@ -36,6 +36,7 @@ src/Makefile.in
 specs/
 aux/
 pdf-tools-*.tar
+pdf-tools-*.tar.gz
 *~
 src/.eproject.el
 Makefile.in
