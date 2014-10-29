@@ -5,3 +5,5 @@ HAVE_POPPLER_FIND_OPTS
 0.22 PopplerFindFlags
 0.22 poppler_page_find_text_with_options
 
+HAVE_POPPLER_ANNOT_SET_RECT
+0.26 Adds function poppler_annot_set_rectangle
