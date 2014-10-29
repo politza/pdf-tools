@@ -19,6 +19,9 @@
 
      This is obviously a prerequisite for poppler-glib and the version
      should match it.
+   + poppler-private
+     
+     This library contains some needed privated poppler headers.
 
 ** Building
   First run autogen.sh, then
