@@ -34,11 +34,11 @@
   created.  The next step is to install this package, with make
   via
 #+begin_src sh
-  make install
+  make install-package
 #+end_src
   or
 #+begin_src sh
-  make EMACS=/path/to/emacs install
+  make EMACS=/path/to/emacs install-package
 #+end_src
   
   Alternatively from within Emacs via

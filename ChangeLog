@@ -1,6 +1,10 @@
 2014-10-29  Andreas Politz  <politza@hochschule-trier.de>
 
+	* src/Makefile.am: Make VPATH builds and distcheck work.
+	* Makefile.am: Dito.
+
 	* README.org: Mention needed poppler-private library.
+	Update install target-name.
 
 	Upstream added the function poppler_annot_set_rectangle, check for it.
 	* configure.ac: Check for poppler-glib >= 0.26.

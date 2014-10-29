@@ -1,41 +1,55 @@
 SUBDIRS = src 
-LISP_PACKAGES = pdf-history.el pdf-info.el pdf-isearch.el		\
- pdf-links.el pdf-misc.el pdf-occur.el pdf-outline.el pdf-tools.el	\
- pdf-util.el pdf-render.el pdf-annot.el pdf-sync.el			\
- tablist.el tablist-filter.el
-LISP_FILES = $(addprefix lisp/,$(LISP_PACKAGES))
-EPKG_FILES = $(LISP_FILES) src/epdfinfo README.org images
-EPKG_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
-EPKG_TAR_NAME = $(EPKG_NAME).tar
-README_FILE = lisp/pdf-tools.el
 
-EXTRA_DIST = $(LISP_FILES)
-CLEANFILES = $(EPKG_TAR_NAME)
-DISTCLEANFILES = configure depcomp install-sh missing src/Makefile.in src/config.h.in
-TESTS_ENVIRONMENT = $(EMACS) -Q $(EPKG_TAR_NAME) -batch -l
-TESTS = tests/install-basic.el
+LISP_FILES = $(top_srcdir)/lisp/pdf-history.el		\
+		$(top_srcdir)/lisp/pdf-info.el		\
+		$(top_srcdir)/lisp/pdf-isearch.el	\
+		$(top_srcdir)/lisp/pdf-links.el		\
+		$(top_srcdir)/lisp/pdf-misc.el		\
+		$(top_srcdir)/lisp/pdf-occur.el		\
+		$(top_srcdir)/lisp/pdf-outline.el	\
+		$(top_srcdir)/lisp/pdf-tools.el		\
+		$(top_srcdir)/lisp/pdf-util.el		\
+		$(top_srcdir)/lisp/pdf-render.el	\
+		$(top_srcdir)/lisp/pdf-annot.el		\
+		$(top_srcdir)/lisp/pdf-sync.el		\
+		$(top_srcdir)/lisp/tablist.el		\
+		$(top_srcdir)/lisp/tablist-filter.el
 
-all-local: $(EPKG_TAR_NAME)
+AUX_FILES = $(top_srcdir)/README.org			\
+		$(top_srcdir)/images/notavailable.xpm	\
+		$(top_srcdir)/images/paperclip.xpm	\
+		$(top_srcdir)/images/speech411.xpm
 
-distclean-local:
-	rm -rf -- aclocal.m4 autom4te.cache
+# Emacs Lisp Package
+ELP_FILES = $(LISP_FILES) $(AUX_FILES) $(top_builddir)/src/epdfinfo
+ELP_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
+ELP_TAR_FILE = $(ELP_NAME).tar
+ELP_TMP_DIR = elp-tmp-dir
 
-$(EPKG_TAR_NAME): $(LISP_FILES)
-	rm -fr -- $(EPKG_NAME)
-	mkdir $(EPKG_NAME)
+TESTS_ENVIRONMENT = $(EMACS) -Q $(ELP_TAR_FILE) -batch -l
+TESTS = $(top_srcdir)/tests/install-basic.el
+
+EXTRA_DIST = $(LISP_FILES) $(AUX_FILES)
+CLEANFILES = $(ELP_TAR_FILE)
+
+all-local: $(ELP_TAR_FILE)
+
+$(ELP_TAR_FILE): $(LISP_FILES)
+	mkdir -p $(ELP_TMP_DIR)/$(ELP_NAME)
 	echo "(define-package \"$(PACKAGE_NAME)\" \"$(PACKAGE_VERSION)\" \
 	 	\"Support library for PDF documents.\")"  \
-		> $(EPKG_NAME)/$(PACKAGE_NAME)-pkg.el
-	cp -r $(EPKG_FILES) $(EPKG_NAME)/
-	tar cf $(EPKG_TAR_NAME) $(EPKG_NAME)
-	rm -r -- $(EPKG_NAME)
+		> $(ELP_TMP_DIR)/$(ELP_NAME)/$(PACKAGE_NAME)-pkg.el
+	cp -r $(ELP_FILES) -t $(ELP_TMP_DIR)/$(ELP_NAME)/
+	cd $(ELP_TMP_DIR) && \
+		tar cf ../$(ELP_TAR_FILE) $(ELP_NAME) 
+	rm -rf -- $(ELP_TMP_DIR)
 
-install: all
+install-package: $(ELP_TAR_FILE)
 	if ! which -- "$(EMACS)"; then \
 		echo "No emacs executable found, you have to set EMACS"; \
 		false; \
 	fi
 	$(EMACS) -Q --batch --eval "(package-install-file \
-	 	\"$$PWD/$(EPKG_TAR_NAME)\")"
+	 	\"$$PWD/$(ELP_TAR_FILE)\")"
 
 
