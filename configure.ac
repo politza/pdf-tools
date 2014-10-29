@@ -15,12 +15,14 @@ AM_PATH_LISPDIR                 dnl Sets EMACS
 # Checks for libraries.
 HAVE_POPPLER_FIND_OPTS="no   (requires poppler-glib >= 0.22)"
 HAVE_POPPLER_ANNOT_WRITE="no   (requires poppler-glib >= 0.19.4)"
+HAVE_POPPLER_ANNOT_SET_RECTANGLE="no"
 
 PKG_CHECK_MODULES([glib], [glib-2.0])
 PKG_CHECK_MODULES([poppler], [poppler])
 PKG_CHECK_MODULES([poppler_glib], [poppler-glib >= 0.16.0])
-PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
 PKG_CHECK_EXISTS([poppler-glib >= 0.19.4], [HAVE_POPPLER_ANNOT_WRITE=yes])
+PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
+PKG_CHECK_EXISTS([poppler-glib >= 0.26], [HAVE_POPPLER_ANNOT_SET_RECTANGLE=yes])
 PKG_CHECK_MODULES([zlib], [zlib])
 
 if test "$HAVE_POPPLER_FIND_OPTS" = yes; then
@@ -31,6 +33,12 @@ fi
 if test "$HAVE_POPPLER_ANNOT_WRITE" = yes; then
   AC_DEFINE([HAVE_POPPLER_ANNOT_WRITE],1,
     [Define to 1 to enable writing of annotations (requires poppler-glib >= 0.19.4).])
+fi
+
+if test "$HAVE_POPPLER_ANNOT_SET_RECTANGLE" = yes; then
+  AC_DEFINE([HAVE_POPPLER_ANNOT_SET_RECTANGLE],1,
+    [Define to 1 if poppler-glib defines poppler_annot_set_rectangle \
+            (requires poppler-glib >= 0.26).])
 fi
 
 # Checks for header files.

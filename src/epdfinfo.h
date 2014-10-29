@@ -118,7 +118,7 @@ typedef struct
   int nargs;                    /* Anzahl Argumente */
 } cmd_t;
 
-extern void poppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle);
+extern void poppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle*);
 extern gchar *poppler_annot_markup_get_created (PopplerAnnotMarkup*);
 
 #endif  /* _EPDF_H_ */

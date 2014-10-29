@@ -60,12 +60,14 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
 
     return result;
   }
+#ifndef HAVE_POPPLER_ANNOT_SET_RECT
   // Set the rectangle of an annotation.  Not available in poppler-glib .
-  void poppler_annot_set_rectangle (PopplerAnnot *annot, PopplerRectangle rectangle)
+  void poppler_annot_set_rectangle (PopplerAnnot *annot, PopplerRectangle *rectangle)
   {
-    annot->annot->setRect (rectangle.x1, rectangle.y1,
-                           rectangle.x2, rectangle.y2);
+    annot->annot->setRect (rectangle->x1, rectangle->y1,
+                           rectangle->x2, rectangle->y2);
   }
+#endif  // HAVE_POPPLER_ANNOT_SET_RECT
   // This function is in the library, but the enforced date parsing is
   // incomplete, because it ignores the timezone.
   gchar *poppler_annot_markup_get_created (PopplerAnnotMarkup *poppler_annot)
