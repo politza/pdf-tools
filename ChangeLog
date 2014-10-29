@@ -1,0 +1,11 @@
+2014-10-29  Andreas Politz  <politza@hochschule-trier.de>
+
+	Upstream added the function poppler_annot_set_rectangle, check for it.
+
+	* configure.ac: Check for poppler-glib >= 0.26.
+
+	* poppler-hack.cc (poppler_annot_set_rectangle): Make definition conditional.
+
+	* epdfinfo.h: Fit signature to existing one in poppler-glib >= 0.26.
+
+	* epdfinfo.c (cmd_editannot): Fit signature.
