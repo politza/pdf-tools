@@ -15,10 +15,6 @@
      Some features require a more recent version.
      - >= 0.19.4 :: Creating and modifying text-annotations.
      - >= 0.22 :: Searching case-sensitive.
-   + glib
-
-     This is obviously a prerequisite for poppler-glib and the version
-     should match it.
    + poppler-private
      
      This library contains some needed private poppler headers.
