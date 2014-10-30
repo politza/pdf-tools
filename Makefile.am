@@ -38,6 +38,8 @@ $(ELP_TAR_FILE): $(LISP_FILES)
 		> $(ELP_TMP_DIR)/$(ELP_NAME)/$(PACKAGE_NAME)-pkg.el
 	cp -r $(ELP_FILES) -t $(ELP_TMP_DIR)/$(ELP_NAME)/
 	cd $(ELP_TMP_DIR) && \
+		mkdir $(ELP_NAME)/images && \
+		mv $(ELP_NAME)/*.xpm $(ELP_NAME)/images && \
 		tar cf ../$(ELP_TAR_FILE) $(ELP_NAME) 
 	rm -rf -- $(ELP_TMP_DIR)
 
