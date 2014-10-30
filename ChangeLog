@@ -1,5 +1,7 @@
 2014-10-30  Andreas Politz  <politza@hochschule-trier.de>
 
+	* README.org: Explain poppler-private dependency.
+
 	Fix complaints of recent autotools version regarding srcdir in
 	TESTS.
 	* configure.ac: Generate tests/Makefile.

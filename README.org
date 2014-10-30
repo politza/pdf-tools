@@ -21,7 +21,10 @@
      should match it.
    + poppler-private
      
-     This library contains some needed privated poppler headers.
+     This library contains some needed private poppler headers.
+     Depending on the way poppler is installed on your system, this
+     may or may not be included.  E.g. in Debian it is contained in a
+     seperate package called libpoppler-private-dev.
 
 ** Building
   First run autogen.sh, then
