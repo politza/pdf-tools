@@ -54,7 +54,7 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([strcspn strtol])
 
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
 AC_OUTPUT
 
 echo

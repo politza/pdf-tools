@@ -1,3 +1,11 @@
+2014-10-30  Andreas Politz  <politza@hochschule-trier.de>
+
+	Fix complaints of recent autotools version regarding srcdir in
+	TESTS.
+	* configure.ac: Generate tests/Makefile.
+	* Makefile.am: Add tests to SUBDIRS and move TESTS to tests/Makefile.am.
+	* tests/Makefile.am: New file.
+
 2014-10-29  Andreas Politz  <politza@hochschule-trier.de>
 
 	* src/Makefile.am: Make VPATH builds and distcheck work.

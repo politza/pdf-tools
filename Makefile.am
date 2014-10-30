@@ -1,4 +1,4 @@
-SUBDIRS = src 
+SUBDIRS = src tests
 
 LISP_FILES = $(top_srcdir)/lisp/pdf-history.el		\
 		$(top_srcdir)/lisp/pdf-info.el		\
@@ -25,9 +25,6 @@ ELP_FILES = $(LISP_FILES) $(AUX_FILES) $(top_builddir)/src/epdfinfo
 ELP_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
 ELP_TAR_FILE = $(ELP_NAME).tar
 ELP_TMP_DIR = elp-tmp-dir
-
-TESTS_ENVIRONMENT = $(EMACS) -Q $(ELP_TAR_FILE) -batch -l
-TESTS = $(top_srcdir)/tests/install-basic.el
 
 EXTRA_DIST = $(LISP_FILES) $(AUX_FILES)
 CLEANFILES = $(ELP_TAR_FILE)
