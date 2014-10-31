@@ -1,5 +1,7 @@
 2014-10-30  Andreas Politz  <politza@hochschule-trier.de>
 
+	* Makefile.am:Create image directory in the package (Regression).
+
 	* README.org: Explain poppler-private dependency.
 	Remove special mentioning of one dependency. 
 
