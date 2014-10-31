@@ -28,8 +28,9 @@
 
 (defvar pdf-misc-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap [drag-mouse-1] 'pdf-misc-copy-selection)
-    (define-key kmap (kbd "C-w") 'pdf-misc-copy-page)
+    (define-key kmap [down-mouse-1] 'pdf-misc-mouse-set-region)
+    (define-key kmap (kbd "C-w") 'pdf-misc-copy-region)
+    (define-key kmap (kbd "M-w") 'pdf-misc-copy-region)
     (define-key kmap (kbd "C-c C-d") 'pdf-misc-dark-mode)
     (define-key kmap (kbd "I") 'pdf-misc-display-metadata)
     (define-key kmap (kbd "s w") 'pdf-misc-crop-to-window)
@@ -39,37 +40,124 @@
     kmap)
   "Keymap used in `pdf-misc-minor-mode'.")
 
+(defcustom pdf-misc-region-convert-commands
+  '("-fuzz" "30%%" "-region" "%g"
+    "-fill" "%b" "-draw" "color 0,-1 replace")
+  "The commands for highlighting the region.
 
+See `pdf-isearch-convert-commands'."
+  :group 'pdf-misc
+  :type '(repeat string)
+  :link '(url-link "http://www.imagemagick.org/script/convert.php"))
+
+(defface pdf-misc-region
+  '((((background dark))
+     :background "blue3")
+    (((background light))
+     :background "lightgoldenrod2"))
+  "Face used to determine the colors of the region."
+  ;; :group 'pdf-isearch
+  :group 'pdf-tools-faces)
+
+(defvar-local pdf-misc-current-region nil
+  "The active region, or nil.
+
+\(PAGE . \(X1 Y1 X2 Y2\)") 
+  
 ;;;###autoload
 (define-minor-mode pdf-misc-minor-mode
   "Miscellanous smaller commands.
 
 \\{pdf-misc-minor-mode-map}"
-  nil nil nil)
+  nil nil nil
+  (cond
+   (pdf-misc-minor-mode
+    (add-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region nil t)
+    (add-hook 'pdf-util-after-change-page-hook 'pdf-misc-deactivate-region nil t)
+    (add-hook 'kill-buffer-hook 'pdf-misc-deactivate-region nil t)
+    (pdf-render-register-layer-function 'pdf-misc-region-render))   
+   (t
+    (pdf-misc-deactivate-region)
+    (remove-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region t)
+    (remove-hook 'pdf-util-after-change-page-hook 'pdf-misc-deactivate-region t)
+    (remove-hook 'kill-buffer-hook 'pdf-misc-deactivate-region t)
+    (pdf-render-unregister-layer-function 'pdf-misc-region-render))))
 
-(defun pdf-misc-copy-selection (ev)
-  "Copy the selection represented by EV to the `kill-ring'.
-
-EV should be a mouse-drag event, i.e. this command should be
-bound to an appropriate event.
-
-The selection works as usual, e.g. like the region in Emacs."
-  (interactive "@e")
+(defun pdf-misc-deactivate-region ()
+  "Clears the region."
+  (interactive)
   (pdf-util-assert-pdf-buffer)
+  (when pdf-misc-current-region
+    (let ((selpage (car pdf-misc-current-region)))
+      (setq pdf-misc-current-region nil)
+      (deactivate-mark)
+      (pdf-render-redraw-document nil (list selpage) t))))
+
+(defun pdf-misc-mouse-set-region (ev)
+  "Selects a region of text using the mouse."
+  (interactive "@e")
+  (pdf-util-assert-pdf-window)
   (unless (and (eventp ev)
-               (mouse-event-p ev)
-               (= (length ev) 3))
-    (error "This command must be bound to a mouse-drag event"))
-  (when (and (posn-image (car (cdr ev)))
-             (posn-image (car (cddr ev))))
-    (let* ((beg (posn-object-x-y (car (cdr ev))))
-           (end (posn-object-x-y (car (cddr ev))))
-           (txt (pdf-misc-selection-string
-                 (min (car beg) (car end))
-                 (min (cdr beg) (cdr end))
-                 (max (car beg) (car end))
-                 (max (cdr beg) (cdr end)))))
-      (message "%s" txt)
+               (mouse-event-p ev))
+    (signal 'wrong-type-argument (list 'mouse-event-p ev)))
+  (pdf-misc-deactivate-region)
+  (when (posn-image (event-start ev))
+    (let* ((window (selected-window))
+           (beg (posn-object-x-y (event-start ev)))
+           event)
+      (pdf-render-with-redraw
+          'pdf-misc-region-render
+        (while (eq 'mouse-movement
+                   (event-basic-type
+                    (setq event
+                          (track-mouse (read-event)))))
+          (let* ((pos (event-start event))
+                 (end (posn-object-x-y pos)))
+            (when (and (eq window (posn-window pos))
+                       (posn-image pos)
+                       (/= (car beg) (car end))
+                       (/= (cdr beg) (cdr end)))
+              (setq pdf-misc-current-region
+                    (list (doc-view-current-page)
+                          (min (car beg) (car end))
+                          (min (cdr beg) (cdr end))
+                          (max (car beg) (car end))
+                          (max (cdr beg) (cdr end))))
+              (redraw)))))
+      (if pdf-misc-current-region
+        (setq transient-mark-mode t))
+      (setq unread-command-events (list event)))))
+
+(defun pdf-misc-region-render (page)
+  (when (and (eq page (car pdf-misc-current-region))
+             (pdf-util-page-displayed-p))
+    (let* ((size (pdf-util-image-size))
+           (ifsize (pdf-util-png-image-size))
+           (region (cdr pdf-misc-current-region))
+           (colors (pdf-util-face-colors 'pdf-misc-region
+                                         pdf-misc-dark-mode))
+           (selection
+            (apply 'pdf-info-getselection
+                   (doc-view-current-page)
+                   (pdf-util-scale-edges
+                    region (cons (/ 1.0 (car size))
+                                 (/ 1.0 (cdr size)))))))
+      (list :commands
+            pdf-misc-region-convert-commands
+            :foreground (car colors)
+            :background (cdr colors)
+            :apply
+            (pdf-util-scale-edges selection ifsize)))))
+    
+(defun pdf-misc-copy-region ()
+  "Copy the region to the `kill-ring'."
+  (interactive)
+  (pdf-util-assert-pdf-window)
+  (if (null pdf-misc-current-region)
+      (pdf-misc-copy-page)
+    (let* ((txt (apply 'pdf-misc-selection-string
+                       (cdr pdf-misc-current-region))))
+      (pdf-misc-deactivate-region)
       (kill-new txt))))
 
 (defun pdf-misc-copy-page ()
@@ -404,9 +492,9 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
 
     (define-key menu [sep-4] menu-bar-separator)
 
-    (define-key menu [copy-page]
-      '(menu-item "Copy page" pdf-misc-copy-page
-                  :help "Copy the text of the page to the kill-ring"
+    (define-key menu [copy-region]
+      '(menu-item "Copy region" pdf-misc-copy-region
+                  :help "Copy the text of the region to the kill-ring"
                   :visible (featurep 'pdf-misc)))
     
     (define-key menu [occur]

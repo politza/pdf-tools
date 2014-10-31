@@ -20,6 +20,7 @@
 #include <error.h>
 #include <glib.h>
 #include <poppler.h>
+#include <cairo.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,7 +61,7 @@ get_annot_by_key (doc_t *doc, const gchar *key);
 static annot_t*
 get_annot_by_key_or_error (doc_t *doc, const gchar *key);
 static void
-print_annot (const annot_t *annot, const PopplerPage *page);
+print_annot (const annot_t *annot, /* const */ PopplerPage *page);
 
 static void cmd_features (const ctxt_t *ctx, const arg_t *args);
 static void cmd_open (const ctxt_t *ctx, const arg_t *args);
@@ -82,6 +83,7 @@ static void cmd_quit (const ctxt_t *ctx, const arg_t *args);
 static void cmd_npages (const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagelinks(const ctxt_t *ctx, const arg_t *args);
 static void cmd_gettext(const ctxt_t *ctx, const arg_t *args);
+static void cmd_getselection (const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagesize(const ctxt_t *ctx, const arg_t *args);
 
 static void cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args);
@@ -153,7 +155,19 @@ const args_spec_t cmd_gettext_spec[] =
     ARG_EDGE,                   /* x0 */
     ARG_EDGE,                   /* y0 */
     ARG_EDGE,                   /* x1 */
-    ARG_EDGE                    /* y1 */
+    ARG_EDGE,                   /* y1 */
+    ARG_NATNUM                  /* selection-style */
+  };
+
+const args_spec_t cmd_getselection_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x0 */
+    ARG_EDGE,                   /* y0 */
+    ARG_EDGE,                   /* x1 */
+    ARG_EDGE,                   /* y1 */
+    ARG_NATNUM                  /* selection-style */
   };
 
 const args_spec_t cmd_pagesize_spec[] =
@@ -263,6 +277,8 @@ static const cmd_t cmds [] =
     {"number-of-pages", cmd_npages, cmd_npages_spec, G_N_ELEMENTS (cmd_npages_spec)},
     {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec , G_N_ELEMENTS (cmd_pagelinks_spec)},
     {"gettext", cmd_gettext, cmd_gettext_spec, G_N_ELEMENTS (cmd_gettext_spec)},
+    {"getselection", cmd_getselection, cmd_getselection_spec,
+     G_N_ELEMENTS (cmd_getselection_spec)},
     {"pagesize", cmd_pagesize, cmd_pagesize_spec, G_N_ELEMENTS (cmd_pagesize_spec)},
 
     /* Annotations */
@@ -877,7 +893,7 @@ get_annot_by_key_or_error (doc_t *doc, const gchar *key)
 
 
 static void
-print_annot (const annot_t *annot, const PopplerPage *page)
+print_annot (const annot_t *annot, /* const */ PopplerPage *page)
 {
   double width, height;
   PopplerAnnotMapping *m;
@@ -897,7 +913,7 @@ print_annot (const annot_t *annot, const PopplerPage *page)
   m = annot->amap;
   key = annot->key;
   a = m->annot;
-  poppler_page_get_size ((PopplerPage*)page, &width, &height);
+  poppler_page_get_size (page, &width, &height);
       
   r.x1 = m->area.x1;
   r.x2 = m->area.x2;
@@ -906,7 +922,7 @@ print_annot (const annot_t *annot, const PopplerPage *page)
 
   /* >>> Simple Annotation >>> */
   /* Page */
-  printf ("%d:", poppler_page_get_index ((PopplerPage*)page) + 1);
+  printf ("%d:", poppler_page_get_index (page) + 1);
   /* Area */
   printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
           , r.x2 / width, r.y2 / height); 
@@ -1091,9 +1107,9 @@ cmd_features (const ctxt_t *ctx, const arg_t *args)
   
 
 /* Name: open
-   Args: filename [password]
+   Args: filename password
    Returns: Nothing
-   Errors: Is file can't be opened or is no PDF document.
+   Errors: If file can't be opened or is not a PDF document.
 */
 static void
 cmd_open (const ctxt_t *ctx, const arg_t *args)
@@ -1428,9 +1444,11 @@ cmd_pagelinks(const ctxt_t *ctx, const arg_t *args)
 }
 
 /* Name: gettext
-   Args: filename page edges
+   Args: filename page edges selection-style
    Returns: The selection's text.
    Errors: If page is out of range.
+
+   For the selection-style argument see getselection command.
 */
 
 static void
@@ -1442,10 +1460,85 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
   double y1 = args[3].value.edge;
   double x2 = args[4].value.edge;
   double y2 = args[5].value.edge;
+  int selection_style = args[5].value.natnum;
   PopplerPage *page;
   double width, height;
   gchar *text;
   PopplerRectangle r;
+  
+  switch (selection_style)
+    {
+    case POPPLER_SELECTION_GLYPH: break;
+    case POPPLER_SELECTION_LINE: break;
+    case POPPLER_SELECTION_WORD: break;
+    default: selection_style = POPPLER_SELECTION_GLYPH;
+    }
+
+  if (pn <= 0 || pn > poppler_document_get_n_pages (doc))
+    {
+      printf_error ("No such page %d", pn);
+      return;
+    }
+
+  page = poppler_document_get_page (doc, pn - 1);
+  poppler_page_get_size (page, &width, &height);
+  r.x1 = x1 * width;
+  r.x2 = x2 * width;
+  r.y1 = y1 * height;
+  r.y2 = y2 * height;
+  /* printf ("%f %f %f %f , %f %f\n", r.x1, r.y1, r.x2, r.y2, width, height); */
+  text = poppler_page_get_selected_text (page, selection_style, &r);
+
+  OK_BEG ();
+  print_escaped (text, NL);
+  OK_END ();
+
+  g_free (text);
+  g_object_unref (page);
+}
+
+/* Name: getselection
+   Args: filename page edges selection-selection_style
+   Returns: The selection's text.
+   Errors: If page is out of range.
+
+   selection-selection_style should be as follows.
+
+   0 (POPPLER_SELECTION_GLYPH)
+	glyph is the minimum unit for selection
+
+   1 (POPPLER_SELECTION_WORD)
+	word is the minimum unit for selection
+
+   2 (POPPLER_SELECTION_LINE)
+	line is the minimum unit for selection 
+*/
+
+static void
+cmd_getselection (const ctxt_t *ctx, const arg_t *args)
+{
+  PopplerDocument *doc = args[0].value.doc->pdf;
+  int pn = args[1].value.natnum;
+  double x1 = args[2].value.edge; 
+  double y1 = args[3].value.edge;
+  double x2 = args[4].value.edge;
+  double y2 = args[5].value.edge;
+  int selection_style = args[5].value.natnum;
+  
+  cairo_region_t *region;
+  int nrectangles, i;
+  PopplerPage *page;
+  double width, height;
+  gchar *text;
+  PopplerRectangle r;
+  
+  switch (selection_style)
+    {
+    case POPPLER_SELECTION_GLYPH: break;
+    case POPPLER_SELECTION_LINE: break;
+    case POPPLER_SELECTION_WORD: break;
+    default: selection_style = POPPLER_SELECTION_GLYPH;
+    }
   
   if (pn <= 0 || pn > poppler_document_get_n_pages (doc))
     {
@@ -1458,13 +1551,24 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
   r.x2 = x2 * width;
   r.y1 = y1 * height;
   r.y2 = y2 * height;
-  /* printf ("%f %f %f %f , %f %f\n", r.x1, r.y1, r.x2, r.y2, width, height); */
-  text = poppler_page_get_selected_text (page, POPPLER_SELECTION_GLYPH, &r);
+
+  region = poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, &r);
 
   OK_BEG ();
-  print_escaped (text, NL);
+  for (i = 0; i < cairo_region_num_rectangles (region); ++i)
+    {
+      cairo_rectangle_int_t r;
+
+      cairo_region_get_rectangle (region, i, &r);
+      printf ("%f %f %f %f\n",
+              r.x / width,
+              r.y / height,
+              (r.x + r.width) / width,
+              (r.y + r.height) / height);
+    }
   OK_END ();
 
+  cairo_region_destroy (region);
   g_free (text);
   g_object_unref (page);
 }

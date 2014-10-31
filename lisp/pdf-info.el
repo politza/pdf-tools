@@ -329,6 +329,11 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
             (cons 'modified (pop md))))))
       (gettext
        (or (caar response) ""))
+      (getselection
+       (mapcar (lambda (line)
+                 (mapcar 'string-to-number
+                         (split-string (car line) " " t)))
+               response))
       (features (mapcar 'intern (car response)))
       (pagesize
        (setq response (car response))
@@ -657,20 +662,43 @@ the tree and ACTION has the same format as in
    'outline
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
 
-(defun pdf-info-gettext (page x0 y0 x1 y1 &optional file-or-buffer)
-  "On PAGE extract the text of the selection X0 Y0 X1 and Y1.
+(defun pdf-info-gettext (page x0 y0 x1 y1 &optional selection-style
+                              file-or-buffer)
+  "Get text on PAGE according to edges X0, Y0, X1 and Y1.
 
-The coordinates of the selection are assumed to be relative,
+The coordinates of the edges are assumed to be relative,
 i.e. in the interval [0;1].  The selection may extend over
-multiple lines, which works as usual \(e.g. like the region in
-Emacs\).
+multiple lines, which works similar to Emacs region.
 
 Return the text contained in the selection."
 
   (pdf-info-query
    'gettext
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   page x0 y0 x1 y1))
+   page x0 y0 x1 y1
+   (cl-case selection-style
+     (glyph 0)
+     (word 1)
+     (line 2)
+     (t 0))))
+
+(defun pdf-info-getselection (page x0 y0 x1 y1 &optional selection-style
+                                   file-or-buffer)
+  "Return the edges of the selection on PAGE.
+
+Arguments are the same as for `pdf-info-gettext'.  Return a list
+of edges corresponding to the text that would be a returned by
+the aforementioned function when called with the same arguments."
+
+  (pdf-info-query
+   'getselection
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   page x0 y0 x1 y1
+   (cl-case selection-style
+     (glyph 0)
+     (word 1)
+     (line 2)
+     (t 0))))
 
 (defun pdf-info-pagesize (&optional page file-or-buffer)
   "Return the size of PAGE as a cons \(WIDTH . HEIGHT\)

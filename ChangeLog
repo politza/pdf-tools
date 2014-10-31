@@ -1,3 +1,23 @@
+2014-10-31  Andreas Politz  <politza@hochschule-trier.de>
+
+	Highlight the selection of text.
+	
+	* src/epdfinfo.c: Added new command getselection.
+	(print_annot): Removed suspicous type cast.
+	(cmd_gettext): Added selection-style argument.
+
+	* lisp/pdf-render.el (pdf-render-redraw--1): Added silent argument.
+	(pdf-render-redraw-document): Dito.
+	(pdf-render-momentarily-process): Dropped caching files.
+
+	* lisp/pdf-misc.el (pdf-misc-minor-mode-map): Added mouse
+	binding. C-w will now copy the selected region, if there is one.
+	(pdf-misc-selection-convert-commands): New variable.
+
+	* lisp/pdf-info.el: New function `pdf-info-getselection'.
+	(pdf-info-query--transform-response): Added getselection.
+	(pdf-info-gettext): Added selection-style argument.
+
 2014-10-30  Andreas Politz  <politza@hochschule-trier.de>
 
 	* Makefile.am:Create image directory in the package (Regression).
