@@ -10,6 +10,7 @@ AC_CONFIG_HEADERS([src/config.h])
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
+AC_PROG_RANLIB
 AM_PATH_LISPDIR                 dnl Sets EMACS
 
 # Checks for libraries.

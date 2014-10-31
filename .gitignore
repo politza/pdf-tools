@@ -46,3 +46,4 @@ install-sh
 missing
 config.cache
 TAGS
+*.a
