@@ -40,8 +40,6 @@ static arg_t *parse_args(const ctxt_t *ctx, const char *args, size_t len,
 static ptrdiff_t parse_next_arg (const char *args, char *buf);
 static void free_args (arg_t *args, size_t n);
 static void free_doc (doc_t *doc);
-static gboolean
-file_is_writable (const char *filename);
 static doc_t *open_document (const ctxt_t *ctx, const char *filename, const char *passwd, GError **error);
 static size_t release_documents (const ctxt_t *ctx, gboolean all);
 static char* strchomp (char *str);
@@ -53,7 +51,6 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action);
 static void
 print_action (PopplerDocument *doc, PopplerAction *action);
 
-static GHashTable* annots_get_for_page (doc_t *doc, gint pn);
 static GList*
 get_annots_for_page (doc_t *doc, gint pn);
 static annot_t*
@@ -69,12 +66,6 @@ static void cmd_close (const ctxt_t *ctx, const arg_t *args);
 static void cmd_save (const ctxt_t *ctx, const arg_t *args);
 static void cmd_closeall (const ctxt_t *ctx, const arg_t *args);
 static void cmd_search (const ctxt_t *ctx, const arg_t *args);
-static void
-cmd_search_regex(PopplerDocument *doc, const char *regex,
-                 int first, int last, gboolean ignore_case);
-static void
-cmd_search_string(PopplerDocument *doc, const char *string,
-                  int first, int last, gboolean ignore_case);
 static void
 cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth);
 static void cmd_outline (const ctxt_t *ctx, const arg_t *args);
@@ -96,7 +87,6 @@ static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
 static void cmd_addannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
-static void cmd_relocannot (const ctxt_t *ctx, const arg_t *args);
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
 static void cmd_synctex_forward_search (const ctxt_t *ctx, const arg_t *args);
 static void cmd_synctex_backward_search (const ctxt_t *ctx, const arg_t *args);
@@ -434,7 +424,6 @@ parse_args(const ctxt_t *ctx, const char *args, size_t len,
   ssize_t read;
   GError *gerror = NULL;
   char *buf = g_malloc (len * sizeof (char));
-  const args_spec_t *spec = cmd->args_spec;
   arg_t *cmd_args = g_malloc0 (cmd->nargs * sizeof (arg_t));
   
   for (i = 0; i < cmd->nargs && !failure; ++i)
@@ -700,6 +689,7 @@ is_handled_action (PopplerAction *action)
       /* case POPPLER_ACTION_LAUNCH: */
     case POPPLER_ACTION_URI:
       return TRUE;
+    default: break;      
     }
   return FALSE;
 }
@@ -727,6 +717,7 @@ print_action (PopplerDocument *doc, PopplerAction *action)
     case POPPLER_ACTION_URI:
       print_escaped (action->uri.uri, NL);
       break;
+    default: break;
     }
 }
 
@@ -735,7 +726,7 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
 {
   PopplerDest *dest = NULL;
   gboolean free_dest = FALSE;
-  double width, height, top, left;
+  double width, height, top;
   PopplerPage *page;
   int saved_stdin;
     
@@ -787,7 +778,6 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
   poppler_page_get_size (page, &width, &height);
   g_object_unref (page);
   top = (height - dest->top) / height;
-  left = dest->left / width;
 
   /* adapted from xpdf */
   switch (dest->type)
@@ -807,6 +797,7 @@ print_action_dest (PopplerDocument *doc, PopplerAction *action)
     case POPPLER_DEST_FITR:
       printf ("%f", top);
       break;
+    default: break;
     }
 
  theend:
@@ -904,7 +895,6 @@ print_annot (const annot_t *annot, /* const */ PopplerPage *page)
   PopplerRectangle r;
   PopplerColor *color;
   gchar *text;
-  time_t time;
   gdouble opacity;
 
   if (! annot || ! page)
@@ -1263,7 +1253,6 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
 {
   PopplerDocument *doc = args[0].value.doc->pdf;
   time_t date;
-  guint minor = 0, major = 0;
   gchar *md[6];
   gchar *title;
   int i;
@@ -1411,8 +1400,7 @@ cmd_pagelinks(const ctxt_t *ctx, const arg_t *args)
   int pn = args[1].value.natnum;
   double width, height;
   GList *link_map, *item;
-  char *text;
-  
+
   if (pn < 1 || pn > poppler_document_get_n_pages (doc))
     {
       printf_error ("No such page %d", pn);
@@ -1526,10 +1514,9 @@ cmd_getselection (const ctxt_t *ctx, const arg_t *args)
   int selection_style = args[5].value.natnum;
   
   cairo_region_t *region;
-  int nrectangles, i;
+  int i;
   PopplerPage *page;
   double width, height;
-  gchar *text;
   PopplerRectangle r;
   
   switch (selection_style)
@@ -1569,7 +1556,6 @@ cmd_getselection (const ctxt_t *ctx, const arg_t *args)
   OK_END ();
 
   cairo_region_destroy (region);
-  g_free (text);
   g_object_unref (page);
 }
 
@@ -1637,8 +1623,6 @@ cmd_getannots(const ctxt_t *ctx, const arg_t *args)
   PopplerDocument *doc = args[0].value.doc->pdf;
   gint first = args[1].value.natnum;
   gint last = args[2].value.natnum;
-  PopplerPage *page;
-  GList *annots;
   GList *list;
   gint pn;
   
@@ -1714,10 +1698,8 @@ cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args)
   const gchar *key = args[1].value.string;
   gboolean do_save = args[2].value.flag;
   PopplerAttachment *att;
-  time_t time;
-  
   annot_t *a = get_annot_by_key (doc, key);
-  gint index;
+
   if (! a)
     {
       printf_error ("No such annotation: %s", key);
@@ -2163,6 +2145,7 @@ free_args (arg_t *args, size_t n)
         case ARG_STRING_NONEMPTY:
           g_free(args[i].value.string);
           break;
+        default: break;
         }
     }
   g_free (args);

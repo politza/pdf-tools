@@ -1,5 +1,8 @@
 2014-10-31  Andreas Politz  <politza@hochschule-trier.de>
 
+	* src/epdfinfo.c: Fixed various compiler warnings.
+	* src/Makefile.am (AM_CFLAGS):Disableed disabling warnings.
+
 	Highlight the selection of text.
 	
 	* src/epdfinfo.c: Added new command getselection.
