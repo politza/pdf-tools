@@ -1105,9 +1105,9 @@ Optional REVERT-P means, revert the display afterwards."
              
 (defun tablist-edit-column-mark-field ()
   (interactive)
-  (save-restriction
-    (narrow-to-region (field-beginning) (field-end))
-    (mark-whole-buffer)))
+  (push-mark (field-beginning))
+  (push-mark (field-end) nil t)
+  (goto-char (field-beginning)))
 
 (defun tablist-find-entry (&optional id)
   (interactive)

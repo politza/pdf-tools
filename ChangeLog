@@ -1,5 +1,7 @@
 2014-11-01  Andreas Politz  <politza@hochschule-trier.de>
 
+	* lisp/tablist.el (tablist-edit-column-mark-field): Avoid compiler warning.
+
 	Suppress warnings in synctex.
 	* src/Makefile.am (AM_CFLAGS):Separate synctex compilation and add -w flag.
 	* configure.ac:Configure ar program.
