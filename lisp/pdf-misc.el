@@ -28,8 +28,9 @@
 
 (defvar pdf-misc-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap [drag-mouse-1] 'pdf-misc-copy-selection)
-    (define-key kmap (kbd "C-w") 'pdf-misc-copy-page)
+    (define-key kmap [down-mouse-1] 'pdf-misc-mouse-set-selection)
+    (define-key kmap (kbd "C-w") 'pdf-misc-copy-selection)
+    (define-key kmap (kbd "M-w") 'pdf-misc-copy-selection)
     (define-key kmap (kbd "C-c C-d") 'pdf-misc-dark-mode)
     (define-key kmap (kbd "I") 'pdf-misc-display-metadata)
     (define-key kmap (kbd "s w") 'pdf-misc-crop-to-window)
@@ -39,37 +40,119 @@
     kmap)
   "Keymap used in `pdf-misc-minor-mode'.")
 
+(defcustom pdf-misc-selection-convert-commands
+  '("-fuzz" "30%%" "-region" "%g"
+    "-fill" "%b" "-draw" "color 0,-1 replace")
+  "The commands for highlight the selection.
 
+See `pdf-isearch-convert-commands'."
+  :group 'pdf-misc
+  :type '(repeat string)
+  :link '(url-link "http://www.imagemagick.org/script/convert.php"))
+
+(defface pdf-misc-selection
+  '((((background dark)) (:inherit region))
+    (((background light)) (:inherit region)))
+  "Face used to determine the colors of the selection."
+  ;; :group 'pdf-isearch
+  :group 'pdf-tools-faces)
+
+(defvar-local pdf-misc-current-selection nil
+  "The active selection, or nil.
+
+\(PAGE . \(X1 Y1 X2 Y2\)") 
+  
 ;;;###autoload
 (define-minor-mode pdf-misc-minor-mode
   "Miscellanous smaller commands.
 
 \\{pdf-misc-minor-mode-map}"
-  nil nil nil)
+  nil nil nil
+  (cond
+   (pdf-misc-minor-mode
+    (add-hook 'deactivate-mark-hook 'pdf-misc-clear-selection nil t)
+    (add-hook 'pdf-util-after-change-page-hook 'pdf-misc-clear-selection nil t)
+    (pdf-render-register-layer-function 'pdf-misc-selection-render))
+   (t
+    (remove-hook 'deactivate-mark-hook 'pdf-misc-clear-selection t)
+    (remove-hook 'pdf-util-after-change-page-hook 'pdf-misc-clear-selection t)
+    (pdf-render-unregister-layer-function 'pdf-misc-selection-render))))
 
-(defun pdf-misc-copy-selection (ev)
-  "Copy the selection represented by EV to the `kill-ring'.
-
-EV should be a mouse-drag event, i.e. this command should be
-bound to an appropriate event.
-
-The selection works as usual, e.g. like the region in Emacs."
-  (interactive "@e")
+(defun pdf-misc-clear-selection ()
+  "Clears the selection."
+  (interactive)
   (pdf-util-assert-pdf-buffer)
+  (when pdf-misc-current-selection
+    (let ((selpage (car pdf-misc-current-selection)))
+      (setq pdf-misc-current-selection nil)
+      (deactivate-mark)
+      (pdf-render-redraw-document nil (list selpage) t))))
+
+(defun pdf-misc-mouse-set-selection (ev)
+  "Selects a region of text using the mouse."
+  (interactive "@e")
+  (pdf-util-assert-pdf-window)
   (unless (and (eventp ev)
-               (mouse-event-p ev)
-               (= (length ev) 3))
-    (error "This command must be bound to a mouse-drag event"))
-  (when (and (posn-image (car (cdr ev)))
-             (posn-image (car (cddr ev))))
-    (let* ((beg (posn-object-x-y (car (cdr ev))))
-           (end (posn-object-x-y (car (cddr ev))))
-           (txt (pdf-misc-selection-string
-                 (min (car beg) (car end))
-                 (min (cdr beg) (cdr end))
-                 (max (car beg) (car end))
-                 (max (cdr beg) (cdr end)))))
-      (message "%s" txt)
+               (mouse-event-p ev))
+    (signal 'wrong-type-argument (list 'mouse-event-p ev)))
+  (pdf-misc-clear-selection)
+  (when (posn-image (event-start ev))
+    (let* ((window (selected-window))
+           (beg (posn-object-x-y (event-start ev)))
+           event)
+      (pdf-render-with-redraw
+          'pdf-misc-selection-render
+        (while (eq 'mouse-movement
+                   (event-basic-type
+                    (setq event
+                          (track-mouse (read-event)))))
+          (let* ((pos (event-start event))
+                 (end (posn-object-x-y pos)))
+            (when (and (eq window (posn-window pos))
+                       (posn-image pos)
+                       (/= (car beg) (car end))
+                       (/= (cdr beg) (cdr end)))
+              (setq pdf-misc-current-selection
+                    (list (doc-view-current-page)
+                          (min (car beg) (car end))
+                          (min (cdr beg) (cdr end))
+                          (max (car beg) (car end))
+                          (max (cdr beg) (cdr end))))
+              (redraw)))))
+      (if pdf-misc-current-selection
+        (setq transient-mark-mode t))
+      (setq unread-command-events (list event)))))
+
+(defun pdf-misc-selection-render (page)
+  (when (and (eq page (car pdf-misc-current-selection))
+             (pdf-util-page-displayed-p))
+    (let* ((size (pdf-util-image-size))
+           (ifsize (pdf-util-png-image-size))
+           (region (cdr pdf-misc-current-selection))
+           (colors (pdf-util-face-colors 'pdf-misc-selection
+                                         pdf-misc-dark-mode))
+           (selection
+            (apply 'pdf-info-getselection
+                   (doc-view-current-page)
+                   (pdf-util-scale-edges
+                    region (cons (/ 1.0 (car size))
+                                 (/ 1.0 (cdr size)))))))
+      (list :commands
+            pdf-misc-selection-convert-commands
+            :foreground (car colors)
+            :background (cdr colors)
+            :apply
+            (pdf-util-scale-edges selection ifsize)))))
+    
+(defun pdf-misc-copy-selection ()
+  "Copy the selection to the `kill-ring'."
+  (interactive)
+  (pdf-util-assert-pdf-window)
+  (if (null pdf-misc-current-selection)
+      (pdf-misc-copy-page)
+    (let* ((txt (apply 'pdf-misc-selection-string
+                       (cdr pdf-misc-current-selection))))
+      (pdf-misc-clear-selection)
       (kill-new txt))))
 
 (defun pdf-misc-copy-page ()

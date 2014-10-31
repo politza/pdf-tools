@@ -183,7 +183,7 @@
 
 (defvar-local pdf-render-pages-to-render nil)
   
-(defun pdf-render-redraw--1 (&optional buffer)
+(defun pdf-render-redraw--1 (&optional buffer silent)
   "Only used internally."
   ;; Assumes no conversion (DocView + pdf-render) in progress.
   (save-current-buffer
@@ -219,9 +219,10 @@
                   ;; buffers are rendered.
                   (run-with-timer 0.05 nil 'pdf-render-redraw--1 buffer))
                  (t
-                  (setq mode-line-process
-                        (and pages (list (format ":Rendering (%d left)"
-                                                 (length pages)))))
+                  (unless silent
+                    (setq mode-line-process
+                          (and pages (list (format ":Rendering (%d left)"
+                                                   (length pages))))))
                   (apply
                    'pdf-util-convert-asynch
                    in-file pdf-render-temp-file
@@ -230,12 +231,13 @@
                         (when (buffer-live-p buffer)
                           (with-current-buffer buffer
                             (if (not (equal status "finished\n"))
-                                (setq mode-line-process
-                                      `(,(cond
-                                          ((equal status "killed\n")
-                                           ":*canceled*")
-                                          (t
-                                           ":*convert error*"))))
+                                (unless silent
+                                  (setq mode-line-process
+                                        `(,(cond
+                                            ((equal status "killed\n")
+                                             ":*canceled*")
+                                            (t
+                                             ":*convert error*")))))
                               (pdf-render-set-state page cmds)
                               (copy-file pdf-render-temp-file out-file t)
                               (clear-image-cache out-file)
@@ -253,7 +255,7 @@
         (setq n (1+ n))))
     n))
   
-(defun pdf-render-redraw-document (&optional buffer pages)
+(defun pdf-render-redraw-document (&optional buffer pages silent)
   (interactive)
   (save-current-buffer
     (when buffer (set-buffer buffer))
@@ -274,7 +276,7 @@
                 (cl-union (cl-remove-duplicates pages)
                           pdf-render-pages-to-render)
               (number-sequence 1 (pdf-info-number-of-pages))))
-      (pdf-render-redraw--1)))))
+      (pdf-render-redraw--1 nil silent)))))
 
 (defmacro pdf-render-with-redraw (render-fn &optional exclusive-p &rest body)
   (declare (indent 1) (debug t))
@@ -374,35 +376,36 @@
                                      img))
           (clear-image-cache file))))))
 
+(defvar pdf-render-momentarily-process nil)
+
 (defun pdf-render-momentarily (&rest spec)
   (pdf-util-assert-pdf-window)
   (let* ((window (selected-window))
+         (image (doc-view-current-image))
          (buffer (window-buffer window))
          (page (doc-view-current-page))
          (in-file (pdf-util-current-image-file))
          (out-file (pdf-util-cache-make-filename
                     'pdf-render-momentarily
-                    (pdf-util-fast-image-format)
-                    (append spec (pdf-render-convert-commands page)))))
-    (cond
-     ((file-exists-p out-file)
-      (pdf-render-display-image out-file)
-      nil)
-     ((null spec)
-      (pdf-render-redisplay-current-page)
-      nil)
-     (t
-      (apply
-       'pdf-util-convert-asynch
-       in-file out-file
-       `(,@spec
-         ,(lambda (_proc status)
-            (when (and (equal status "finished\n")
-                       (window-live-p window)
-                       (eq (window-buffer window) buffer)
-                       (pdf-util-pdf-buffer-p buffer))
-              (with-selected-window window
-                (pdf-render-display-image out-file))))))))))
+                    (pdf-util-fast-image-format))))
+    
+    (when (processp pdf-render-momentarily-process)
+      (delete-process pdf-render-momentarily-process))
+    (setq pdf-render-momentarily-process
+          (apply
+           'pdf-util-convert-asynch
+           in-file out-file
+           `(,@spec
+             ,(lambda (_proc status)
+                (when (and (equal status "finished\n")
+                           (buffer-live-p buffer)
+                           (pdf-util-pdf-buffer-p buffer)
+                           (window-live-p window)
+                           (eq (window-buffer window) buffer))
+                  (with-selected-window window
+                    (when (and (eq page (doc-view-current-page)) 
+                               (eq image (doc-view-current-image)))
+                      (pdf-render-display-image out-file))))))))))
 
 ;;
 ;; DocView Setup

@@ -43,7 +43,7 @@ This key is added to `TeX-source-correlate-method', when
 
 (defvar pdf-sync-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap [down-mouse-1] 'ignore)
+    ;; (define-key kmap [down-mouse-1] 'ignore)
     (define-key kmap [double-mouse-1] 'pdf-sync-mouse-goto-tex)
     kmap))
 
