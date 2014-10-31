@@ -27,15 +27,17 @@
 
 ;;; Code:
 
-(defvar pdf-render-layer-functions nil
+(defvar pdf-render-render-functions nil
   "A list of functions determining what to render.")
+
+(defvar-local pdf-render-hotspot-functions nil)
 
 (defvar-local pdf-render-intialized-p nil)
 (defvar-local pdf-render-state-alist nil)
 (defvar-local pdf-render-redraw-process/timer nil)
 (defvar-local pdf-render-schedule-redraw-timer nil)
 (defvar-local pdf-render-temp-file nil)
-(defvar-local pdf-render-annotate-functions nil)
+
 
 (defvar pdf-render-debug nil)
 
@@ -47,48 +49,67 @@
 ;; Rendering
 ;; 
   
-(defun pdf-render-register-annotate-image-function (fn &optional layer)
-  (push (cons (or layer 0) fn)
-        pdf-render-annotate-functions))
+(defun pdf-render-register-hotspot-function (fn &optional layer)
+  "Register FN as a hotspot function in the current buffer, using LAYER.
 
-(defun pdf-render-unregister-annotate-function (fn)
-  (setq pdf-render-annotate-functions
-        (cl-remove fn pdf-render-annotate-functions
+FN will be called in the PDF buffer with the page-number and the
+image size \(WIDTH . HEIGHT\) as arguments.  It should return a
+list of hotspots applicable to the the :map image-property.
+
+LAYER determines the order: Functions in a higher LAYER will
+supercede hotspots in lower ones."
+  (push (cons (or layer 0) fn)
+        pdf-render-hotspot-functions))
+
+(defun pdf-render-unregister-hotspot-function (fn)
+  "Unregister FN as a hotspot function int the current buffer."
+  (setq pdf-render-hotspot-functions
+        (cl-remove fn pdf-render-hotspot-functions
                    :key 'cdr)))
 
-(defun pdf-render-annotate-image (page props)
+(defun pdf-render-merge-hotspots (page properties)
   (if pdf-render-inhibit-display
-      props
-    (let* ((width (or (plist-get :width props)
+      properties
+    (let* ((width (or (plist-get :width properties)
                       doc-view-image-width))
-           (size (pdf-util-png-image-size page))
+           (ifsize (pdf-util-png-image-size page))
            (size (if (fboundp 'imagemagick-types)
                      (cons width
-                           (round (* (/ (float (cdr size))
-                                        (car size)) width)))
-                   size)))
-      (with-wrapper-hook 
-          (nreverse (pdf-render-sorted-layer-functions
-                     pdf-render-annotate-functions))
-          (page size)
-        page size               ;Avoid warning about unused variables.
-        props))))
-      
-(defun pdf-render-sorted-layer-functions (functions)
-  (mapcar 'cdr (cl-sort (copy-sequence functions)
-                        '< :key 'car)))
+                           (round (* (/ (float (cdr ifsize))
+                                        (car ifsize))
+                                     width)))
+                   ifsize))
+           (hotspots (apply 'nconc
+                            (mapcar (lambda (fn)
+                                      (funcall fn page size))
+                                    (pdf-render-sorted-render-functions
+                                     pdf-render-hotspot-functions)))))
+      (plist-put properties :map
+                 (append (plist-get properties :map)
+                         hotspots)))))
 
-(defun pdf-render-register-layer-function (fn &optional layer)
-  (setq pdf-render-layer-functions
+(defun pdf-render-register-render-function (fn &optional layer)
+  "Register FN as a render function using LAYER.
+
+FN will be called in the PDF buffer to be rendered, with the
+page-number as a single argument.  It should return a
+property-list applicable to the the `pdf-util-convert' funtion.
+
+LAYER determines the order: Functions in a higher LAYER will
+paint over lower ones."
+  (setq pdf-render-render-functions
         (cons (cons (or layer 0) fn)
-              (cl-remove fn pdf-render-layer-functions
+              (cl-remove fn pdf-render-render-functions
                          :key 'cdr))))
 
-(defun pdf-render-unregister-layer-function (fn)
-  (setq pdf-render-layer-functions
-        (cl-remove fn pdf-render-layer-functions
+(defun pdf-render-unregister-render-function (fn)
+  (setq pdf-render-render-functions
+        (cl-remove fn pdf-render-render-functions
                    :key 'cdr)))
-  
+
+(defun pdf-render-sorted-render-functions (functions)
+  (mapcar 'cdr (cl-sort (copy-sequence functions)
+                        '< :key 'car)))
 ;; 
 
 (defun pdf-render-initialize (&optional force)
@@ -166,8 +187,8 @@
 (defun pdf-render-convert-commands (page)
   (apply 'nconc
          (mapcar (lambda (h) (funcall h page))
-                 (pdf-render-sorted-layer-functions
-                  pdf-render-layer-functions))))
+                 (pdf-render-sorted-render-functions
+                  pdf-render-render-functions))))
 
 (defun pdf-render-cancel-redraw ()
   (when (timerp pdf-render-schedule-redraw-timer)
@@ -323,9 +344,9 @@
                (apply 'pdf-util-convert
                       (pdf-render-image-file ,page)
                       ,tmp-in
-                      (let ((pdf-render-layer-functions
+                      (let ((pdf-render-render-functions
                              (and (not ,exclusive-p)
-                                  (cl-remove ,fn pdf-render-layer-functions
+                                  (cl-remove ,fn pdf-render-render-functions
                                              :key 'cdr))))
                         (pdf-render-convert-commands ,page)))
                (progn ,@body))
@@ -349,7 +370,7 @@
         (pdf-util-save-window-scroll
           (doc-view-goto-page (doc-view-current-page)))))))
 
-(defun pdf-render-display-image (&optional file no-annotate &rest props)
+(defun pdf-render-display-image (&optional file no-hotspots &rest properties)
   (if (null file)
       (pdf-render-redisplay-current-page)
     (unless (file-equal-p
@@ -362,15 +383,19 @@
                       (image-type file))))
         (unless type
           (error "Unable to display image: %s" file))
+        (unless (plist-get properties :width)
+          (setq properties (plist-put properties :width doc-view-image-width)))
+        (unless (plist-get properties :pointer)
+          (setq properties (plist-put properties :pointer 'arrow)))
+
         (let* ((ov (doc-view-current-overlay))
                (slice (doc-view-current-slice))
-               (props `(,@props :width ,doc-view-image-width :pointer arrow))
                (img (apply 'create-image file
-                           type
-                           nil
-                           (if no-annotate props
-                             (pdf-render-annotate-image
-                              (doc-view-current-page) props)))))
+                           type nil
+                           (if no-hotspots properties
+                             (pdf-render-merge-hotspots
+                              (doc-view-current-page)
+                              properties)))))
           (overlay-put ov 'display (if slice
                                        (list (cons 'slice slice) img)
                                      img))
@@ -429,7 +454,7 @@
                               (string-to-number (match-string 1 +file+))))))
           (when +page+
             (ad-set-arg 0 (pdf-render-image-file +page+)))))
-      (ad-set-args 1 (pdf-render-annotate-image
+      (ad-set-args 1 (pdf-render-merge-hotspots
                       (doc-view-current-page)
                       (ad-get-args 1))))))
 

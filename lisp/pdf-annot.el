@@ -767,7 +767,7 @@ returns a resolved format spec list for A."
 (defun pdf-annot-render-function (page)
   "The render function for annotations.
 
-To be registered with `pdf-render-register-layer-function'."
+To be registered with `pdf-render-register-render-function'."
   (let ((annots
          (cl-mapcon (lambda (type)
                       (pdf-annot-getannots page type))
@@ -809,17 +809,16 @@ To be registered with `pdf-render-register-layer-function'."
          :commands acmd
          :apply edges)))))
            
-(defun pdf-annot-annotate-image (fn page size) 
-  "The image annotation function.
+(defun pdf-annot-hotspot-function (page size) 
+  "The image hotspots function.
 
-To be registered with `pdf-render-register-annotate-image-function'."
-  (let* ((props (funcall fn page size))
-         (annots (pdf-annot-getannots page '(text file)))
+To be registered with `pdf-render-register-hotspot-function'."
+  (let* ((annots (pdf-annot-getannots page '(text file)))
          (d pdf-annot-annotate-resize-pixel)
          (pointer '(hand hdrag vdrag arrow))
          (ops '(move resize-horizontally resize-vertically
                      resize-diagonally))
-         map)
+         hotspots)
     (dolist (a annots)
       (unless (pdf-annot-deleted-p a)
         (let* ((e (pdf-util-scale-edges
@@ -850,7 +849,7 @@ To be registered with `pdf-render-register-annotate-image-function'."
                      ,(nth i pointer)
                      help-echo
                      ,(nth i help)))
-                  map)
+                  hotspots)
             (local-set-key
              (vector (nth i ids) 'down-mouse-3)
              (lambda (_ev)
@@ -866,9 +865,7 @@ To be registered with `pdf-render-register-annotate-image-function'."
                      (text 'pdf-annot-edit-text)
                      (file 'pdf-annot-attach-find-file-other-window)))))
             (pdf-util-image-map-divert-mouse-clicks (nth i ids) '(2 4 5 6))))))
-  (plist-put props
-             :map
-             (append map (plist-get props :map)))))
+    hotspots))
 
 (defun pdf-annot-redraw-pages (pages)
   "Redraw PAGES of the current buffer."
@@ -971,7 +968,7 @@ i.e. a non mouse-movement event is read."
               (plist-put (cdr (doc-view-current-image))
                          :pointer 'text)
               (let (make-pointer-invisible
-                    pdf-render-annotate-functions)
+                    pdf-render-hotspot-functions)
                 (while (eq 'mouse-movement (event-basic-type ev))
                   (when (eq 'image (car-safe (posn-object (event-start ev))))
                     (let ((xy (posn-object-x-y (event-start ev))))
@@ -1441,8 +1438,8 @@ after this package was loaded."
     (pdf-render-ghostscript-configure 0)
     (when (pdf-info-writable-annotations-p)
       (add-hook 'write-contents-functions 'pdf-annot-save-document nil t))
-    (pdf-render-register-layer-function 'pdf-annot-render-function 9)
-    (pdf-render-register-annotate-image-function 'pdf-annot-annotate-image 9)
+    (pdf-render-register-render-function 'pdf-annot-render-function 9)
+    (pdf-render-register-hotspot-function 'pdf-annot-hotspot-function 9)
     (add-hook 'pdf-annot-pages-modified-functions 'pdf-annot-redraw-pages nil t)
     (add-hook 'pdf-annot-pages-modified-functions
               'pdf-annot-reannotate-pages nil t)
@@ -1456,8 +1453,8 @@ after this package was loaded."
     (when (boundp 'doc-view-pdf->png-converter-function)
       (kill-local-variable 'doc-view-pdf->png-converter-function))
     (remove-hook 'write-contents-functions 'pdf-annot-save-document t)
-    (pdf-render-unregister-layer-function 'pdf-annot-render-function)
-    (pdf-render-unregister-annotate-function 'pdf-annot-annotate-image)
+    (pdf-render-unregister-render-function 'pdf-annot-render-function)
+    (pdf-render-unregister-hotspot-function 'pdf-annot-hotspot-function)
     (remove-hook 'pdf-annot-pages-modified-functions
                  'pdf-annot-redraw-pages t)
     (remove-hook 'pdf-annot-pages-modified-functions

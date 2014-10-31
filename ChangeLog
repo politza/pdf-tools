@@ -1,5 +1,14 @@
 2014-10-31  Andreas Politz  <politza@hochschule-trier.de>
 
+	Renamed former layer-* and annotate-* functions/variables to make
+	it clearer what they are supposed to to.  Simplyfied former
+	annotate-* interface.
+	* lisp/pdf-render.el:Renamed Functions and Variables. Simplify
+	hotspot interface.
+	* lisp/pdf-misc.el:Rename and use new interface.
+	* lisp/pdf-links.el:Dito.
+	* lisp/pdf-annot.el:Dito.
+
 	* src/epdfinfo.c: Fixed various compiler warnings.
 	* src/Makefile.am (AM_CFLAGS):Disableed disabling warnings.
 

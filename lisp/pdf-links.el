@@ -119,9 +119,9 @@ links via \\[pdf-links-isearch-link].
   (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-links-minor-mode
-    (pdf-render-register-annotate-image-function 'pdf-links-annotate-image 0))
+    (pdf-render-register-hotspot-function 'pdf-links-hotspots-function 0))
    (t
-    (pdf-render-unregister-annotate-function 'pdf-links-annotate-image)))
+    (pdf-render-unregister-hotspot-function 'pdf-links-hotspots-function)))
   (doc-view-goto-page (doc-view-current-page)))
 
 (defun pdf-links-after-reconvert-hook ()
@@ -138,17 +138,14 @@ the format of the return value."
         (push (cons page links) pdf-links-page-alist)
         links)))
 
-(defun pdf-links-annotate-image (fn page size)
-  "Merge properties for handling links on PAGE with PROPS.
-
-This adds the :map property and defines global mouse bindings
-accordingly."
-  (let ((props (funcall fn page size))
-        (links (pdf-links-pagelinks page))
+(defun pdf-links-hotspots-function (page size)
+  "Create hotspots for links on PAGE using SIZE."
+  
+  (let ((links (pdf-links-pagelinks page))
         (id-fmt "link-%d-%d")
         (i 0)
         (pointer 'hand)
-        map)
+        hotspots)
     (dolist (l links)
       (let ((e (pdf-util-scale-edges (car l) size))
             (id (intern (format id-fmt page
@@ -159,17 +156,14 @@ accordingly."
                 (pointer
                  ,pointer
                  help-echo ,(pdf-links-action-to-string (cdr l))))
-              map)
+              hotspots)
         (local-set-key
          (vector id 'mouse-1)
          (lambda nil
            (interactive "@")
            (pdf-links-do-action (cdr l))))
         (pdf-util-image-map-divert-mouse-clicks id)))
-    (plist-put props
-               :map
-               (append (nreverse map)
-                       (plist-get props :map)))))
+    (nreverse hotspots)))
 
 (defun pdf-links-action-to-string (action)
   "Return a string representation of ACTION."

@@ -75,13 +75,13 @@ See `pdf-isearch-convert-commands'."
     (add-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region nil t)
     (add-hook 'pdf-util-after-change-page-hook 'pdf-misc-deactivate-region nil t)
     (add-hook 'kill-buffer-hook 'pdf-misc-deactivate-region nil t)
-    (pdf-render-register-layer-function 'pdf-misc-region-render))   
+    (pdf-render-register-render-function 'pdf-misc-region-render))   
    (t
     (pdf-misc-deactivate-region)
     (remove-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region t)
     (remove-hook 'pdf-util-after-change-page-hook 'pdf-misc-deactivate-region t)
     (remove-hook 'kill-buffer-hook 'pdf-misc-deactivate-region t)
-    (pdf-render-unregister-layer-function 'pdf-misc-region-render))))
+    (pdf-render-unregister-render-function 'pdf-misc-region-render))))
 
 (defun pdf-misc-deactivate-region ()
   "Clears the region."
