@@ -208,7 +208,7 @@ PAGE. "
             (let ((e (pdf-util-scale-edges region size)))
               `((rect . ((,(nth 0 e) . ,(nth 1 e))
                          . (,(nth 2 e) . ,(nth 3 e))))
-                'pdf-misc-text
+                pdf-misc-text
                 (pointer text))))
           (pdf-misc-text-regions page)))
 
