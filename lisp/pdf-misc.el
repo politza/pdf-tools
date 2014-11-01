@@ -59,6 +59,9 @@ See `pdf-isearch-convert-commands'."
   ;; :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
+(defvar-local pdf-misc-text-regions-alist nil
+  "An alist of \(PAGE . EDGES ...\) elements.")
+
 (defvar-local pdf-misc-current-region nil
   "The active region, or nil.
 
@@ -75,13 +78,18 @@ See `pdf-isearch-convert-commands'."
     (add-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region nil t)
     (add-hook 'pdf-util-after-change-page-hook 'pdf-misc-deactivate-region nil t)
     (add-hook 'kill-buffer-hook 'pdf-misc-deactivate-region nil t)
-    (pdf-render-register-render-function 'pdf-misc-region-render))   
+    (pdf-render-register-render-function 'pdf-misc-region-render)
+    (pdf-render-register-hotspot-function 'pdf-misc-text-regions-hotspots-function -9)
+    (add-hook 'pdf-util-after-reconvert-hook 'pdf-misc-after-reconvert-hook nil t))   
+   
    (t
     (pdf-misc-deactivate-region)
     (remove-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region t)
     (remove-hook 'pdf-util-after-change-page-hook 'pdf-misc-deactivate-region t)
     (remove-hook 'kill-buffer-hook 'pdf-misc-deactivate-region t)
-    (pdf-render-unregister-render-function 'pdf-misc-region-render))))
+    (pdf-render-unregister-render-function 'pdf-misc-region-render)
+    (pdf-render-unregister-hotspot-function 'pdf-misc-text-regions-hotspots-function)
+    (remove-hook 'pdf-util-after-reconvert-hook 'pdf-misc-after-reconvert-hook t))))
 
 (defun pdf-misc-deactivate-region ()
   "Clears the region."
@@ -148,7 +156,7 @@ See `pdf-isearch-convert-commands'."
             :background (cdr colors)
             :apply
             (pdf-util-scale-edges selection ifsize)))))
-    
+
 (defun pdf-misc-copy-region ()
   "Copy the region to the `kill-ring'."
   (interactive)
@@ -180,6 +188,29 @@ See `pdf-isearch-convert-commands'."
     (pdf-info-gettext
      (or page (doc-view-current-page))
      x0 y0 x1 y1)))
+
+(defun pdf-misc-after-reconvert-hook ()
+  (setq pdf-misc-text-regions-alist nil))
+
+(defun pdf-misc-text-regions (page)
+  "Return regions of text for PAGE in the current buffer.
+
+Return a list of relative edges corresponding to the text on
+PAGE. "
+  (or (cdr (assq page pdf-misc-text-regions-alist))
+      (let ((regions (pdf-info-getselection page 0 0 1 1)))
+        (push (cons page regions) pdf-misc-text-regions-alist)
+        regions)))
+
+(defun pdf-misc-text-regions-hotspots-function (page size)
+  "Return a list of hotspots for text regions on PAGE using SIZE."
+  (mapcar (lambda (region)
+            (let ((e (pdf-util-scale-edges region size)))
+              `((rect . ((,(nth 0 e) . ,(nth 1 e))
+                         . (,(nth 2 e) . ,(nth 3 e))))
+                'pdf-misc-text
+                (pointer text))))
+          (pdf-misc-text-regions page)))
 
 (defun pdf-misc-display-metadata ()
   "Display all available metadata in a separate buffer."
