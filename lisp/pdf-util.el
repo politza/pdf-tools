@@ -475,17 +475,18 @@ dot."
           (error "Invalid image position"))
         (posn-object-x-y posn)))))
 
-(defun pdf-util-image-map-mouse-click-proxy (ev)
+(defun pdf-util-image-map-mouse-event-proxy (event)
+  "Remove the POS-OR-AREA symbol from EVENT and restuff it."
   (interactive "e")
-  (setcar (cdr (cadr ev)) 1)
-  (setq unread-command-events (list ev)))
+  (setcar (cdr (cadr event)) 1)
+  (setq unread-command-events (list event)))
 
 (defun pdf-util-image-map-divert-mouse-clicks (id &optional buttons)
   (dolist (kind '("" "down-" "drag-"))
     (dolist (b (or buttons '(2 3 4 5 6)))
       (local-set-key
        (vector id (intern (format "%smouse-%d" kind b)))
-       'pdf-util-image-map-mouse-click-proxy))))
+       'pdf-util-image-map-mouse-event-proxy))))
   
   
   

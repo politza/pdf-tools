@@ -66,7 +66,13 @@ See `pdf-isearch-convert-commands'."
   "The active region, or nil.
 
 \(PAGE . \(X1 Y1 X2 Y2\)") 
-  
+
+(defvar pdf-misc-text-region-keymap
+  (let ((km (make-sparse-keymap)))
+    (define-key km [t] 'pdf-util-image-map-mouse-event-proxy)
+    km)
+  "Keymap used over pdf-misc-text-region hotspots.")
+
 ;;;###autoload
 (define-minor-mode pdf-misc-minor-mode
   "Miscellanous smaller commands.
@@ -80,8 +86,8 @@ See `pdf-isearch-convert-commands'."
     (add-hook 'kill-buffer-hook 'pdf-misc-deactivate-region nil t)
     (pdf-render-register-render-function 'pdf-misc-region-render)
     (pdf-render-register-hotspot-function 'pdf-misc-text-regions-hotspots-function -9)
-    (add-hook 'pdf-util-after-reconvert-hook 'pdf-misc-after-reconvert-hook nil t))   
-   
+    (add-hook 'pdf-util-after-reconvert-hook 'pdf-misc-after-reconvert-hook nil t)
+    (local-set-key [pdf-misc-text-region] pdf-misc-text-region-keymap))
    (t
     (pdf-misc-deactivate-region)
     (remove-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region t)
@@ -112,28 +118,28 @@ See `pdf-isearch-convert-commands'."
   (when (posn-image (event-start ev))
     (let* ((window (selected-window))
            (beg (posn-object-x-y (event-start ev)))
-           event)
-      (pdf-render-with-redraw
-          'pdf-misc-region-render
-        (while (eq 'mouse-movement
-                   (event-basic-type
-                    (setq event
-                          (track-mouse (read-event)))))
-          (let* ((pos (event-start event))
-                 (end (posn-object-x-y pos)))
-            (when (and (eq window (posn-window pos))
-                       (posn-image pos)
-                       (/= (car beg) (car end))
-                       (/= (cdr beg) (cdr end)))
-              (setq pdf-misc-current-region
-                    (list (doc-view-current-page)
-                          (min (car beg) (car end))
-                          (min (cdr beg) (cdr end))
-                          (max (car beg) (car end))
-                          (max (cdr beg) (cdr end))))
-              (redraw)))))
-      (if pdf-misc-current-region
-        (setq transient-mark-mode t))
+           (event (track-mouse (read-event))))
+      (when (mouse-movement-p event)
+        (pdf-render-with-redraw
+            'pdf-misc-region-render
+          (while (mouse-movement-p event)
+            (let* ((pos (event-start event))
+                   (end (posn-object-x-y pos)))
+              (when (and (eq window (posn-window pos))
+                         (posn-image pos)
+                         (/= (car beg) (car end))
+                         (/= (cdr beg) (cdr end)))
+                (setq pdf-misc-current-region
+                      (list (doc-view-current-page)
+                            (min (car beg) (car end))
+                            (min (cdr beg) (cdr end))
+                            (max (car beg) (car end))
+                            (max (cdr beg) (cdr end))))
+                (redraw)))
+            (setq event (track-mouse (read-event))))
+          (when pdf-misc-current-region
+            (let ((transient-mark-mode t))
+              (push-mark)))))
       (setq unread-command-events (list event)))))
 
 (defun pdf-misc-region-render (page)
@@ -208,7 +214,7 @@ PAGE. "
             (let ((e (pdf-util-scale-edges region size)))
               `((rect . ((,(nth 0 e) . ,(nth 1 e))
                          . (,(nth 2 e) . ,(nth 3 e))))
-                pdf-misc-text
+                pdf-misc-text-region
                 (pointer text))))
           (pdf-misc-text-regions page)))
 
