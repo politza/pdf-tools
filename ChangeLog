@@ -1,5 +1,8 @@
 2014-11-01  Andreas Politz  <politza@hochschule-trier.de>
 
+	* lisp/pdf-render.el:Use correct order for hotspots. Added
+	function `pdf-render-sorted-render-functions'.
+
 	* lisp/tablist.el (tablist-edit-column-mark-field): Avoid compiler warning.
 
 	Suppress warnings in synctex.

@@ -82,11 +82,15 @@ supercede hotspots in lower ones."
            (hotspots (apply 'nconc
                             (mapcar (lambda (fn)
                                       (funcall fn page size))
-                                    (pdf-render-sorted-render-functions
+                                    (pdf-render-sorted-hotspot-functions
                                      pdf-render-hotspot-functions)))))
       (plist-put properties :map
                  (append (plist-get properties :map)
                          hotspots)))))
+
+(defun pdf-render-sorted-hotspot-functions (functions)
+  (mapcar 'cdr (cl-sort (copy-sequence functions)
+                        '> :key 'car)))
 
 (defun pdf-render-register-render-function (fn &optional layer)
   "Register FN as a render function using LAYER.
