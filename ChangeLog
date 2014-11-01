@@ -1,5 +1,8 @@
 2014-11-01  Andreas Politz  <politza@hochschule-trier.de>
 
+	Fixed a build problem on some hosts.
+	* src/Makefile.am (epdfinfo_LDADD): Put -lz at the end.
+
 	* lisp/pdf-misc.el: Added text pointer over text regions.
 
 	* lisp/pdf-render.el:Use correct order for hotspots. Added
