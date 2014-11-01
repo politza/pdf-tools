@@ -1,5 +1,7 @@
 2014-11-01  Andreas Politz  <politza@hochschule-trier.de>
 
+	* src/epdfinfo.c (print_attachment): Use correct conversion format.
+
 	* src/poppler-hack.cc:Don't try to define
 	poppler_annot_set_rectangle if it's not needed and may fail.
 

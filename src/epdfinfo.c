@@ -1029,7 +1029,7 @@ print_attachment (PopplerAttachment *att, gboolean do_save)
   print_escaped (att->name, COLON);
   print_escaped (att->description, COLON);
   if (att->size + 1 != 0)
-    printf ("%lu:", att->size);
+    printf ("%" G_GSIZE_FORMAT ":", att->size);
   else
     printf ("-1:");
   time = (time_t) att->mtime;
