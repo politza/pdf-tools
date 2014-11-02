@@ -1,5 +1,8 @@
 2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
 
+	* lisp/pdf-sync.el (pdf-sync-goto-tex): Do the right thing, if the
+	tex buffer is narrowed.
+
 	* Version 0.20 released.
 
 	* src/synctex_parser.c: Defined printf to write to stderr.

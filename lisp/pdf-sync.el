@@ -99,8 +99,10 @@ with AUCTeX."
                        (find-file-noselect source)))
     (push-mark)
     (when (> line 0)
-      (goto-char (point-min))
-      (forward-line (1- line)))
+      (save-restriction
+        (widen)
+        (goto-char 1)
+        (forward-line (1- line))))
     (when (> column 0)
       (forward-char (1- column))))
   (run-hooks 'pdf-sync-after-goto-tex-hook))
