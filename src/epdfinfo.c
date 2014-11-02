@@ -1,19 +1,19 @@
-// Copyright (C) 2013, 2014  Andreas Politz
-
-// Author: Andreas Politz <politza@fh-trier.de>
-
-// This program is free software; you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+/* Copyright (C) 2013, 2014  Andreas Politz
+ * 
+ * Author: Andreas Politz <politza@fh-trier.de>
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
 #include <assert.h>
 #include <err.h>
@@ -302,7 +302,7 @@ static const char *poppler_action_type_strings[] =
     "goto-remote",
     "launch",
     "uri",
-    "goto-dest", //"named", 
+    "goto-dest", /* "named",  */
     "movie",
     "rendition",
     "ocg-state",
@@ -407,7 +407,7 @@ int main(int argc, char **argv)
             line[cmd_end] = '\0';
           printf_error ("Unknown command: %s", line);
         }
-      //release_documents (&ctx, FALSE);
+      /* release_documents (&ctx, FALSE); */
     }
 
   if (ferror (stdin))
@@ -1285,9 +1285,6 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   print_escaped (time_str ? time_str : "", NL);
   OK_END ();
 }
-
-                
-//static void print_pdf_dest (const ctxt_t *ctx, Poppler
 
 static void
 cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)

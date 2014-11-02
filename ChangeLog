@@ -1,5 +1,7 @@
 2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
 
+	* src/epdfinfo.c:Fixe comment style. 
+
 	* src/poppler-hack.cc:Use proper header names in includes.
 
 	* README.org:Give more info on poppler-private header. Fixed some typos.
