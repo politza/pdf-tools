@@ -26,6 +26,16 @@ PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
 PKG_CHECK_EXISTS([poppler-glib >= 0.26], [HAVE_POPPLER_ANNOT_SET_RECTANGLE=yes])
 PKG_CHECK_MODULES([zlib], [zlib])
 
+# Check for private poppler header.
+SAVED_CPPFLAGS=$CPPFLAGS
+CPPFLAGS=$poppler_CFLAGS
+AC_LANG_PUSH([C++])
+AC_CHECK_HEADERS([Annot.h PDFDocEncoding.h], [],
+    AC_MSG_ERROR([cannot find necessary  poppler-private header (see README.org)]))
+AC_LANG_POP([C++])
+CPPFLAGS=$SAVED_CPPFLAGS
+
+# Setup compile time features.
 if test "$HAVE_POPPLER_FIND_OPTS" = yes; then
   AC_DEFINE([HAVE_POPPLER_FIND_OPTS],1,
     [Define to 1 to enable case sensitive searching (requires poppler-glib >= 0.22).])

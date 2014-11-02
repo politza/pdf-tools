@@ -1,3 +1,9 @@
+2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
+
+	* README.org:Give more info on poppler-private header. Fixed some typos.
+
+	* configure.ac: Added check for poppler private header.
+
 2014-11-01  Andreas Politz  <politza@hochschule-trier.de>
 
 	* lisp/pdf-util.el (pdf-util-image-map-mouse-click-proxy): Renamed.

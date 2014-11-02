@@ -19,15 +19,17 @@
      
      This library contains some needed private poppler headers.
      Depending on the way poppler is installed on your system, this
-     may or may not be included.  E.g. in Debian it is contained in a
-     seperate package called libpoppler-private-dev.
+     may or may not be included.
+     
+     - Debian :: Install libpoppler-private-dev.
+     - From source :: Configure with --enable-xpdf-headers .
 
 ** Building
   First run autogen.sh, then
 #+begin_src sh
   ./configure && make
 #+end_src
-  which compiles the c source and creates a ELPA package.
+  which compiles the c source and creates a ELP package.
 ** Installation
   Assuming the epdfinfo server build correctly and a Emacs package was
   created.  The next step is to install this package, with make
@@ -57,7 +59,7 @@
 ** Features
 *** Render
     Display search results, links and annotations directly on the page,
-    with customizable styles.
+    with customizeable styles.
 *** Isearch 
     Interactively search PDF documents like any other buffer, though
     there is currently no regexp support. 
@@ -78,9 +80,9 @@
     Jump from a position on a page directly to the TeX source and
     vice-versa.
 *** Misc
-   + Display PDF's metadata.
+   + Display PDF's meta-data.
    + Select and copy text from the PDF.
-   + Search for occurences of a string.
+   + Search for occurrences of a string.
    + Keep track of visited pages via a history.
    + Auto-fit pages to the current window size.
    + View multiple pages in multiple windows.
