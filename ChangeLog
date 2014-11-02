@@ -1,5 +1,8 @@
 2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
 
+	* lisp/pdf-sync.el (pdf-sync-correlate-pdf): Added workaround for
+	filename bug in synctex.
+
 	* src/epdfinfo.c:Fixed comment style. Remove comments about
 	unsupported poppler versions.
 

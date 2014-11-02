@@ -145,9 +145,24 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
     (unless column (setq column (current-column))))
 
   (let ((pdf (expand-file-name
-              (with-no-warnings (TeX-master-file "pdf")))))
-    (cons pdf (pdf-info-synctex-forward-search
-               (current-buffer) line column pdf))))
+              (with-no-warnings (TeX-master-file "pdf"))))) 
+    (condition-case nil
+        (cons pdf
+              (pdf-info-synctex-forward-search
+               (buffer-file-name) line column pdf))
+      (error
+       ;; Work around quirky filenames in synctex.gz database.
+       (let ((master-directory
+              (file-name-as-directory
+               (expand-file-name
+                (with-no-warnings (TeX-master-directory))))))
+         (cons pdf
+               (pdf-info-synctex-forward-search
+                (concat master-directory "./"
+                        (file-relative-name
+                         (buffer-file-name)
+                         master-directory))
+                line column pdf)))))))
 
 (provide 'pdf-sync)
 
