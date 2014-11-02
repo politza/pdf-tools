@@ -1,5 +1,5 @@
 ;;; pdf-sync.el --- Use synctex to correlate LaTeX-Sources with PDF positions. -*- lexical-binding:t -*-
-;; Copyright (C) 2013  Andreas Politz
+;; Copyright (C) 2013, 2014  Andreas Politz
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
 ;; Keywords: files, doc-view, pdf

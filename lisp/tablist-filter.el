@@ -1,6 +1,6 @@
 ;;; tablist-filter.el --- Filter expressions for tablists.
 
-;; Copyright (C) 2013  Andreas Politz
+;; Copyright (C) 2013, 2014  Andreas Politz
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
 ;; Keywords: 

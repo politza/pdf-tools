@@ -1,6 +1,6 @@
 ;;; tablist.el --- Extensions for tabulated list mode. -*- lexical-binding: t -*-
 
-;; Copyright (C) 2013  Andreas Politz
+;; Copyright (C) 2013, 2014  Andreas Politz
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
 ;; Keywords:
