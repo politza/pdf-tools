@@ -1,6 +1,6 @@
 #include <config.h>
-#include <poppler/Annot.h>
-#include <poppler/PDFDocEncoding.h>
+#include <Annot.h>
+#include <PDFDocEncoding.h>
 extern "C"
 {
 #include <glib-object.h>
