@@ -1,6 +1,7 @@
 2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
 
-	* src/epdfinfo.c:Fixe comment style. 
+	* src/epdfinfo.c:Fixed comment style. Remove comments about
+	unsupported poppler versions.
 
 	* src/poppler-hack.cc:Use proper header names in includes.
 

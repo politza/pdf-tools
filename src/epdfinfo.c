@@ -1238,14 +1238,12 @@ cmd_search(const ctxt_t *ctx, const arg_t *args)
 /* Name: metadata
    Args: filename
    Returns: PDF's metadata
-
+   Errors: None
+   
    title author subject keywords creator producer pdf-version create-date mod-date
 
-   Dates are in seconds since the epoche.  If poppler version is <
-   0.16, only the title is returned.
-
-   Errors: If poppler < 0.12, which is the minimal version for getting
-   the title.
+   Dates are in seconds since the epoche.
+   
 */
 
 static void
@@ -1323,7 +1321,7 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
 
    See cmd_pagelinks for how ACTION is constructed.  
    
-   Errors: If poppler < 0.12 .
+   Errors: None
 */
 
 static void
