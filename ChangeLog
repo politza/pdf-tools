@@ -1,5 +1,7 @@
 2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
 
+	* lisp/pdf-tools.el (pdf-tools-uninstall): Remove the correct hook function.
+
 	* lisp/pdf-sync.el (pdf-sync-correlate-pdf): Added workaround for
 	filename bug in synctex.
 

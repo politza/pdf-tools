@@ -157,7 +157,7 @@ See `pdf-tools-enabled-modes'."
     (with-current-buffer buf
       (when (pdf-util-pdf-buffer-p buf)
         (pdf-tools-disable pdf-tools-modes))))
-  (remove-hook 'doc-view-mode-hook 'pdf-tools-enable))
+  (remove-hook 'doc-view-mode-hook 'pdf-tools-enable-maybe))
 
 (defun pdf-tools-customize ()
   "Customize Pdf Tools."
