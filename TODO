@@ -1,0 +1,7 @@
+-*- org -*-
+
+* Isearch
+** Allow for entering multibyte characters with some input-methods.
+   The PDF buffer is in unibyte mode prohibiting the user from
+   inserting multibyte characters in the minibuffer with some
+   input-methods, while editing the search string.
