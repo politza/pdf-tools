@@ -205,8 +205,7 @@ While in `isearch-mode' the following keys are available.
       (setq imagemagick-render-type 1))
     (add-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize nil t)
     (add-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup nil t)
-    (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t)
-    (advice-add 'isearch-done :around 'pdf-isearch-done-advice))
+    (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t))
    (t
     (kill-local-variable 'search-exit-option)
     (kill-local-variable 'isearch-allow-scroll)
@@ -216,33 +215,10 @@ While in `isearch-mode' the following keys are available.
     (kill-local-variable 'isearch-lazy-highlight)
     (remove-hook 'isearch-update-post-hook 'pdf-isearch-update t)
     (remove-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize t)
-    (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t)
-    (advice-remove 'isearch-done 'pdf-isearch-done-advice))))
-
-(defvar pdf-isearch-suspended-p nil
-  "Non-nil in `isearch-mode-end-hook', if isearch is suspended.")
-
-(defun pdf-isearch-done-advice (fn &optional nopush edit)
-  "Make a supsended isearch distinguishable from a quit.
-
-Binds `pdf-isearch-suspended-p' to the EDIT argument around
-`isearch-done'."
-  (let ((pdf-isearch-suspended-p edit))
-    (funcall fn nopush edit)))
+    (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t))))
 
 (define-minor-mode pdf-isearch-active-mode
-  "" nil nil nil
-  (cond
-   (pdf-isearch-active-mode
-    ;; The PDF buffer is usually in binary mode, but we probably want
-    ;; to search for multibyte characters.
-    ;; (unless enable-multibyte-characters
-    ;;   (set-buffer-multibyte t))
-    )
-   (t
-    ;; (unless pdf-isearch-suspended-p
-    ;;   (set-buffer-multibyte nil))
-    )))
+  "" nil nil nil)
 
 (define-minor-mode pdf-isearch-batch-mode
   "Incrementally search PDF documents in batches.

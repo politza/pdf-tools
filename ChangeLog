@@ -1,3 +1,8 @@
+2014-11-07  Andreas Politz  <politza@hochschule-trier.de>
+
+	* lisp/pdf-isearch.el: Remove unused variable pdf-isearch-suspended-p.
+	(pdf-isearch-minor-mode): Removed unused isearch-done advice.
+
 2014-11-02  Andreas Politz  <politza@hochschule-trier.de>
 
 	* lisp/pdf-sync.el (pdf-sync-goto-tex): Do the right thing, if the
