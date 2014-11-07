@@ -157,14 +157,18 @@ error."
 
 This is a no-op, if `pdf-info-log-buffer' is nil."
   (when pdf-info-log-buffer
-    (with-current-buffer (get-buffer-create pdf-info-log-buffer)
+    (with-current-buffer (get-buffer-create
+                          (if (or (bufferp pdf-info-log-buffer)
+                                  (stringp pdf-info-log-buffer))
+                              pdf-info-log-buffer
+                            "*pdf-info-log*"))
       (save-excursion
         (goto-char (point-max))
         (unless (bolp)
           (insert ?\n))
         (insert
          (propertize
-          (concat (current-time-string) ":")
+          (concat (format-time-string "%H:%M:%S") ":")
           'face
           (if query-p
               'font-lock-keyword-face
@@ -391,7 +395,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
        (cons (caar response)
              (mapcar 'string-to-number (cdar response))))
       (delannot nil)
-      (save (caar response))
+      ((save renderpage) (caar response))
       (t response))))
 
 (defun pdf-info-query--transform-action (action)
@@ -917,6 +921,14 @@ file        - The name of a tempfile containing the data (only present if
    page
    (or x 0)
    (or y 0)))
+
+(defun pdf-info-renderpage (page width &optional fast file-or-buffer)
+  (pdf-info-query
+   'renderpage
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   page
+   width
+   (if fast 1 0)))
 
 (define-minor-mode pdf-info-auto-revert-minor-mode
   "Close the document, after the buffer is reverted.

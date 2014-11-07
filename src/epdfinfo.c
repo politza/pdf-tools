@@ -83,6 +83,14 @@ static void cmd_getattachments (const ctxt_t *ctx, const arg_t *args);
 static void cmd_getannots(const ctxt_t *ctx, const arg_t *args);
 static void cmd_getannot(const ctxt_t *ctx, const arg_t *args);
 
+static void
+print_image_response(cairo_surface_t *surface, enum image_type type);
+static cairo_status_t
+_print_image_data (void *closure, const unsigned char *data,
+                   unsigned int length);
+static cairo_t*
+renderpage(PopplerDocument *pdf, PopplerPage *page, int width);
+
 #ifdef HAVE_POPPLER_ANNOT_WRITE
 static void cmd_addannot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_delannot (const ctxt_t *ctx, const arg_t *args);
@@ -90,6 +98,7 @@ static void cmd_editannot (const ctxt_t *ctx, const arg_t *args);
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
 static void cmd_synctex_forward_search (const ctxt_t *ctx, const arg_t *args);
 static void cmd_synctex_backward_search (const ctxt_t *ctx, const arg_t *args);
+static void cmd_renderpage (const ctxt_t *ctx, const arg_t *args);
 
 
 /* command specs */
@@ -252,6 +261,14 @@ const args_spec_t cmd_synctex_backward_search_spec[] =
     ARG_EDGE                    /* y */
   };
 
+const args_spec_t cmd_renderpage_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_NATNUM,                 /* width */
+    ARG_FLAG                    /* ppm, else png */
+  };
+
 static const cmd_t cmds [] =
   {
     /* Basic */
@@ -291,9 +308,12 @@ static const cmd_t cmds [] =
     {"synctex-forward-search", cmd_synctex_forward_search, cmd_synctex_forward_search_spec,
      G_N_ELEMENTS (cmd_synctex_forward_search_spec)},
     {"synctex-backward-search", cmd_synctex_backward_search, cmd_synctex_backward_search_spec,
-     G_N_ELEMENTS (cmd_synctex_backward_search_spec)}
+     G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
+    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)}
   };
 
+/* FIXME: Move these into a switch, in case upstream changes the
+   enums. */
 static const char *poppler_action_type_strings[] =
   {
     "unknown",
@@ -374,6 +394,7 @@ int main(int argc, char **argv)
   line = (char*) g_malloc( IN_BUF_LEN * sizeof (char));             
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
+  setvbuf (stdout, NULL, _IOFBF, BUFSIZ);
   while ((read = getline (&line, &buflen, stdin)) != -1) 
     {
       size_t cmd_end;
@@ -506,7 +527,7 @@ parse_args(const ctxt_t *ctx, const char *args, size_t len,
             break;
           }
         default:
-          error (2, 0, "switch fell through");
+          internal_error ("switch fell through");
         }
       cmd_args[i].type = cmd->args_spec[i];
     }
@@ -670,7 +691,8 @@ static void printf_error (const char *fmt, ...)
   va_start (va, fmt);
   vprintf (fmt, va);
   va_end (va);
-  puts ("\n.");
+  puts (".");
+  fflush (stdout);
 }
 
 /* PDF Actions */
@@ -1084,7 +1106,7 @@ cmd_features (const ctxt_t *ctx, const arg_t *args)
 #endif
   };
   int i;
-  OK_BEG ();
+  OK_BEGIN ();
   for (i = 0; i < G_N_ELEMENTS (features); ++i)
     {
       printf ("%s", features[i]);
@@ -1145,7 +1167,7 @@ static void
 cmd_close (const ctxt_t *ctx, const arg_t *args)
 {
   doc_t *doc = g_hash_table_lookup(ctx->documents, args->value.string);
-  OK_BEG ();
+  OK_BEGIN ();
   puts (doc ? "1" : "0");
   g_hash_table_remove (ctx->documents, args->value.string);
   free_doc (doc);
@@ -1195,7 +1217,7 @@ cmd_search(const ctxt_t *ctx, const arg_t *args)
   else
     last = MIN(last, poppler_document_get_n_pages (doc));
 
-  OK_BEG ();
+  OK_BEGIN ();
   for (pn = first; pn <= last; ++pn)
     {
       PopplerPage *page = poppler_document_get_page(doc, pn - 1);
@@ -1256,7 +1278,7 @@ cmd_metadata (const ctxt_t *ctx, const arg_t *args)
   int i;
   char *time_str;
 
-  OK_BEG ();
+  OK_BEGIN ();
   
   title = poppler_document_get_title (doc);
   print_escaped (title, COLON);
@@ -1328,7 +1350,7 @@ static void
 cmd_outline (const ctxt_t *ctx, const arg_t *args)
 {
   PopplerIndexIter *iter = poppler_index_iter_new (args->value.doc->pdf);
-  OK_BEG ();
+  OK_BEGIN ();
   if (iter)
     {
       cmd_outline_walk (args->value.doc->pdf, iter, 1);
@@ -1363,7 +1385,7 @@ static void
 cmd_npages (const ctxt_t *ctx, const arg_t *args)
 {
   int npages = poppler_document_get_n_pages (args->value.doc->pdf);
-  OK_BEG ();
+  OK_BEGIN ();
   printf ("%d\n", npages);
   OK_END ();
 }
@@ -1406,7 +1428,7 @@ cmd_pagelinks(const ctxt_t *ctx, const arg_t *args)
   poppler_page_get_size (page, &width, &height);
   link_map = poppler_page_get_link_mapping (page);
   
-  OK_BEG ();
+  OK_BEGIN ();
   for (item = g_list_last (link_map); item; item = item->prev)
     {
 
@@ -1472,7 +1494,7 @@ cmd_gettext(const ctxt_t *ctx, const arg_t *args)
   /* printf ("%f %f %f %f , %f %f\n", r.x1, r.y1, r.x2, r.y2, width, height); */
   text = poppler_page_get_selected_text (page, selection_style, &r);
 
-  OK_BEG ();
+  OK_BEGIN ();
   print_escaped (text, NL);
   OK_END ();
 
@@ -1536,7 +1558,7 @@ cmd_getselection (const ctxt_t *ctx, const arg_t *args)
 
   region = poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, &r);
 
-  OK_BEG ();
+  OK_BEGIN ();
   for (i = 0; i < cairo_region_num_rectangles (region); ++i)
     {
       cairo_rectangle_int_t r;
@@ -1578,7 +1600,7 @@ cmd_pagesize(const ctxt_t *ctx, const arg_t *args)
   poppler_page_get_size (page, &width, &height);
   g_object_unref (page);
   
-  OK_BEG ();
+  OK_BEGIN ();
   printf ("%f:%f\n", width, height);
   OK_END ();
 }
@@ -1627,7 +1649,7 @@ cmd_getannots(const ctxt_t *ctx, const arg_t *args)
   else
     last = MIN(last, poppler_document_get_n_pages (doc));
 
-  OK_BEG ();
+  OK_BEGIN ();
   for (pn = first; pn <= last; ++pn)
     {
       GList *annots = get_annots_for_page (args->value.doc, pn);
@@ -1673,7 +1695,7 @@ cmd_getannot (const ctxt_t *ctx, const arg_t *args)
       printf_error("Unable to get page: %d", index + 1);
       return;
     }
-  OK_BEG ();
+  OK_BEGIN ();
   print_annot (a, page);
   OK_END ();
   g_object_unref (page);
@@ -1713,7 +1735,7 @@ cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args)
       return;
     }
   
-  OK_BEG ();
+  OK_BEGIN ();
   print_attachment (att, do_save);
   g_object_unref (att);
   OK_END ();
@@ -1727,7 +1749,7 @@ cmd_getattachments (const ctxt_t *ctx, const arg_t *args)
   GList *item;
   GList *attmnts = poppler_document_get_attachments (doc->pdf);
   
-  OK_BEG ();
+  OK_BEGIN ();
   for (item = attmnts; item; item = item->next)
     {
       PopplerAttachment *att = (PopplerAttachment*) item->data;
@@ -1798,7 +1820,7 @@ cmd_addannot (const ctxt_t *ctx, const arg_t *args)
     g_list_prepend (annots, annot);
   g_hash_table_insert (doc->annotations.keys, key, annot);
   poppler_page_add_annot (page, pannot);
-  OK_BEG ();
+  OK_BEGIN ();
   print_annot (annot, page);
   OK_END ();
   g_object_unref (page);
@@ -1867,7 +1889,7 @@ cmd_save (const ctxt_t *ctx, const arg_t *args)
         g_error_free (gerror);
       return;
     }
-  OK_BEG ();
+  OK_BEGIN ();
   print_escaped (filename, NL);
   OK_END ();
 }
@@ -2004,7 +2026,7 @@ cmd_editannot (const ctxt_t *ctx, const arg_t *args)
 
   index = poppler_annot_get_page_index (pannot);
   page = poppler_document_get_page (doc->pdf, index);
-  OK_BEG ();
+  OK_BEGIN ();
   print_annot (annot, page);
   OK_END ();
   g_object_unref (page);
@@ -2059,7 +2081,7 @@ cmd_synctex_forward_search (const ctxt_t *ctx, const arg_t *args)
     x2 /= width;
     y2 /= height;
     
-    OK_BEG ();
+    OK_BEGIN ();
     printf("%d:%f:%f:%f:%f\n", pn, x1, y1, x2, y2);
     OK_END ();
     g_object_unref (page);
@@ -2111,7 +2133,7 @@ cmd_synctex_backward_search (const ctxt_t *ctx, const arg_t *args)
 
   line = synctex_node_line (node);
   column = synctex_node_column (node);
-  OK_BEG ();
+  OK_BEGIN ();
   printf("%s:%d:%d\n", filename, line, column);
   OK_END ();
 
@@ -2120,6 +2142,39 @@ cmd_synctex_backward_search (const ctxt_t *ctx, const arg_t *args)
  free_scanner:
   synctex_scanner_free (scanner);
 }
+
+static void
+cmd_renderpage (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args[0].value.doc;
+  int pn = args[1].value.natnum;
+  int width = args[2].value.natnum;
+  int ppm = args[3].value.flag;
+  PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
+  cairo_t *cr = NULL;
+  
+  if (! page)
+    {
+      printf_error ("No such page %d", pn);
+      goto theend;
+    }
+
+  cr = renderpage (doc->pdf, page, width);
+
+  if (! cr)
+    {
+      printf_error ("Failed to render page %d", pn);
+      goto theend;
+    }
+
+  print_image_response (cairo_get_target (cr), ppm ? PPM : PNG);
+ theend:
+  if (cr)
+    cairo_destroy (cr);
+  if (page)
+    g_object_unref (page);
+}
+
 
 
 
@@ -2213,4 +2268,141 @@ mktempfile()
     fprintf (stderr, "Unable to create tempfile");
 
   return filename;
+}
+
+static cairo_t*
+renderpage(PopplerDocument *pdf, PopplerPage *page, int width)
+{
+  cairo_t *cr = NULL;
+  cairo_surface_t *surface = NULL;
+  double pt_width, pt_height;
+  int height;
+  double scale = 1;
+  
+  if (! page || ! pdf)
+    return NULL;
+
+  if (width < 1)
+    width = 1;
+  
+  poppler_page_get_size (page, &pt_width, &pt_height);
+  if (pt_width > 0)
+    scale = width / pt_width;
+  height = (int) ((scale * pt_height) + 0.5);
+  
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+                                        width, height);
+  
+  if (cairo_surface_status (surface) != CAIRO_STATUS_SUCCESS)
+    {
+      fprintf (stderr, "Failed to create cairo surface\n");
+      goto error;
+    }
+
+  cr = cairo_create (surface);
+  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+    {
+      fprintf (stderr, "Failed to create cairo handle\n");
+      goto error;
+    }
+  
+  cairo_translate (cr, 0, 0);
+  cairo_scale (cr, scale, scale);
+  poppler_page_render (page, cr) ;
+  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+    {
+      fprintf (stderr, "Failed to render page\n");
+      goto error;
+    }
+
+  /* This makes the colors look right. */
+  cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+  
+  cairo_paint (cr);
+  cairo_surface_destroy (surface);
+
+  return cr;
+
+ error:
+  if (surface != NULL)
+    cairo_surface_destroy (surface);
+  if (cr != NULL)
+    cairo_destroy (cr);
+  return NULL;
+}
+
+static cairo_status_t
+_print_image_data (void *closure, const unsigned char *data,
+                   unsigned int length)
+{
+  while (length-- > 0)
+    putchar (*data++);
+  return CAIRO_STATUS_SUCCESS;
+}
+
+static int
+write_cairo_surface (cairo_surface_t *surface, const char *filename,
+                     enum image_type type)
+{
+  
+  int i = 0;
+  unsigned char *data;
+  int width, height;
+  FILE *file = NULL;
+  
+  if (! surface ||
+      cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
+    return 0;
+
+  switch (type)
+    {
+    case PPM:
+      width = cairo_image_surface_get_width (surface);
+      height = cairo_image_surface_get_height (surface);
+      data = cairo_image_surface_get_data (surface);
+      if (! (file = fopen (filename, "wb")))
+        return 0;
+      fprintf (file, "P6\n%d %d\n255\n", width, height);
+      for (i = 0; i < width * height; ++i)
+        {
+          /* A  */
+          fputc (data[2], file); /* R */
+          fputc (data[1], file); /* G */
+          fputc (data[0], file); /* B */
+          data += 4;
+        }
+      fclose (file);
+      break;
+    case PNG:
+      cairo_surface_write_to_png (surface, filename);
+      break;
+    default:
+      internal_error ("switch fell through");
+    }
+
+  return 1;
+}
+
+static void
+print_image_response(cairo_surface_t *surface, enum image_type type)
+{
+  char *filename = mktempfile ();
+  
+  if (! filename)
+    {
+      printf_error ("Unable to create temporary file");
+      return;
+    }
+  if (write_cairo_surface (surface, filename, type))
+    {
+      OK_BEGIN ();
+      print_escaped (filename, NL);
+      OK_END ();
+    }
+  else
+    {
+      printf_error ("Unable to write image");
+    }
+  free (filename);
 }

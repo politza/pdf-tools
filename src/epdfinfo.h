@@ -36,12 +36,12 @@
   
 #define UNDISCARD_STDOUT(saved_fd)              \
   do {                                          \
-  fflush(stdout);                               \
-  dup2(saved_fd, 1);                            \
-  close(saved_fd);                              \
+    fflush(stdout);                             \
+    dup2(saved_fd, 1);                          \
+    close(saved_fd);                            \
   } while (0)
 
-#define OK_BEG()                                \
+#define OK_BEGIN()                                \
   do {                                          \
     puts("OK");                                 \
   } while (0)
@@ -49,15 +49,21 @@
 #define OK_END()                                \
   do {                                          \
     puts(".");                                  \
+    fflush (stdout);                            \
   } while (0)
 
 #define OK()                                    \
   do {                                          \
     puts ("OK\n.");                             \
+    fflush (stdout);                            \
   } while (0)
 
+#define internal_error(fmt, args...)                                    \
+  error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 
 enum { NONE, COLON, NL};
+
+enum image_type { PPM, PNG };
 
 typedef struct
 {
