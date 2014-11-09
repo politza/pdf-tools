@@ -22,8 +22,7 @@
 #include <poppler.h>
 #include <png.h>
 
-#define IN_BUF_LEN 4096
-#define RELEASE_DOC_TIMEOUT (15 * 60)
+#define INPUT_BUFFER_SIZE 4096
 
 #define DISCARD_STDOUT(saved_fd)                \
   do {                                          \
@@ -66,6 +65,12 @@
   rgb[1] = argb[2];                             \
   rgb[2] = argb[3];                             \
   } while (0)
+
+#define ARGB_EQUAL(argb1, argb2)                \
+  (argb1[1] == argb2[1]                         \
+   && argb1[2] == argb2[2]                      \
+   && argb1[3] == argb2[3])
+
 #else
 #define ARGB_TO_RGB(rgb, argb)                  \
   do {                                          \
@@ -87,7 +92,7 @@
 #define internal_error(fmt, args...)                            \
   error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 
-enum { NONE, COLON, NL};
+enum { NONE, COLON, NEWLINE};
 
 enum image_type { PPM, PNG };
 
@@ -95,23 +100,21 @@ typedef struct
 {
   PopplerAnnotMapping *amap;
   gchar *key;
-} annot_t;
+} annotation_t;
 
 typedef struct
 {
   PopplerDocument *pdf;
   char *filename;
   char *passwd;
-  time_t last_used;
-  gboolean allow_auto_release;
   struct
   {
     GHashTable *keys;             /* key => page */
     GList **pages;                /* page array  */
   } annotations;
-} doc_t;
+} document_t;
   
-typedef enum args_spec
+typedef enum 
 {
     ARG_NULL = 0,
     ARG_DOC,
@@ -122,7 +125,7 @@ typedef enum args_spec
     ARG_EDGE,
     ARG_EDGE_OR_NEG,
     ARG_COLOR
-} args_spec_t;
+} command_arg_spec_t;
 
 typedef struct
 {
@@ -131,24 +134,24 @@ typedef struct
     gboolean flag;
     char *string;
     long natnum;
-    doc_t *doc;
+    document_t *doc;
     double edge;
   } value;
-  args_spec_t type;
-} arg_t;
+  command_arg_spec_t type;
+} command_arg_t;
 
 typedef struct
 {
   GHashTable *documents;
-} ctxt_t;
+} epdfinfo_t;
 
 typedef struct
 {
   const char *name;             /* Name des Kommandos */
-  void (* execute) (const ctxt_t *ctxt, const arg_t *args);
-  const args_spec_t *args_spec; /* Art der Argumente */
+  void (* execute) (const epdfinfo_t *ctxt, const command_arg_t *args);
+  const command_arg_spec_t *args_spec; /* Art der Argumente */
   int nargs;                    /* Anzahl Argumente */
-} cmd_t;
+} command_t;
 
 extern void poppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle*);
 extern gchar *poppler_annot_markup_get_created (PopplerAnnotMarkup*);

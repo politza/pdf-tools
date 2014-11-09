@@ -35,73 +35,8 @@
 #include "config.h"
 
 
-/* declarations */
-static command_arg_t *parse_command_args(const epdfinfo_t *ctx, const char *args, size_t len,
-                         const command_t *cmd);
-static ptrdiff_t parse_command_args_next (const char *args, char *buf);
-static void free_command_args (command_arg_t *args, size_t n);
-static void free_document (document_t *doc);
-static document_t *document_open (const epdfinfo_t *ctx, const char *filename, const char *passwd, GError **error);
-static char* strchomp (char *str);
-static char* mktempfile();
-static void print_response_string(const char *str, int );
-static void printf_error_response(const char *fmt, ...);
-static void
-action_print_destination (PopplerDocument *doc, PopplerAction *action);
-static void
-action_print (PopplerDocument *doc, PopplerAction *action);
-
-static GList*
-annoation_get_for_page (document_t *doc, gint pn);
-static annotation_t*
-annotation_get_by_key (document_t *doc, const gchar *key);
-static void
-annotation_print (const annotation_t *annot, /* const */ PopplerPage *page);
-
-static void cmd_features (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_open (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_close (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_save (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_search (const epdfinfo_t *ctx, const command_arg_t *args);
-static void
-cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth);
-static void cmd_outline (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_metadata (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_quit (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_npages (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args);
-
-static void cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_getattachments (const epdfinfo_t *ctx, const command_arg_t *args);
-
-static void cmd_getannots(const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_getannot(const epdfinfo_t *ctx, const command_arg_t *args);
-
-static void
-image_write_print_response(cairo_t *surface, enum image_type type);
-static cairo_status_t
-_print_image_data (void *closure, const unsigned char *data,
-                   unsigned int length);
-static cairo_t*
-image_render_page(PopplerDocument *pdf, PopplerPage *page, int width);
-
-#ifdef HAVE_POPPLER_ANNOT_WRITE
-static void cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_delannot (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args);
-#endif  /* HAVE_POPPLER_ANNOT_WRITE */
-static void cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args);
-static void cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args);
-
-
 /* ================================================================== *
- * Utility Functions
+ * Helper Functions
  * ================================================================== */
 
 /** 
@@ -173,7 +108,7 @@ free_document (document_t *doc)
  * Print a string properly escaped for a response.
  * 
  * @param str The string to be printed.
- * @param suffix_char Append a newline if NEWLINE, a semicolon if COLON.
+ * @param suffix_char Append a newline if NEWLINE, a colon if COLON.
  */
 static void
 print_response_string (const char *str, int suffix_char)
@@ -578,6 +513,36 @@ xpoppler_annot_text_state_string (PopplerAnnotTextState state)
     }
 };  
 
+static document_t*
+document_open (const epdfinfo_t *ctx, const char *filename,
+               const char *passwd, GError **gerror)
+{
+  char *uri;
+  document_t *doc = g_hash_table_lookup (ctx->documents, filename);
+
+  if (NULL != doc)
+    return doc;
+
+  doc = g_malloc0(sizeof (document_t));
+  uri = g_filename_to_uri (filename, NULL, gerror);
+  if (uri != NULL)
+    doc->pdf = poppler_document_new_from_file(uri, passwd, gerror);
+
+  if (NULL == doc->pdf)
+    {
+      g_free (doc);
+      doc = NULL;
+    }
+  else
+    {
+      doc->filename = g_strdup (filename);
+      doc->passwd = g_strdup (passwd);
+      g_hash_table_insert (ctx->documents, doc->filename, doc);
+    }
+  g_free (uri);
+  return doc;
+}
+
 /* Helper function for parse_command_args. */
 static ptrdiff_t
 parse_command_args_next (const char *args, char *buf)
@@ -747,211 +712,9 @@ parse_command_args(const epdfinfo_t *ctx, const char *args, size_t len,
 }
 
 
-/* command specs */
-const command_arg_spec_t cmd_features_spec[] = {};
-
-const command_arg_spec_t cmd_open_spec[] =
-  {
-    ARG_STRING_NONEMPTY,        /* filename */
-    ARG_STRING,                 /* password */
-  };
-
-const command_arg_spec_t cmd_close_spec[] =
-  {
-    ARG_STRING_NONEMPTY         /* filename */
-  };
-
-const command_arg_spec_t cmd_search_spec[] =
-  {
-    ARG_DOC,
-    ARG_FLAG,                   /* ignore-case */
-    ARG_NATNUM,                 /* first page */
-    ARG_NATNUM,                 /* last page */
-    ARG_STRING_NONEMPTY,        /* search string */
-  };
-
-const command_arg_spec_t cmd_metadata_spec[] =
-  {
-    ARG_DOC,
-  };
-
-const command_arg_spec_t cmd_outline_spec[] =
-  {
-    ARG_DOC,
-  };
-
-const command_arg_spec_t cmd_quit_spec[] = {};
-
-const command_arg_spec_t cmd_npages_spec[] =
-  {
-    ARG_DOC
-  };
-
-const command_arg_spec_t cmd_pagelinks_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM                  /* page number */
-  };
-
-const command_arg_spec_t cmd_gettext_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE,                   /* y1 */
-    ARG_NATNUM                  /* selection-style */
-  };
-
-const command_arg_spec_t cmd_getselection_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE,                   /* y1 */
-    ARG_NATNUM                  /* selection-style */
-  };
-
-const command_arg_spec_t cmd_pagesize_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM                  /* page number */
-  };
-
-const command_arg_spec_t cmd_getannots_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* first page */
-    ARG_NATNUM                  /* last page */
-  };
-
-const command_arg_spec_t cmd_getannot_spec[] =
-  {
-    ARG_DOC,
-    ARG_STRING_NONEMPTY,        /* annotation's key */
-  };
-
-const command_arg_spec_t cmd_getattachment_from_annot_spec[] =
-  {
-    ARG_DOC,
-    ARG_STRING_NONEMPTY,        /* annotation's name */
-    ARG_FLAG                    /* save attachment */
-  };
-
-/* document-level attachments */
-const command_arg_spec_t cmd_getattachments_spec[] =
-  {
-    ARG_DOC,
-    ARG_FLAG,        /* save attachments */
-  };
-
-#ifdef HAVE_POPPLER_ANNOT_WRITE
-const command_arg_spec_t cmd_save_spec[] =
-  {
-    ARG_DOC,
-  };
-
-
-const command_arg_spec_t cmd_delannot_spec[] =
-  {
-    ARG_DOC,
-    ARG_STRING_NONEMPTY         /* Annotation's key */
-  };
-
-const command_arg_spec_t cmd_editannot_spec[] =
-  {
-    ARG_DOC,
-    ARG_STRING_NONEMPTY,        /* Key */
-    ARG_STRING,                 /* Bitmask of set values */
-                                /* Edges */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE,                   /* y1 */
-    ARG_EDGE_OR_NEG,            /* x2 or keep width, if negative */
-    ARG_EDGE_OR_NEG,            /* y2 or keep height, if negative */
-
-    ARG_STRING,                 /* color */
-    ARG_STRING,                 /* contents */
-    ARG_STRING,                 /* label (markup only) */
-    ARG_NATNUM,                 /* isopen (text only) */
-    ARG_STRING,                 /* icon (text only) */
-  };
-
-const command_arg_spec_t cmd_addannot_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE                    /* y1 */
-  };
-
-#endif  /* HAVE_POPPLER_ANNOT_WRITE */
-
-const command_arg_spec_t cmd_synctex_forward_search_spec[] =
-  {
-    ARG_DOC,
-    ARG_STRING_NONEMPTY,        /* source file */
-    ARG_NATNUM,                 /* line number */
-    ARG_NATNUM                  /* column number */
-  };
-
-const command_arg_spec_t cmd_synctex_backward_search_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x */
-    ARG_EDGE                    /* y */
-  };
-
-const command_arg_spec_t cmd_renderpage_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_NATNUM,                 /* width */
-    ARG_FLAG                    /* ppm, else png */
-  };
-
-const command_arg_spec_t cmd_boundingbox_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-  };
-
-static document_t*
-document_open (const epdfinfo_t *ctx, const char *filename,
-               const char *passwd, GError **gerror)
-{
-  char *uri;
-  document_t *doc = g_hash_table_lookup (ctx->documents, filename);
-
-  if (NULL != doc)
-    return doc;
-
-  doc = g_malloc0(sizeof (document_t));
-  uri = g_filename_to_uri (filename, NULL, gerror);
-  if (uri != NULL)
-    doc->pdf = poppler_document_new_from_file(uri, passwd, gerror);
-
-  if (NULL == doc->pdf)
-    {
-      g_free (doc);
-      doc = NULL;
-    }
-  else
-    {
-      doc->filename = g_strdup (filename);
-      doc->passwd = g_strdup (passwd);
-      g_hash_table_insert (ctx->documents, doc->filename, doc);
-    }
-  g_free (uri);
-  return doc;
-}
-
-/* PDF Actions */
+/* ------------------------------------------------------------------ *
+ * PDF Actions
+ * ------------------------------------------------------------------ */
 
 static gboolean
 action_is_handled (PopplerAction *action)
@@ -970,33 +733,6 @@ action_is_handled (PopplerAction *action)
     default: break;      
     }
   return FALSE;
-}
-
-static void
-action_print (PopplerDocument *doc, PopplerAction *action)
-{
-  if (! action_is_handled (action))
-    return;
-
-  print_response_string (xpoppler_action_type_string (action->any.type), COLON);
-  print_response_string (action->any.title, COLON);
-  switch (action->any.type)
-    {
-    case POPPLER_ACTION_GOTO_REMOTE:
-    case POPPLER_ACTION_GOTO_DEST:
-    case POPPLER_ACTION_NAMED:
-      action_print_destination (doc, action);
-      putchar ('\n');
-      break;
-    case POPPLER_ACTION_LAUNCH:
-      print_response_string (action->launch.file_name, COLON);
-      print_response_string (action->launch.params, NEWLINE);
-      break;
-    case POPPLER_ACTION_URI:
-      print_response_string (action->uri.uri, NEWLINE);
-      break;
-    default: break;
-    }
 }
 
 static void
@@ -1083,8 +819,37 @@ action_print_destination (PopplerDocument *doc, PopplerAction *action)
     poppler_dest_free (dest);
 }
 
+static void
+action_print (PopplerDocument *doc, PopplerAction *action)
+{
+  if (! action_is_handled (action))
+    return;
+
+  print_response_string (xpoppler_action_type_string (action->any.type), COLON);
+  print_response_string (action->any.title, COLON);
+  switch (action->any.type)
+    {
+    case POPPLER_ACTION_GOTO_REMOTE:
+    case POPPLER_ACTION_GOTO_DEST:
+    case POPPLER_ACTION_NAMED:
+      action_print_destination (doc, action);
+      putchar ('\n');
+      break;
+    case POPPLER_ACTION_LAUNCH:
+      print_response_string (action->launch.file_name, COLON);
+      print_response_string (action->launch.params, NEWLINE);
+      break;
+    case POPPLER_ACTION_URI:
+      print_response_string (action->uri.uri, NEWLINE);
+      break;
+    default: break;
+    }
+}
+
 
-/* Annotations */
+/* ------------------------------------------------------------------ *
+ * PDF Annotations and Attachments
+ * ------------------------------------------------------------------ */
 
 static gint
 annotation_cmp_edges (const annotation_t *a1, const annotation_t *a2)
@@ -1327,14 +1092,20 @@ attachment_print (PopplerAttachment *att, gboolean do_save)
   putchar ('\n');
 }
 
+
 
-/* command implementations */
+/* ================================================================== *
+ * Server command implementations
+ * ================================================================== */
 
 /* Name: features
    Args: None
    Returns: A list of compile-time features.
    Errors: None
 */
+
+const command_arg_spec_t cmd_features_spec[] = {};
+
 static void
 cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1368,6 +1139,13 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
    Returns: Nothing
    Errors: If file can't be opened or is not a PDF document.
 */
+
+const command_arg_spec_t cmd_open_spec[] =
+  {
+    ARG_STRING_NONEMPTY,        /* filename */
+    ARG_STRING,                 /* password */
+  };
+
 static void
 cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1407,6 +1185,12 @@ cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
    Returns: 1 if file was open, otherwise 0.
    Errors: None
 */
+
+const command_arg_spec_t cmd_close_spec[] =
+  {
+    ARG_STRING_NONEMPTY         /* filename */
+  };
+
 static void
 cmd_close (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1450,6 +1234,16 @@ cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args)
    page edges matched-text
    Errors:  None
 */
+
+
+const command_arg_spec_t cmd_search_spec[] =
+  {
+    ARG_DOC,
+    ARG_FLAG,                   /* ignore-case */
+    ARG_NATNUM,                 /* first page */
+    ARG_NATNUM,                 /* last page */
+    ARG_STRING_NONEMPTY,        /* search string */
+  };
 
 static void
 cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
@@ -1523,6 +1317,11 @@ cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
    
 */
 
+const command_arg_spec_t cmd_metadata_spec[] =
+  {
+    ARG_DOC,
+  };
+
 static void
 cmd_metadata (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1561,6 +1360,19 @@ cmd_metadata (const epdfinfo_t *ctx, const command_arg_t *args)
   OK_END ();
 }
 
+/* Name: outline
+   Args: filename
+
+   Returns: The documents outline (or index) as a, possibly empty,
+   list of records:
+
+   tree-level ACTION
+
+   See cmd_pagelinks for how ACTION is constructed.  
+   
+   Errors: None
+*/
+
 static void
 cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
 {
@@ -1588,18 +1400,10 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
     } while (poppler_index_iter_next (iter));
 }
 
-/* Name: outline
-   Args: filename
-
-   Returns: The documents outline (or index) as a, possibly empty,
-   list of records:
-
-   tree-level ACTION
-
-   See cmd_pagelinks for how ACTION is constructed.  
-   
-   Errors: None
-*/
+const command_arg_spec_t cmd_outline_spec[] =
+  {
+    ARG_DOC,
+  };
 
 static void
 cmd_outline (const epdfinfo_t *ctx, const command_arg_t *args)
@@ -1622,6 +1426,9 @@ cmd_outline (const epdfinfo_t *ctx, const command_arg_t *args)
    Close all documents and exit.
 */
 
+
+const command_arg_spec_t cmd_quit_spec[] = {};
+
 static void
 cmd_quit (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1635,8 +1442,14 @@ cmd_quit (const epdfinfo_t *ctx, const command_arg_t *args)
    Errors: None
 */
 
+
+const command_arg_spec_t cmd_number_of_pages_spec[] =
+  {
+    ARG_DOC
+  };
+
 static void
-cmd_npages (const epdfinfo_t *ctx, const command_arg_t *args)
+cmd_number_of_pages (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   int npages = poppler_document_get_n_pages (args->value.doc->pdf);
   OK_BEGIN ();
@@ -1662,6 +1475,13 @@ cmd_npages (const epdfinfo_t *ctx, const command_arg_t *args)
    
    Errors: None
 */
+
+
+const command_arg_spec_t cmd_pagelinks_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM                  /* page number */
+  };
 
 static void
 cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
@@ -1709,6 +1529,18 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
 
    For the selection-style argument see getselection command.
 */
+
+
+const command_arg_spec_t cmd_gettext_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x0 */
+    ARG_EDGE,                   /* y0 */
+    ARG_EDGE,                   /* x1 */
+    ARG_EDGE,                   /* y1 */
+    ARG_NATNUM                  /* selection-style */
+  };
 
 static void
 cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
@@ -1773,6 +1605,18 @@ cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
 	line is the minimum unit for selection 
 */
 
+
+const command_arg_spec_t cmd_getselection_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x0 */
+    ARG_EDGE,                   /* y0 */
+    ARG_EDGE,                   /* x1 */
+    ARG_EDGE,                   /* y1 */
+    ARG_NATNUM                  /* selection-style */
+  };
+
 static void
 cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1836,6 +1680,13 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
    Errors: If page is out of range.
 */
 
+
+const command_arg_spec_t cmd_pagesize_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM                  /* page number */
+  };
+
 static void
 cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1888,6 +1739,14 @@ cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args)
    Errors: If page is out of range.
 */
 
+
+const command_arg_spec_t cmd_getannots_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* first page */
+    ARG_NATNUM                  /* last page */
+  };
+
 static void
 cmd_getannots(const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1927,6 +1786,13 @@ cmd_getannots(const epdfinfo_t *ctx, const command_arg_t *args)
    Errors: If no annotation named ,name' exists.
 */
 
+
+const command_arg_spec_t cmd_getannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* annotation's key */
+  };
+
 static void
 cmd_getannot (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1962,6 +1828,14 @@ cmd_getannot (const epdfinfo_t *ctx, const command_arg_t *args)
    not writable.
 */
 
+
+const command_arg_spec_t cmd_getattachment_from_annot_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* annotation's name */
+    ARG_FLAG                    /* save attachment */
+  };
+
 static void
 cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -1995,6 +1869,14 @@ cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args)
   OK_END ();
 }
 
+
+/* document-level attachments */
+const command_arg_spec_t cmd_getattachments_spec[] =
+  {
+    ARG_DOC,
+    ARG_FLAG,        /* save attachments */
+  };
+
 static void
 cmd_getattachments (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -2016,11 +1898,16 @@ cmd_getattachments (const epdfinfo_t *ctx, const command_arg_t *args)
 }
 
 #ifdef HAVE_POPPLER_ANNOT_WRITE
-/* Name: addannot
-   Args: filename page edges
-   Returns: The new annotation.
-   Errors: If page does not exist.
-*/
+
+const command_arg_spec_t cmd_addannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x0 */
+    ARG_EDGE,                   /* y0 */
+    ARG_EDGE,                   /* x1 */
+    ARG_EDGE                    /* y1 */
+  };
 
 static void
 cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
@@ -2080,6 +1967,13 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   g_object_unref (page);
 }
 
+
+const command_arg_spec_t cmd_delannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY         /* Annotation's key */
+  };
+
 static void
 cmd_delannot (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -2112,6 +2006,11 @@ cmd_delannot (const epdfinfo_t *ctx, const command_arg_t *args)
   g_object_unref (page);
   OK ();
 }
+
+const command_arg_spec_t cmd_save_spec[] =
+  {
+    ARG_DOC,
+  };
 
 static void
 cmd_save (const epdfinfo_t *ctx, const command_arg_t *args)
@@ -2148,12 +2047,31 @@ cmd_save (const epdfinfo_t *ctx, const command_arg_t *args)
   OK_END ();
 }
 
+
+const command_arg_spec_t cmd_editannot_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* Key */
+    ARG_STRING,                 /* Bitmask of set values */
+                                /* Edges */
+    ARG_EDGE,                   /* x1 */
+    ARG_EDGE,                   /* y1 */
+    ARG_EDGE_OR_NEG,            /* x2 or keep width, if negative */
+    ARG_EDGE_OR_NEG,            /* y2 or keep height, if negative */
+
+    ARG_STRING,                 /* color */
+    ARG_STRING,                 /* contents */
+    ARG_STRING,                 /* label (markup only) */
+    ARG_NATNUM,                 /* isopen (text only) */
+    ARG_STRING,                 /* icon (text only) */
+  };
+
 static void
 cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args->value.doc;
   char *key = args[1].value.string;
-  annotation_t *annot = annotation_get_by_key_or_error (doc, key);
+  annotation_t *annot = annotation_get_by_key (doc, key);
   char *setmask = args[2].value.string;
   guint r,g,b;                  /* Colors */
   PopplerAnnot *pannot;
@@ -2291,6 +2209,15 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
 
+
+const command_arg_spec_t cmd_synctex_forward_search_spec[] =
+  {
+    ARG_DOC,
+    ARG_STRING_NONEMPTY,        /* source file */
+    ARG_NATNUM,                 /* line number */
+    ARG_NATNUM                  /* column number */
+  };
+
 static void
 cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -2347,6 +2274,15 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   synctex_scanner_free (scanner);
 }
 
+
+const command_arg_spec_t cmd_synctex_backward_search_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGE,                   /* x */
+    ARG_EDGE                    /* y */
+  };
+
 static void
 cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -2400,6 +2336,15 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   synctex_scanner_free (scanner);
 }
 
+
+const command_arg_spec_t cmd_renderpage_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_NATNUM,                 /* width */
+    ARG_FLAG                    /* ppm, else png */
+  };
+
 static void
 cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
 {
@@ -2431,6 +2376,13 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   if (page)
     g_object_unref (page);
 }
+
+
+const command_arg_spec_t cmd_boundingbox_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+  };
 
 static void
 cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
@@ -2549,14 +2501,12 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
     g_object_unref (page);
 }
 
-
-
 
 /* ================================================================== *
  * Main
  * ================================================================== */
 
-static const command_t cmds [] =
+static const command_t commands [] =
   {
     /* Basic */
     {"features", cmd_features, cmd_features_spec, G_N_ELEMENTS (cmd_features_spec)},
@@ -2568,21 +2518,21 @@ static const command_t cmds [] =
     {"search", cmd_search, cmd_search_spec, G_N_ELEMENTS (cmd_search_spec)},
     {"metadata", cmd_metadata, cmd_metadata_spec, G_N_ELEMENTS (cmd_metadata_spec)},
     {"outline", cmd_outline, cmd_outline_spec, G_N_ELEMENTS (cmd_outline_spec)},
-    {"number-of-pages", cmd_npages, cmd_npages_spec, G_N_ELEMENTS (cmd_npages_spec)},
+    {"number-of-pages", cmd_number_of_pages, cmd_number_of_pages_spec,
+     G_N_ELEMENTS (cmd_number_of_pages_spec)},
     {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec , G_N_ELEMENTS (cmd_pagelinks_spec)},
     {"gettext", cmd_gettext, cmd_gettext_spec, G_N_ELEMENTS (cmd_gettext_spec)},
     {"getselection", cmd_getselection, cmd_getselection_spec,
      G_N_ELEMENTS (cmd_getselection_spec)},
     {"pagesize", cmd_pagesize, cmd_pagesize_spec, G_N_ELEMENTS (cmd_pagesize_spec)},
-
+    {"boundingbox", cmd_boundingbox, cmd_boundingbox_spec, G_N_ELEMENTS (cmd_boundingbox_spec)},
     /* Annotations */
     {"getannots", cmd_getannots, cmd_getannots_spec , G_N_ELEMENTS (cmd_getannots_spec)},
     {"getannot", cmd_getannot, cmd_getannot_spec, G_N_ELEMENTS (cmd_getannot_spec)},
 #ifdef HAVE_POPPLER_ANNOT_WRITE
     {"addannot", cmd_addannot, cmd_addannot_spec, G_N_ELEMENTS (cmd_addannot_spec)},
     {"delannot", cmd_delannot, cmd_delannot_spec, G_N_ELEMENTS (cmd_delannot_spec)},
-    {"editannot", cmd_editannot, cmd_editannot_spec
-     , G_N_ELEMENTS (cmd_editannot_spec)},
+    {"editannot", cmd_editannot, cmd_editannot_spec, G_N_ELEMENTS (cmd_editannot_spec)},
     {"save", cmd_save, cmd_save_spec, G_N_ELEMENTS (cmd_save_spec)} ,
 #endif
     /* Attachments */
@@ -2596,17 +2546,17 @@ static const command_t cmds [] =
      G_N_ELEMENTS (cmd_synctex_forward_search_spec)},
     {"synctex-backward-search", cmd_synctex_backward_search, cmd_synctex_backward_search_spec,
      G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
-    {"image_render_page", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)},
-    {"boundingbox", cmd_boundingbox, cmd_boundingbox_spec, G_N_ELEMENTS (cmd_boundingbox_spec)}
+    /* Rendering */
+    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)}
   };
 
 int main(int argc, char **argv)
 {
   epdfinfo_t ctx;
   char *line;
-  size_t buflen = IN_BUF_LEN;
+  size_t buflen;
   ssize_t read;
-  char *error_log = "/dev/null";
+  const char *error_log = "/dev/null";
   
   if (argc > 2)
     {
@@ -2620,7 +2570,7 @@ int main(int argc, char **argv)
     err (2, "Unable to redirect stderr");
 
   g_type_init ();
-  line = g_malloc(IN_BUF_LEN * sizeof (char));             
+  line = g_malloc(INPUT_BUFFER_SIZE);             
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);
@@ -2636,22 +2586,22 @@ int main(int argc, char **argv)
       line[read - 1] = '\0';
       cmd_end = strcspn (line, ":");
 
-      for (i = 0; i < G_N_ELEMENTS (cmds);  i++)
+      for (i = 0; i < G_N_ELEMENTS (commands);  i++)
         {
-          if (strncmp (cmds[i].name, line, strlen(cmds[i].name)) == 0)
+          if (strncmp (commands[i].name, line, strlen(commands[i].name)) == 0)
             {
-              if (cmds[i].nargs == 0
+              if (commands[i].nargs == 0
                   || (cmd_args = parse_command_args (&ctx, line + cmd_end,
-                                             read - cmd_end, cmds + i)))
+                                             read - cmd_end, commands + i)))
                 {
-                  cmds[i].execute (&ctx, cmd_args);
-                  if (cmds[i].nargs > 0)
-                    free_command_args (cmd_args, cmds[i].nargs);
+                  commands[i].execute (&ctx, cmd_args);
+                  if (commands[i].nargs > 0)
+                    free_command_args (cmd_args, commands[i].nargs);
                 }
               break;
             }
         }
-      if (G_N_ELEMENTS (cmds) == i)
+      if (G_N_ELEMENTS (commands) == i)
         {
           if (cmd_end < read)
             line[cmd_end] = '\0';
