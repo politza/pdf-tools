@@ -18,6 +18,7 @@ HAVE_POPPLER_FIND_OPTS="no   (requires poppler-glib >= 0.22)"
 HAVE_POPPLER_ANNOT_WRITE="no   (requires poppler-glib >= 0.19.4)"
 HAVE_POPPLER_ANNOT_SET_RECTANGLE="no"
 
+PKG_CHECK_MODULES([png], [libpng])
 PKG_CHECK_MODULES([glib], [glib-2.0])
 PKG_CHECK_MODULES([poppler], [poppler])
 PKG_CHECK_MODULES([poppler_glib], [poppler-glib >= 0.16.0])
@@ -59,6 +60,7 @@ AC_CHECK_HEADERS([stdlib.h string.h strings.h])
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 AC_CHECK_TYPES([ptrdiff_t])
+AC_C_BIGENDIAN
 
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE

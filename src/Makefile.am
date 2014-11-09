@@ -1,8 +1,10 @@
 bin_PROGRAMS = epdfinfo
-epdfinfo_CFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS)
-epdfinfo_CXXFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS)
+epdfinfo_CFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS) \
+		$(png_CFLAGS)
+epdfinfo_CXXFLAGS = $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS) \
+		$(png_LIBS)
 epdfinfo_LDADD =  $(glib_LIBS) $(poppler_glib_LIBS) $(poppler_LIBS) \
-			libsynctex.a $(zlib_LIBS)
+			$(png_LIBS) libsynctex.a $(zlib_LIBS)
 epdfinfo_SOURCES = epdfinfo.c epdfinfo.h poppler-hack.cc
 
 noinst_LIBRARIES = libsynctex.a

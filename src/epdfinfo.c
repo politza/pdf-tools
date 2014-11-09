@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <png.h>
 #include "synctex_parser.h"
 #include "epdfinfo.h"
 #include "config.h"
@@ -76,6 +77,7 @@ static void cmd_pagelinks(const ctxt_t *ctx, const arg_t *args);
 static void cmd_gettext(const ctxt_t *ctx, const arg_t *args);
 static void cmd_getselection (const ctxt_t *ctx, const arg_t *args);
 static void cmd_pagesize(const ctxt_t *ctx, const arg_t *args);
+static void cmd_boundingbox (const ctxt_t *ctx, const arg_t *args);
 
 static void cmd_getattachment_from_annot (const ctxt_t *ctx, const arg_t *args);
 static void cmd_getattachments (const ctxt_t *ctx, const arg_t *args);
@@ -269,6 +271,12 @@ const args_spec_t cmd_renderpage_spec[] =
     ARG_FLAG                    /* ppm, else png */
   };
 
+const args_spec_t cmd_boundingbox_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+  };
+
 static const cmd_t cmds [] =
   {
     /* Basic */
@@ -309,7 +317,8 @@ static const cmd_t cmds [] =
      G_N_ELEMENTS (cmd_synctex_forward_search_spec)},
     {"synctex-backward-search", cmd_synctex_backward_search, cmd_synctex_backward_search_spec,
      G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
-    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)}
+    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)},
+    {"boundingbox", cmd_boundingbox, cmd_boundingbox_spec, G_N_ELEMENTS (cmd_boundingbox_spec)}
   };
 
 /* FIXME: Move these into a switch, in case upstream changes the
@@ -391,7 +400,7 @@ int main(int argc, char **argv)
     err (2, "Unable to redirect stderr");
 
   g_type_init ();
-  line = (char*) g_malloc( IN_BUF_LEN * sizeof (char));             
+  line = g_malloc(IN_BUF_LEN * sizeof (char));             
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);
@@ -691,7 +700,7 @@ static void printf_error (const char *fmt, ...)
   va_start (va, fmt);
   vprintf (fmt, va);
   va_end (va);
-  puts (".");
+  puts ("\n.");
   fflush (stdout);
 }
 
@@ -2175,6 +2184,123 @@ cmd_renderpage (const ctxt_t *ctx, const arg_t *args)
     g_object_unref (page);
 }
 
+static void
+cmd_boundingbox (const ctxt_t *ctx, const arg_t *args)
+{
+  doc_t *doc = args[0].value.doc;
+  int pn = args[1].value.natnum;
+  PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
+  cairo_t *cr = NULL;
+  cairo_surface_t *surface = NULL;
+  int width, height;
+  double pt_width, pt_height;
+  unsigned char *data, *data_p;
+  PopplerRectangle bbox;
+  int i, j;
+  
+  if (! page)
+    {
+      printf_error ("No such page %d", pn);
+      goto theend;
+    }
+
+  poppler_page_get_size (page, &pt_width, &pt_height);
+  cr = renderpage (doc->pdf, page, (int) pt_width);
+
+  if (! cr)
+    {
+      printf_error ("Failed to render page %d", pn);
+      goto theend;
+    }
+
+  surface = cairo_get_target (cr);
+
+  if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
+    {
+      printf_error ("Invalid cairo surface\n");
+      goto theend;
+    }
+
+  width = cairo_image_surface_get_width (surface);
+  height = cairo_image_surface_get_height (surface);
+  data = cairo_image_surface_get_data (surface);
+
+  for (i = 0; i < width; ++i)
+    {
+      data_p = data + 4 * i;
+      for (j = 0; j < height; ++j, data_p += 4 * width)
+        {
+          if (! ARGB_EQUAL (data, data_p))
+            break;
+        }
+      if (j < height)
+        break;
+    }
+  bbox.x1 = i;
+
+  for (i = width - 1; i > -1; --i)
+    {
+      data_p = data + 4 * i;
+      for (j = 0; j < height; ++j, data_p += 4 * width)
+        {
+          if (! ARGB_EQUAL (data, data_p))
+            break;
+        }
+      if (j < height)
+        break;
+    }
+  bbox.x2 = i + 1;
+
+  for (i = 0; i < height; ++i)
+    {
+      data_p = data + 4 * i * width;
+      for (j = 0; j < width; ++j, data_p += 4)
+        {
+          if (! ARGB_EQUAL (data, data_p))
+            break;
+        }
+      if (j < width)
+        break;
+    }
+  bbox.y1 = i;
+
+  for (i = height - 1; i > -1; --i)
+    {
+      data_p = data + 4 * i * width;
+      for (j = 0; j < width; ++j, data_p += 4)
+        {
+          if (! ARGB_EQUAL (data, data_p))
+            break;
+        }
+      if (j < width)
+        break;
+    }
+  bbox.y2 = i + 1;
+
+  OK_BEGIN ();
+  /* printf ("%f:%f:%f:%f\n", bbox.x1, bbox.y1, bbox.x2, bbox.y2); */
+  if (bbox.x1 > bbox.x2 || bbox.y1 > bbox.y2)
+    {
+      /* empty page */
+      puts ("0:0:1:1");
+    }
+  else
+    {
+      printf ("%f:%f:%f:%f\n",
+              bbox.x1 / (double) width,
+              bbox.y1 / (double) height,
+              bbox.x2 / (double) width,
+              bbox.y2 / (double) height);
+    }
+  OK_END ();
+  
+ theend:
+  if (cr)
+    cairo_destroy (cr);
+  if (page)
+    g_object_unref (page);
+}
+
 
 
 
@@ -2332,56 +2458,104 @@ renderpage(PopplerDocument *pdf, PopplerPage *page, int width)
   return NULL;
 }
 
-static cairo_status_t
-_print_image_data (void *closure, const unsigned char *data,
-                   unsigned int length)
-{
-  while (length-- > 0)
-    putchar (*data++);
-  return CAIRO_STATUS_SUCCESS;
-}
-
 static int
 write_cairo_surface (cairo_surface_t *surface, const char *filename,
                      enum image_type type)
 {
   
-  int i = 0;
+  int i, j;
   unsigned char *data;
   int width, height;
   FILE *file = NULL;
+  gboolean success = 0;
   
   if (! surface ||
       cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
-    return 0;
+    {
+      fprintf (stderr, "Invalid cairo surface\n");
+      return 0;
+    }
+
+  if (! (file = fopen (filename, "wb")))
+    {
+      fprintf (stderr, "Can not open file: %s\n", filename);
+      return 0;
+    }
+
+  cairo_surface_flush (surface);
+  width = cairo_image_surface_get_width (surface);
+  height = cairo_image_surface_get_height (surface);
+  data = cairo_image_surface_get_data (surface);
 
   switch (type)
     {
     case PPM:
-      width = cairo_image_surface_get_width (surface);
-      height = cairo_image_surface_get_height (surface);
-      data = cairo_image_surface_get_data (surface);
-      if (! (file = fopen (filename, "wb")))
-        return 0;
-      fprintf (file, "P6\n%d %d\n255\n", width, height);
-      for (i = 0; i < width * height; ++i)
-        {
-          /* A  */
-          fputc (data[2], file); /* R */
-          fputc (data[1], file); /* G */
-          fputc (data[0], file); /* B */
-          data += 4;
-        }
-      fclose (file);
+      {
+        unsigned char rgb[3];
+        fprintf (file, "P6\n%d %d\n255\n", width, height);
+        for (i = 0; i < width * height; ++i, data += 4)
+          {
+            ARGB_TO_RGB (rgb, data);
+            fwrite (rgb, 1, 3, file); 
+          }
+        success = 1;
+      }
       break;
     case PNG:
-      cairo_surface_write_to_png (surface, filename);
+      {
+        png_infop info_ptr = NULL;
+        png_structp png_ptr = NULL;
+        unsigned char *row = NULL;
+        
+        png_ptr = png_create_write_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+        if (!png_ptr)
+          goto finalize;
+
+        info_ptr = png_create_info_struct(png_ptr);
+        if (!info_ptr)
+          goto finalize;
+
+        if (setjmp(png_jmpbuf(png_ptr)))
+          goto finalize;
+        
+        png_init_io (png_ptr, file);
+        png_set_compression_level (png_ptr, 1);
+        png_set_IHDR (png_ptr, info_ptr, width, height,
+                      8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                      PNG_COMPRESSION_TYPE_BASE,
+                      PNG_FILTER_TYPE_DEFAULT);
+
+        png_set_filter (png_ptr, PNG_FILTER_TYPE_BASE,
+                        PNG_FILTER_NONE);
+        png_write_info (png_ptr, info_ptr);
+        row = g_malloc (3 * width);
+        for (i = 0; i < height; ++i)
+          {
+            unsigned char *row_p = row;
+            for (j = 0; j < width; ++j, data += 4, row_p += 3)
+              {
+                ARGB_TO_RGB (row_p, data);
+              }
+            png_write_row (png_ptr, row);
+          }
+        png_write_png (png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+        png_write_end (png_ptr, NULL);
+        success = 1;
+      finalize:
+        if (png_ptr)
+          png_destroy_write_struct (&png_ptr, &info_ptr);
+        if (row)
+          g_free (row);
+        if (! success)
+          fprintf (stderr, "Error writing png data\n");
+      }
       break;
     default:
       internal_error ("switch fell through");
     }
 
-  return 1;
+  fclose (file);
+  return success;
 }
 
 static void

@@ -107,6 +107,8 @@ ask -- ask whether to restart or not."
 This variable is initially `t', telling the code starting the
 server, that it never ran.")
 
+(defvar pdf-info-asynchronous nil)
+
 (defun pdf-info-process ()
   "Return the process object or nil."
   (and pdf-info-queue
@@ -241,14 +243,6 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                       (re-search-forward "^\\.\n")
                       (1- (match-beginning 0))))))
      ((looking-at "OK\n")
-      (save-excursion
-        ;; FIXME: Hotfix: poppler prints this to stdout, if a
-        ;; destination lookup failed.
-        ;; (Is it really stdout ? Yes it is : Catalog.cc, function NameTree::lookup)
-        ;; (while (re-search-forward "failed to look up [A-Z.0-9]+\n" nil t)
-        ;;   (replace-match ""))
-        ;; FIXME: I can't tell if this is still necessary.
-        )
       (let (result)
         (forward-line)
         (while (not (looking-at "^\\.\n"))
@@ -389,7 +383,7 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                     (checksum . ,(pop-not-empty a))
                     (file . ,(pop-not-empty a))))
                 response)))
-      (synctex-forward-search
+      ((synctex-forward-search boundingbox)
        (mapcar 'string-to-number (car response)))
       (synctex-backward-search
        (cons (caar response)
@@ -929,6 +923,12 @@ file        - The name of a tempfile containing the data (only present if
    page
    width
    (if fast 1 0)))
+
+(defun pdf-info-boundingbox (page &optional file-or-buffer)
+  (pdf-info-query
+   'boundingbox
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   page))
 
 (define-minor-mode pdf-info-auto-revert-minor-mode
   "Close the document, after the buffer is reverted.

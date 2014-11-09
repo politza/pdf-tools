@@ -78,8 +78,7 @@
            (buffer-live-p buffer))
        (save-current-buffer
          (and buffer (set-buffer buffer))
-         (and (derived-mode-p 'doc-view-mode)
-              (eq 'pdf doc-view-doc-type)))))
+         (derived-mode-p 'pdf-view-mode))))
 
 (defun pdf-util-assert-pdf-buffer (&optional buffer)
   (unless (pdf-util-pdf-buffer-p buffer)
@@ -214,7 +213,7 @@ to the scale of the image in the current window."
                                             (* (nth 2 edges) sx)
                                             (* (nth 3 edges) sy))))
                                (if round-p
-                                   (mapcar 'round e)
+                                   (mapcar 'floor e)
                                  e)))
                            list-of-edges)))
       (if have-list-p

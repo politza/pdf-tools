@@ -56,12 +56,28 @@ other value behaves like `fit-width'."
   :group 'pdf-view
   :type 'number)
   
+(defcustom pdf-view-continuous nil
+  "In Continuous mode reaching the page edge advances to next/previous page.
+
+When non-nil, scrolling a line upward at the bottom edge of the page
+moves to the next page, and scrolling a line downward at the top edge
+of the page moves to the previous page."
+  :type 'boolean
+  :group 'pdf-view)
+
+(defcustom pdf-view-bounding-box-margin 0.05
+  "Fractional margin used for slicing with the bounding-box."
+  :group 'pdf-view
+  :type 'number)
+
 (defvar-local pdf-view--image-data-cache nil
   "Cached PNG image data.
 
 Each element on this list contains the page-number, the PNG blob
-and it's width as a cons \(PAGE WIDTH DATA\) .
-")
+and it's width as a cons \(PAGE WIDTH DATA\) .")
+
+(defvar-local pdf-view--image-slice nil
+  "The current slice in use, or nil.")
 
 (defmacro pdf-view-current-page (&optional window)
   `(image-mode-window-get 'page ,window))
@@ -69,13 +85,11 @@ and it's width as a cons \(PAGE WIDTH DATA\) .
   `(image-mode-window-get 'overlay ,window))
 (defmacro pdf-view-current-image (&optional window)
   `(image-mode-window-get 'image ,window))
-(defmacro pdf-view-current-slice (&optional window)
-  `(image-mode-window-get 'slice ,window))
-        
+
 (defun pdf-view-desired-image-size (&optional page window)
   (let* ((pagesize (pdf-info-pagesize
                     (or page (pdf-view-current-page window))))
-         (slice (pdf-view-current-slice window))
+         (slice pdf-view--image-slice)
          (width-scale (/ (/ (float (window-width window t))
                             (or (nth 2 slice) 1.0))
                          (float (car pagesize))))
@@ -106,8 +120,8 @@ and it's width as a cons \(PAGE WIDTH DATA\) .
     (define-key map (kbd "p")         'pdf-view-previous-page-command)
     (define-key map (kbd "<next>")    'forward-page)
     (define-key map (kbd "<prior>")   'backward-page)
-    (define-key map [remap forward-page]  'pdf-view-next-page)
-    (define-key map [remap backward-page] 'pdf-view-previous-page)
+    (define-key map [remap forward-page]  'pdf-view-next-page-command)
+    (define-key map [remap backward-page] 'pdf-view-previous-page-command)
     (define-key map (kbd "SPC")       'pdf-view-scroll-up-or-next-page)
     (define-key map (kbd "S-SPC")     'pdf-view-scroll-down-or-previous-page)
     (define-key map (kbd "DEL")       'pdf-view-scroll-down-or-previous-page)
@@ -133,7 +147,7 @@ and it's width as a cons \(PAGE WIDTH DATA\) .
     (define-key map (kbd "s b")       'pdf-view-set-slice-from-bounding-box)
     (define-key map (kbd "s r")       'pdf-view-reset-slice)
     ;; Searching
-    (define-key map (kbd "C-c C-c")   'pdf-view-toggle-display)
+    (define-key map (kbd "C-c C-c")   'doc-view-mode)
     ;; Open a new buffer with doc's text contents
     (define-key map (kbd "C-c C-t")   'pdf-view-open-text)
     ;; Reconvert the current document.  Don't just use revert-buffer
@@ -163,7 +177,7 @@ and it's width as a cons \(PAGE WIDTH DATA\) .
    (list (float pdf-view-resize-factor)))
   ;; FIXME: Move related functions (e.g. pdf-util-image-size) in
   ;; this library.
-  (let* ((size (pdf-util-image-size))
+  (let* ((size (image-size (pdf-view-current-image) t))
          (pagesize (pdf-info-pagesize
                     (pdf-view-current-page)))
          (scale (/ (float (car size))
@@ -200,8 +214,6 @@ and it's width as a cons \(PAGE WIDTH DATA\) .
   "View the last page."
   (interactive)
   (pdf-view-goto-page (pdf-info-number-of-pages)))
-
-(defvar pdf-view-continuous t)
 
 (defun pdf-view-scroll-up-or-next-page (&optional arg)
   "Scroll page up ARG lines if possible, else goto next page.
@@ -457,7 +469,7 @@ PNG images in Emacs buffers.
            (read-number "Page: "))))
   (unless (and (>= page 1)
                (<= page (pdf-info-number-of-pages)))
-    (signal 'args-out-of-range (list page)))
+    (error "No such page: %d" page))
   (unless window
     (setq window
           (if (pdf-util-pdf-window-p)
@@ -478,9 +490,11 @@ PNG images in Emacs buffers.
 
 X, Y, WIDTH and HEIGHT should be relative coordinates, i.e. in
 \[0;1\].  To reset the slice use `pdf-view-reset-slice'."
-  (setf (pdf-view-current-slice)
-        (list x y width height))
-  (pdf-view-redisplay))
+  (unless (equal pdf-view--image-slice
+                 (list x y width height))
+    (setq pdf-view--image-slice
+          (list x y width height))
+    (pdf-view-redisplay-all-windows)))
 
 (defun pdf-view-set-slice-using-mouse ()
   "Set the slice of the images that should be displayed.
@@ -507,45 +521,41 @@ dragging it to its bottom-right corner.  See also
                   (/ 1.0 (float (cdr size))))))))
 
 (defun pdf-view-set-slice-from-bounding-box ()
-  "Set the slice from the document's BoundingBox information.
+  "Set the slice from the document's bounding-box.
+
 The result is that the margins are almost completely cropped,
 much more accurate than could be done manually using
-`pdf-view-set-slice-using-mouse'."
-  (interactive "P")
-  (let ((bb (pdf-view-get-bounding-box)))
-    (if (not bb)
-	(message "BoundingBox couldn't be determined")
-      (let* ((is (image-size (pdf-view-current-image) t))
-	     (iw (car is))
-	     (ih (cdr is))
-	     (ps (or (and (null force-paper-size)
-                          (pdf-view-guess-paper-size iw ih))
-		     (intern (completing-read "Paper size: "
-                                              pdf-view-paper-sizes
-					      nil t))))
-	     (bb (pdf-view-scale-bounding-box ps iw ih bb))
-	     (x1 (nth 0 bb))
-	     (y1 (nth 1 bb))
-	     (x2 (nth 2 bb))
-	     (y2 (nth 3 bb)))
-	;; We keep a 2 pixel margin.
-	(pdf-view-set-slice (- x1 2) (- ih y2 2)
-			    (+ (- x2 x1) 4) (+ (- y2 y1) 4))))))
+`pdf-view-set-slice-using-mouse'.
+
+See also `pdf-view-bounding-box-margin'."
+  (interactive)
+  (let* ((bb (pdf-info-boundingbox (pdf-view-current-page)))
+         (margin (max 0 (or pdf-view-bounding-box-margin 0)))
+         (slice (list (- (nth 0 bb)
+                         (/ margin 2.0))
+                      (- (nth 1 bb)
+                         (/ margin 2.0))
+                      (+ (- (nth 2 bb) (nth 0 bb))
+                         margin)
+                      (+ (- (nth 3 bb) (nth 1 bb))
+                         margin))))
+    (apply 'pdf-view-set-slice slice)))
 
 (defun pdf-view-reset-slice ()
   "Reset the current slice.
-After calling this function whole pages will be visible again."
-  (interactive)
-  (setf (pdf-view-current-slice) nil)
-  ;; Redisplay
-  (pdf-view-redisplay))
 
-    
+After calling this function the whole page will be visible
+again."
+  (interactive)
+  (when pdf-view--image-slice
+    (setq pdf-view--image-slice nil)
+    (pdf-view-redisplay-all-windows)))
+
 (defun pdf-view-display-image (image &optional window)
   (let ((ol (pdf-view-current-overlay window)))
     (when (window-live-p (overlay-get ol 'window))
       (let* ((size (image-size image t))
-             (slice (pdf-view-current-slice window))                    
+             (slice pdf-view--image-slice)                    
              (displayed-width (floor
                                (if slice
                                    (* (nth 2 slice)
@@ -596,7 +606,7 @@ After calling this function whole pages will be visible again."
     (sit-for 0)))
 
 (defun pdf-view-previous-page-command (&optional n)
-  (declare (interactive-only pdf-view-next-page))
+  (declare (interactive-only pdf-view-previous-page))
   (interactive "p")
   (with-no-warnings
     (pdf-view-next-page-command (- (or n 1)))))
@@ -605,7 +615,7 @@ After calling this function whole pages will be visible again."
 
 (defvar-local pdf-view-hotspot-functions nil)
 
-(defun pdf-view-register-hotspot-function (fn &optional layer)
+(defun pdf-view-add-hotspot-function (fn &optional layer)
   "Register FN as a hotspot function in the current buffer, using LAYER.
 
 FN will be called in the PDF buffer with the page-number and the
@@ -617,19 +627,15 @@ supercede hotspots in lower ones."
   (push (cons (or layer 0) fn)
         pdf-view-hotspot-functions))
 
-(defun pdf-view-unregister-hotspot-function (fn)
-  "Unregister FN as a hotspot function int the current buffer."
+(defun pdf-view-remove-hotspot-function (fn)
+  "Unregister FN as a hotspot function in the current buffer."
   (setq pdf-view-hotspot-functions
         (cl-remove fn pdf-view-hotspot-functions
                    :key 'cdr)))
 
 (defun pdf-view-sorted-hotspot-functions ()
   (mapcar 'cdr (sort (copy-sequence pdf-view-hotspot-functions)
-                     (lambda (a b)
-                       (cond
-                        ((not (consp a)) b)
-                        ((not (consp b)) a)
-                        (t (>= (car a) (car b))))))))
+                     '>)))
 
 (defun pdf-view-apply-hotspot-functions (window page image-size)
   (save-selected-window
@@ -641,7 +647,3 @@ supercede hotspots in lower ones."
 
 (provide 'pdf-view)
 ;;; pdf-view.el ends here
-
-;; Local Variables:
-;; byte-compile-warnings: (not obsolete)
-;; End:

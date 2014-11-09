@@ -20,6 +20,7 @@
 #include "config.h"
 #include <glib.h>
 #include <poppler.h>
+#include <png.h>
 
 #define IN_BUF_LEN 4096
 #define RELEASE_DOC_TIMEOUT (15 * 60)
@@ -41,7 +42,7 @@
     close(saved_fd);                            \
   } while (0)
 
-#define OK_BEGIN()                                \
+#define OK_BEGIN()                              \
   do {                                          \
     puts("OK");                                 \
   } while (0)
@@ -58,7 +59,32 @@
     fflush (stdout);                            \
   } while (0)
 
-#define internal_error(fmt, args...)                                    \
+#ifdef WORDS_BIGENDIAN
+#define ARGB_TO_RGB(rgb, argb)                  \
+  do {                                          \
+  rgb[0] = argb[1];                             \
+  rgb[1] = argb[2];                             \
+  rgb[2] = argb[3];                             \
+  } while (0)
+#else
+#define ARGB_TO_RGB(rgb, argb)                  \
+  do {                                          \
+  rgb[0] = argb[2];                             \
+  rgb[1] = argb[1];                             \
+  rgb[2] = argb[0];                             \
+  } while (0)
+
+#define ARGB_EQUAL(argb1, argb2)                \
+  (argb1[0] == argb2[0]                         \
+   && argb1[1] == argb2[1]                      \
+   && argb1[2] == argb2[2])
+#endif
+
+#ifndef png_jmpbuf
+#  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)
+#endif
+
+#define internal_error(fmt, args...)                            \
   error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 
 enum { NONE, COLON, NL};
