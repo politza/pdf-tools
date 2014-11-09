@@ -27,6 +27,11 @@
 (require 'pdf-info)
 
 
+
+;; * ================================================================== *
+;; * Customizations
+;; * ================================================================== *
+
 (defgroup pdf-view nil
   "View PDF documents."
   :group 'pdf-tools)
@@ -70,6 +75,12 @@ of the page moves to the previous page."
   :group 'pdf-view
   :type 'number)
 
+
+
+;; * ================================================================== *
+;; * Internal variables and macros
+;; * ================================================================== *
+
 (defvar-local pdf-view--image-data-cache nil
   "Cached PNG image data.
 
@@ -79,6 +90,16 @@ and it's width as a cons \(PAGE WIDTH DATA\) .")
 (defvar-local pdf-view--image-slice nil
   "The current slice in use, or nil.")
 
+(defmacro pdf-view-image-type ()
+  "Return the image-type in use.
+
+The return value is either imagemagick (if available) or png."
+  `(if (fboundp 'imagemagick-types) 'imagemagick 'png))
+
+(defmacro pdf-view-imagemagick-p ()
+  "Return non-nil if imagemagick is used as image-type."
+  `(eq (pdf-view-image-type) 'imagemagick))
+
 (defmacro pdf-view-current-page (&optional window)
   `(image-mode-window-get 'page ,window))
 (defmacro pdf-view-current-overlay (&optional window)
@@ -86,31 +107,10 @@ and it's width as a cons \(PAGE WIDTH DATA\) .")
 (defmacro pdf-view-current-image (&optional window)
   `(image-mode-window-get 'image ,window))
 
-(defun pdf-view-desired-image-size (&optional page window)
-  (let* ((pagesize (pdf-info-pagesize
-                    (or page (pdf-view-current-page window))))
-         (slice pdf-view--image-slice)
-         (width-scale (/ (/ (float (window-width window t))
-                            (or (nth 2 slice) 1.0))
-                         (float (car pagesize))))
-         (height (- (nth 3 (window-inside-pixel-edges window))
-                    (nth 1 (window-inside-pixel-edges window))
-                    1))
-         (height-scale (/ (/ (float height)
-                             (or (nth 3 slice) 1.0))
-                          (float (cdr pagesize))))
-         (scale width-scale))
-    (if (numberp pdf-view-display-size)
-        (setq scale (float pdf-view-display-size))
-      (cl-case pdf-view-display-size
-        (fit-page
-         (setq scale (min height-scale width-scale)))
-        (fit-height
-         (setq scale height-scale))
-        (t
-         (setq scale width-scale))))
-    (cons (floor (* (car pagesize) scale))
-          (floor (* (cdr pagesize) scale)))))
+
+;; * ================================================================== *
+;; * Major Mode
+;; * ================================================================== *
 
 (defvar pdf-view-mode-map
   (let ((map (make-sparse-keymap)))
@@ -157,6 +157,57 @@ and it's width as a cons \(PAGE WIDTH DATA\) .")
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
+(defun pdf-view-mode ()
+  "Major mode in PDF buffers.
+
+PDFView Mode is an Emacs PDF viewer.  It displays PDF files as
+PNG images in Emacs buffers.
+
+\\{pdf-view-mode-map}"
+  (interactive)
+
+  (kill-all-local-variables)
+  (use-local-map pdf-view-mode-map)
+  (add-hook 'change-major-mode-hook
+            (lambda ()
+              (remove-overlays (point-min) (point-max) 'pdf-view t))
+            nil t)
+  (remove-overlays (point-min) (point-max) 'pdf-view t) ;Just in case.
+  ;; Keep track of display info ([vh]scroll, page number, overlay,
+  ;; ...)  for each window in which this document is shown.
+  (add-hook 'image-mode-new-window-functions
+            'pdf-view-new-window-function nil t)
+  (image-mode-setup-winprops)
+
+  (setq-local mode-line-position
+              '(" P" (:eval (number-to-string (pdf-view-current-page)))
+                "/" (:eval (number-to-string (pdf-info-number-of-pages)))))
+  ;; Don't scroll unless the user specifically asked for it.
+  (setq-local auto-hscroll-mode nil)
+  (if (boundp 'mwheel-scroll-up-function) ; not --without-x build
+      (setq-local mwheel-scroll-up-function
+                  #'pdf-view-scroll-up-or-next-page))
+  (if (boundp 'mwheel-scroll-down-function)
+      (setq-local mwheel-scroll-down-function
+                  #'pdf-view-scroll-down-or-previous-page))
+  (setq-local cursor-type nil)
+  (setq mode-name "PDFView"
+        buffer-read-only t
+        major-mode 'pdf-view-mode)
+  (setq-local view-read-only nil)
+  (setf (pdf-view-current-page)
+        (or (pdf-view-current-page) 1))
+  (add-hook 'window-configuration-change-hook
+            'pdf-view-redisplay-resized-windows nil t)
+  (when (pdf-util-pdf-window-p)
+    (pdf-view-redisplay))
+  (run-mode-hooks 'pdf-view-mode-hook))
+
+
+;; * ================================================================== *
+;; * Scaling
+;; * ================================================================== *
+
 (defun pdf-view-fit-page-to-window ()
   (interactive)
   (setq pdf-view-display-size 'fit-page)
@@ -196,6 +247,35 @@ and it's width as a cons \(PAGE WIDTH DATA\) .")
   (setq pdf-view-display-size 1.0)
   (pdf-view-redisplay-all-windows))   
 
+
+
+;; * ================================================================== *
+;; * Moving by pages and scrolling
+;; * ================================================================== *
+
+(defun pdf-view-goto-page (page &optional window)
+  (interactive
+   (list (if current-prefix-arg
+             (prefix-numeric-value current-prefix-arg)
+           (read-number "Page: "))))
+  (unless (and (>= page 1)
+               (<= page (pdf-info-number-of-pages)))
+    (error "No such page: %d" page))
+  (unless window
+    (setq window
+          (if (pdf-util-pdf-window-p)
+              (selected-window)
+            t)))
+  (let ((changing-p
+         (not (eq page (pdf-view-current-page window)))))
+    (setf (pdf-view-current-page window) page)
+    (when (window-live-p window)
+      (pdf-view-redisplay window))
+    (when changing-p
+      (force-mode-line-update)
+      (run-hooks 'pdf-view-change-page-hook)))
+  nil)
+
 (defun pdf-view-next-page (&optional n)
   (interactive "p")
   (pdf-view-goto-page (+ (pdf-view-current-page)
@@ -204,6 +284,32 @@ and it's width as a cons \(PAGE WIDTH DATA\) .")
 (defun pdf-view-previous-page (&optional n)
   (interactive "p")
   (pdf-view-next-page (- (or n 1))))
+
+(defun pdf-view-next-page-command (&optional n)
+  (declare (interactive-only pdf-view-next-page))
+  (interactive "p")
+  (unless n (setq n 1))
+  (when (> (+ (pdf-view-current-page) n)
+           (pdf-info-number-of-pages))
+    (user-error "Last page"))
+  (when (< (+ (pdf-view-current-page) n) 1)
+    (user-error "First page"))
+  (cl-incf (pdf-view-current-page) n)
+  (force-mode-line-update)
+  (if (or (not (input-pending-p))
+          (and (> n 0)
+               (= (pdf-view-current-page)
+                  (pdf-info-number-of-pages)))
+          (and (< n 0)
+               (= (pdf-view-current-page) 1)))
+      (pdf-view-redisplay)
+    (sit-for 0)))
+
+(defun pdf-view-previous-page-command (&optional n)
+  (declare (interactive-only pdf-view-previous-page))
+  (interactive "p")
+  (with-no-warnings
+    (pdf-view-next-page-command (- (or n 1)))))
 
 (defun pdf-view-first-page ()
   "View the first page."
@@ -281,209 +387,10 @@ at the top edge of the page moves to the previous page."
 	  (set-window-hscroll (selected-window) hscroll)))
     (image-previous-line arg)))
 
-(defun pdf-view-get-image-data (page width &optional exact-width-p)
-  "Return PAGE's PNG data as a string, according to WIDTH.
-
-If EXACT-WIDTH-P is non-nil, return data of an image of width
-WIDTH.  Otherwise, return an image of width at least WIDTH."
-  (let ((cache (cons nil pdf-view--image-data-cache))
-        data)
-    ;; Find it in the cache and remove it.
-    (while (and (cdr cache)
-                (/= (nth 0 (car (cdr cache)))
-                    page))
-      (setq cache (cdr cache)))
-    (setq data (cadr cache))
-    (when (car cache)
-      (setcdr cache (cddr cache)))
-    ;; If not found or not appropriate, create it.
-    (unless (and data
-                 (if exact-width-p
-                     (= (nth 1 data) width)
-                   (and (>= (nth 1 data) width)
-                        ;; Don't keep mega images.
-                        (< (nth 1 data)
-                           (* 2 width)))))
-      (let (filename)
-        (unwind-protect
-            (progn
-              (setq filename (pdf-info-renderpage page width))
-              (with-temp-buffer
-                (set-buffer-multibyte nil)
-                (insert-file-contents-literally filename)
-                (setq data
-                      (list page width
-                            (propertize
-                             (buffer-substring-no-properties
-                              (point-min)
-                              (point-max)) 'display
-                              "<image data hidden>")))))
-          (when (and filename
-                     (file-exists-p filename))
-            (delete-file filename)))))
-    
-    (push data pdf-view--image-data-cache)
-    ;; Forget oldest page.
-    (when (and (> (length pdf-view--image-data-cache)
-                  pdf-view-image-data-cache-limit)
-               (> (length pdf-view--image-data-cache)
-                  1))
-      (setcdr (nthcdr (- (length pdf-view--image-data-cache) 2)
-                      pdf-view--image-data-cache)
-              nil))
-    (nth 2 data)))
-
-(defun pdf-view-redisplay-resized-windows ()
-  (unless (numberp pdf-view-display-size)
-    (dolist (window (get-buffer-window-list))
-      (let ((stored (window-parameter window 'pdf-view-window-size))
-            (size (cons (window-width window)
-                        (window-height window))))
-        (unless (equal size stored)
-          (set-window-parameter window 'pdf-view-window-size size)
-          (pdf-view-redisplay window))))))
-
-(defmacro pdf-view-image-type ()
-  "Return the image-type in use.
-
-The return value is either imagemagick (if available) or png."
-  `(if (fboundp 'imagemagick-types) 'imagemagick 'png))
-
-(defmacro pdf-view-imagemagick-p ()
-  "Return non-nil if imagemagick is used as image-type."
-  `(eq (pdf-view-image-type) 'imagemagick))
-
-(defun pdf-view-new-window-function (winprops)
-  ;; (message "New window %s for buf %s" (car winprops) (current-buffer))
-  (cl-assert (or (eq t (car winprops))
-                 (eq (window-buffer (car winprops)) (current-buffer))))
-  (let ((ol (image-mode-window-get 'overlay winprops)))
-    (if ol
-        (progn
-          (setq ol (copy-overlay ol))
-          ;; `ol' might actually be dead.
-          (move-overlay ol (point-min) (point-max)))
-      (setq ol (make-overlay (point-min) (point-max) nil t))
-      (overlay-put ol 'pdf-view t))
-    (overlay-put ol 'window (car winprops))
-    (unless (windowp (car winprops))
-      ;; It's a pseudo entry.  Let's make sure it's not displayed (the
-      ;; `window' property is only effective if its value is a window).
-      (cl-assert (eq t (car winprops)))
-      (delete-overlay ol))
-    (image-mode-window-put 'overlay ol winprops)
-    ;; Clean up some overlays.
-    (dolist (ov (overlays-in (point-min) (point-max)))
-      (when (and (windowp (overlay-get ov 'window))
-                 (not (window-live-p (overlay-get ov 'window))))
-        (delete-overlay ov)))
-    (when (and (windowp (car winprops))
-               (null (pdf-view-current-image (car winprops))))
-      ;; We're not displaying an image yet, so let's do so.  This happens when
-      ;; the buffer is displayed for the first time.
-      ;; Don't do it if there's a conversion is running, since in that case, it
-      ;; will be done later.
-      (with-selected-window (car winprops)
-        (set-window-parameter
-         nil
-         'pdf-view-window-size (cons (window-width)
-                                     (window-height)))
-        (pdf-view-goto-page
-         (or (image-mode-window-get 'page t) 1))))))
-
-(defun pdf-view-mode ()
-  "Major mode in PDF buffers.
-
-PDFView Mode is an Emacs PDF viewer.  It displays PDF files as
-PNG images in Emacs buffers.
-
-\\{pdf-view-mode-map}"
-  (interactive)
-
-  (kill-all-local-variables)
-  (use-local-map pdf-view-mode-map)
-  (add-hook 'change-major-mode-hook
-            (lambda ()
-              (remove-overlays (point-min) (point-max) 'pdf-view t))
-            nil t)
-  (remove-overlays (point-min) (point-max) 'pdf-view t) ;Just in case.
-  ;; Keep track of display info ([vh]scroll, page number, overlay,
-  ;; ...)  for each window in which this document is shown.
-  (add-hook 'image-mode-new-window-functions
-            'pdf-view-new-window-function nil t)
-  (image-mode-setup-winprops)
-
-  (setq-local mode-line-position
-              '(" P" (:eval (number-to-string (pdf-view-current-page)))
-                "/" (:eval (number-to-string (pdf-info-number-of-pages)))))
-  ;; Don't scroll unless the user specifically asked for it.
-  (setq-local auto-hscroll-mode nil)
-  (if (boundp 'mwheel-scroll-up-function) ; not --without-x build
-      (setq-local mwheel-scroll-up-function
-                  #'pdf-view-scroll-up-or-next-page))
-  (if (boundp 'mwheel-scroll-down-function)
-      (setq-local mwheel-scroll-down-function
-                  #'pdf-view-scroll-down-or-previous-page))
-  (setq-local cursor-type nil)
-  (setq mode-name "PDFView"
-        buffer-read-only t
-        major-mode 'pdf-view-mode)
-  (setq-local view-read-only nil)
-  (setf (pdf-view-current-page)
-        (or (pdf-view-current-page) 1))
-  (add-hook 'window-configuration-change-hook
-            'pdf-view-redisplay-resized-windows nil t)
-  (when (pdf-util-pdf-window-p)
-    (pdf-view-redisplay))
-  (run-mode-hooks 'pdf-view-mode-hook))
-
-(defun pdf-view-display-page (page &optional window inhibit-hotspots-p)
-  "Display page PAGE."
-  (pdf-util-assert-pdf-window window)
-  (let* ((size (pdf-view-desired-image-size page window))
-         (data (pdf-view-get-image-data
-                page (car size)
-                (not (pdf-view-imagemagick-p))))
-         (hotspots (unless inhibit-hotspots-p
-                     (pdf-view-apply-hotspot-functions
-                      window page size)))
-         (image (create-image
-                 data (pdf-view-image-type) t
-                 :width (car size)
-                 :map hotspots)))
-    (pdf-view-display-image image window)))
-
-(defun pdf-view-redisplay (&optional window)
-  (pdf-view-display-page
-   (pdf-view-current-page window)
-   window))
-
-(defun pdf-view-redisplay-all-windows ()
-  (dolist (window (get-buffer-window-list nil nil t))
-    (pdf-view-redisplay window)))
-
-(defun pdf-view-goto-page (page &optional window)
-  (interactive
-   (list (if current-prefix-arg
-             (prefix-numeric-value current-prefix-arg)
-           (read-number "Page: "))))
-  (unless (and (>= page 1)
-               (<= page (pdf-info-number-of-pages)))
-    (error "No such page: %d" page))
-  (unless window
-    (setq window
-          (if (pdf-util-pdf-window-p)
-              (selected-window)
-            t)))
-  (let ((changing-p
-         (not (eq page (pdf-view-current-page window)))))
-    (setf (pdf-view-current-page window) page)
-    (when (window-live-p window)
-      (pdf-view-redisplay window))
-    (when changing-p
-      (force-mode-line-update)
-      (run-hooks 'pdf-view-change-page-hook)))
-  nil)
+
+;; * ================================================================== *
+;; * Slicing
+;; * ================================================================== *
 
 (defun pdf-view-set-slice (x y width height)
   "Set the slice of the pages that should be displayed.
@@ -551,6 +458,32 @@ again."
     (setq pdf-view--image-slice nil)
     (pdf-view-redisplay-all-windows)))
 
+
+
+;; * ================================================================== *
+;; * Display
+;; * ================================================================== *
+
+(defun pdf-view-create-image (page &optional window inhibit-hotspots-p)
+  "Create an image of PAGE for WINDOW."
+  (let* ((size (pdf-view-desired-image-size page window))
+         (data (pdf-view-get-image-data
+                page (car size)
+                (not (pdf-view-imagemagick-p))))
+         (hotspots (unless inhibit-hotspots-p
+                     (pdf-view-apply-hotspot-functions
+                      window page size))))
+    (create-image
+     data (pdf-view-image-type) t
+     :width (car size)
+     :map hotspots)))
+
+(defun pdf-view-display-page (page &optional window inhibit-hotspots-p)
+  "Display page PAGE."
+  (pdf-view-display-image
+   (pdf-view-create-image page window inhibit-hotspots-p)
+   window))
+
 (defun pdf-view-display-image (image &optional window)
   (let ((ol (pdf-view-current-overlay window)))
     (when (window-live-p (overlay-get ol 'window))
@@ -585,33 +518,68 @@ again."
           (if hscroll (set-window-hscroll win hscroll))
           (if vscroll (set-window-vscroll win vscroll)))))))
 
-(defun pdf-view-next-page-command (&optional n)
-  (declare (interactive-only pdf-view-next-page))
-  (interactive "p")
-  (unless n (setq n 1))
-  (when (> (+ (pdf-view-current-page) n)
-           (pdf-info-number-of-pages))
-    (user-error "Last page"))
-  (when (< (+ (pdf-view-current-page) n) 1)
-    (user-error "First page"))
-  (cl-incf (pdf-view-current-page) n)
-  (force-mode-line-update)
-  (if (or (not (input-pending-p))
-          (and (> n 0)
-               (= (pdf-view-current-page)
-                  (pdf-info-number-of-pages)))
-          (and (< n 0)
-               (= (pdf-view-current-page) 1)))
-      (pdf-view-redisplay)
-    (sit-for 0)))
+(defun pdf-view-redisplay (&optional window)
+  (pdf-view-display-page
+   (pdf-view-current-page window)
+   window))
 
-(defun pdf-view-previous-page-command (&optional n)
-  (declare (interactive-only pdf-view-previous-page))
-  (interactive "p")
-  (with-no-warnings
-    (pdf-view-next-page-command (- (or n 1)))))
+(defun pdf-view-redisplay-all-windows ()
+  (dolist (window (get-buffer-window-list nil nil t))
+    (pdf-view-redisplay window)))
 
-;; Hotspots
+(defun pdf-view-redisplay-resized-windows ()
+  (unless (numberp pdf-view-display-size)
+    (dolist (window (get-buffer-window-list))
+      (let ((stored (window-parameter window 'pdf-view-window-size))
+            (size (cons (window-width window)
+                        (window-height window))))
+        (unless (equal size stored)
+          (set-window-parameter window 'pdf-view-window-size size)
+          (pdf-view-redisplay window))))))
+
+(defun pdf-view-new-window-function (winprops)
+  ;; (message "New window %s for buf %s" (car winprops) (current-buffer))
+  (cl-assert (or (eq t (car winprops))
+                 (eq (window-buffer (car winprops)) (current-buffer))))
+  (let ((ol (image-mode-window-get 'overlay winprops)))
+    (if ol
+        (progn
+          (setq ol (copy-overlay ol))
+          ;; `ol' might actually be dead.
+          (move-overlay ol (point-min) (point-max)))
+      (setq ol (make-overlay (point-min) (point-max) nil t))
+      (overlay-put ol 'pdf-view t))
+    (overlay-put ol 'window (car winprops))
+    (unless (windowp (car winprops))
+      ;; It's a pseudo entry.  Let's make sure it's not displayed (the
+      ;; `window' property is only effective if its value is a window).
+      (cl-assert (eq t (car winprops)))
+      (delete-overlay ol))
+    (image-mode-window-put 'overlay ol winprops)
+    ;; Clean up some overlays.
+    (dolist (ov (overlays-in (point-min) (point-max)))
+      (when (and (windowp (overlay-get ov 'window))
+                 (not (window-live-p (overlay-get ov 'window))))
+        (delete-overlay ov)))
+    (when (and (windowp (car winprops))
+               (null (pdf-view-current-image (car winprops))))
+      ;; We're not displaying an image yet, so let's do so.  This happens when
+      ;; the buffer is displayed for the first time.
+      ;; Don't do it if there's a conversion is running, since in that case, it
+      ;; will be done later.
+      (with-selected-window (car winprops)
+        (set-window-parameter
+         nil
+         'pdf-view-window-size (cons (window-width)
+                                     (window-height)))
+        (pdf-view-goto-page
+         (or (image-mode-window-get 'page t) 1))))))
+
+
+
+;; * ================================================================== *
+;; * Hotspot handling
+;; * ================================================================== *
 
 (defvar-local pdf-view-hotspot-functions nil)
 
@@ -644,6 +612,89 @@ supercede hotspots in lower ones."
            (mapcar (lambda (fn)
                      (funcall fn page image-size))
                    (pdf-view-sorted-hotspot-functions)))))
+
+
+;; * ================================================================== *
+;; * Utility Functions
+;; * ================================================================== *
+
+(defun pdf-view-desired-image-size (&optional page window)
+  (let* ((pagesize (pdf-info-pagesize
+                    (or page (pdf-view-current-page window))))
+         (slice pdf-view--image-slice)
+         (width-scale (/ (/ (float (window-width window t))
+                            (or (nth 2 slice) 1.0))
+                         (float (car pagesize))))
+         (height (- (nth 3 (window-inside-pixel-edges window))
+                    (nth 1 (window-inside-pixel-edges window))
+                    1))
+         (height-scale (/ (/ (float height)
+                             (or (nth 3 slice) 1.0))
+                          (float (cdr pagesize))))
+         (scale width-scale))
+    (if (numberp pdf-view-display-size)
+        (setq scale (float pdf-view-display-size))
+      (cl-case pdf-view-display-size
+        (fit-page
+         (setq scale (min height-scale width-scale)))
+        (fit-height
+         (setq scale height-scale))
+        (t
+         (setq scale width-scale))))
+    (cons (floor (* (car pagesize) scale))
+          (floor (* (cdr pagesize) scale)))))
+
+(defun pdf-view-get-image-data (page width &optional exact-width-p)
+  "Return PAGE's PNG data as a string, according to WIDTH.
+
+If EXACT-WIDTH-P is non-nil, return data of an image of width
+WIDTH.  Otherwise, return an image of width at least WIDTH."
+  (let ((cache (cons nil pdf-view--image-data-cache))
+        data)
+    ;; Find it in the cache and remove it.
+    (while (and (cdr cache)
+                (/= (nth 0 (car (cdr cache)))
+                    page))
+      (setq cache (cdr cache)))
+    (setq data (cadr cache))
+    (when (car cache)
+      (setcdr cache (cddr cache)))
+    ;; If not found or not appropriate, create it.
+    (unless (and data
+                 (if exact-width-p
+                     (= (nth 1 data) width)
+                   (and (>= (nth 1 data) width)
+                        ;; Don't keep mega images.
+                        (< (nth 1 data)
+                           (* 2 width)))))
+      (let (filename)
+        (unwind-protect
+            (progn
+              (setq filename (pdf-info-renderpage page width))
+              (with-temp-buffer
+                (set-buffer-multibyte nil)
+                (insert-file-contents-literally filename)
+                (setq data
+                      (list page width
+                            (propertize
+                             (buffer-substring-no-properties
+                              (point-min)
+                              (point-max)) 'display
+                              "<image data hidden>")))))
+          (when (and filename
+                     (file-exists-p filename))
+            (delete-file filename)))))
+    
+    (push data pdf-view--image-data-cache)
+    ;; Forget oldest page.
+    (when (and (> (length pdf-view--image-data-cache)
+                  pdf-view-image-data-cache-limit)
+               (> (length pdf-view--image-data-cache)
+                  1))
+      (setcdr (nthcdr (- (length pdf-view--image-data-cache) 2)
+                      pdf-view--image-data-cache)
+              nil))
+    (nth 2 data)))
 
 (provide 'pdf-view)
 ;;; pdf-view.el ends here
