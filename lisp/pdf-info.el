@@ -212,6 +212,7 @@ error."
           (lambda (closure response)
             (cl-destructuring-bind (status &rest result)
                 (pdf-info-query--parse-response cmd response)
+              (pdf-info-query--log status result)
               (funcall closure status result))))
          response status done
          (closure (or pdf-info-asynchronous
@@ -231,7 +232,6 @@ error."
                  (not (eq (process-status (pdf-info-process))
                           'run)))
         (error "The epdfinfo server quit unexpectedly."))
-      (pdf-info-query--log response)
       (cond
        ((null status) response)
        ((eq status 'error) 
@@ -446,7 +446,7 @@ interrupted."
                               (string-to-number (pop action)))))
                   (t action))))))
 
-(defun pdf-info-query--log (string &optional query-p)
+(defun pdf-info-query--log (status result &optional query-p)
   "Log STRING as query/response, depending on QUERY-P.
 
 This is a no-op, if `pdf-info-log' is nil."
@@ -459,7 +459,8 @@ This is a no-op, if `pdf-info-log' is nil."
           (insert ?\n))
         (insert
          (propertize
-          (concat (format-time-string "%H:%M:%S") ":")
+          (concat (format-time-string "%H:%M:%S")
+                  ":" status (if status ":"))                    
           'face
           (if query-p
               'font-lock-keyword-face

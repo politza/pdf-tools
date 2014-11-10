@@ -480,9 +480,10 @@ again."
 (defun pdf-view-create-image (page &optional window inhibit-hotspots-p)
   "Create an image of PAGE for WINDOW."
   (let* ((size (pdf-view-desired-image-size page window))
-         (data (pdf-view-get-image-data
+         (data (pdf-cache-renderpage
                 page (car size)
-                (not (pdf-view-imagemagick-p))))
+                (if (not (pdf-view-imagemagick-p))
+                    (car size))))
          (hotspots (unless inhibit-hotspots-p
                      (pdf-view-apply-hotspot-functions
                       window page size))))

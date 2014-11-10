@@ -97,7 +97,7 @@ buffer is killed or reverted."
 ;; * ================================================================== *
 
 (defcustom pdf-cache-image-cache-limit 64
-  "Maximum number of cached PNG images."
+  "Maximum number of cached PNG images per buffer."
   :type 'number
   :group 'pdf-tools)
 
@@ -111,6 +111,13 @@ buffer is killed or reverted."
 (defmacro pdf-cache--image/hash (img) `(nth 3 ,img))
 
 (defun pdf-cache--image-match (image page min-width &optional max-width hash)
+  "Match IMAGE with specs.
+
+IMAGE should be a list as created by `pdf-cache--make-image'.
+
+Return non-nil, if IMAGE's page is the same as PAGE, it's width
+is at least MIN-WIDTH and at most MAX-WIDTH and it's stored
+hash-value is `eql' to HASH."
   (and (= (pdf-cache--image/page image)
           page)
        (or (null min-width)
@@ -120,16 +127,90 @@ buffer is killed or reverted."
            (<= (pdf-cache--image/width image)
                max-width))
        (or (null hash)
-           (= (pdf-cache--image/hash image)
-              hash))))
+           (eql (pdf-cache--image/hash image)
+                hash))))
 
-(defun pdf-cache--image-lookup (page min-width &optional max-width hash)
-  (car (cl-member (list page min-width max-width hash)
-                  pdf-cache--image-cache
-                  :test (lambda (spec image)
-                          (apply 'pdf-cache--image-match image spec)))))
-  
-  
+(defun pdf-cache--image-get (page min-width &optional max-width hash)
+  "Return PAGE's PNG data as a string.
+
+Return an image of at least MIN-WIDTH and, if non-nil, maximum
+width MAX-WIDTH. If hash is non-nil, return an image which was
+previously put \(see `pdf-cache--image-put'\) with an `eql'
+value.
+
+Return nil, if no matching image was found."
+  (let ((cache (cons nil pdf-cache--image-cache))
+        image)
+    ;; Find it in the cache and remove it.  Therefore we need to find
+    ;; the element before it.
+    (while (and (cdr cache)
+                (not (pdf-cache--image-match
+                      (car (cdr cache))
+                      page min-width max-width hash)))                    
+      (setq cache (cdr cache)))
+    (setq image (cadr cache))
+    (when (car cache)
+      (setcdr cache (cddr cache)))
+    ;; Now push it at the front.
+    (when image
+      (push image pdf-cache--image-cache)
+      (pdf-cache--image/data image))))
+
+(defun pdf-cache--image-put (page width data &optional hash)
+  "Cache image of PAGE with WIDTH, DATA and HASH.
+
+DATA should the string of a PNG image of width WIDTH and from
+page PAGE in the current buffer.  See `pdf-cache--image-get' for
+the HASH argument.
+
+This function always returns nil."
+  (push (pdf-cache--make-image page width data hash)
+        pdf-cache--image-cache)
+  ;; Forget old image(s).
+  (when (> (length pdf-cache--image-cache)
+           pdf-cache-image-cache-limit)
+    (if (> pdf-cache-image-cache-limit 1)
+        (setcdr (nthcdr (1- pdf-cache-image-cache-limit)
+                        pdf-cache--image-cache)
+                nil)
+      (setq pdf-cache--image-cache nil)))
+  nil)
+                             
+(defun pdf-cache--image-create-data (fn &rest args)
+  "Create an image by calling FN with ARGS.
+
+FN should return the filename of a PNG image.  Return the images
+data as a string."
+  (let (filename)
+    (unwind-protect
+        (progn
+          (setq filename (apply fn args))
+          (with-temp-buffer
+            (set-buffer-multibyte nil)
+            (insert-file-contents-literally filename)
+            (propertize
+             (buffer-substring-no-properties
+              (point-min)
+              (point-max)) 'display
+              "<image image hidden>")))
+      (when (and filename
+                 (file-exists-p filename))
+        (delete-file filename)))))
+
+(defun pdf-cache-renderpage (page min-width &optional max-width)
+  "Render PAGE according to MIN-WIDTH and MAX-WIDTH.
+
+Return the PNG data of an image as a string, such that it's width
+is at least MIN-WIDTH and, if non-nil, at most MAX-WIDTH.
+
+If such an image is not available in the cache, call
+`pdf-info-renderpage' to creat one."
+  (or (pdf-cache--image-get page min-width max-width)
+      (let ((data (pdf-cache--image-create-data
+                    'pdf-info-renderpage
+                    page min-width)))
+        (pdf-cache--image-put page min-width data)
+        data)))
 
 (provide 'pdf-cache)
 
