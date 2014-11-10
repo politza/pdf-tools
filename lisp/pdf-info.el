@@ -43,12 +43,19 @@
  
 ;;; Todo:
 ;;
+;; + Close documents at some time (e.g. when the buffer is killed)
 ;; 
 
 ;;; Code:
 
 (require 'tq)
 (require 'cl-lib)
+
+
+
+;; * ================================================================== *
+;; * Customizations
+;; * ================================================================== *
 
 (defgroup pdf-info nil
   "Extract infos from pdf-files via a helper process."
@@ -65,16 +72,13 @@
   :group 'pdf-info
   :type '(file :must-match t))
 
-(defcustom pdf-info-log-buffer nil
-  "The name of the log buffer.
+(defcustom pdf-info-log nil
+  "Whether to log the communication with the server.
 
 If this is non-nil, all communication with the epdfinfo programm
-will be logged to the buffer with this name."
+will be logged to the buffer \"*pdf-info-log*\"."
   :group 'pdf-info
-  :type '(choice
-          (const "*pdf-info-log*")
-          (string :tag "Buffer name")
-          (const :tag "Logging deactivated" nil)))
+  :type 'boolean)
 
 (defcustom pdf-info-restart-process-p 'ask
   "What to do when the epdfinfo server died.
@@ -95,27 +99,63 @@ ask -- ask whether to restart or not."
 (defvar pdf-info-after-close-document-hook nil
   "A hook ran after a document was closed in the server.")
 
-;;
-;; Internal Variables and Functions
-;; 
 
-(defvar pdf-info-features nil)
+
+;; * ================================================================== *
+;; * Variables
+;; * ================================================================== *
 
-(defvar pdf-info-queue t
+(defvar pdf-info-asynchronous nil)
+
+(defconst pdf-info-pdf-date-regexp
+  ;; Adobe PDF32000.book, 7.9.4 Dates
+  (eval-when-compile
+    (concat
+     ;; allow for preceding garbage
+     ;;"\\`"
+     "[dD]:"
+     "\\([0-9]\\{4\\}\\)"          ;year
+     "\\(?:"
+     "\\([0-9]\\{2\\}\\)"          ;month
+     "\\(?:"
+     "\\([0-9]\\{2\\}\\)"          ;day
+     "\\(?:"
+     "\\([0-9]\\{2\\}\\)"          ;hour
+     "\\(?:"
+     "\\([0-9]\\{2\\}\\)"          ;minutes
+     "\\(?:"
+     "\\([0-9]\\{2\\}\\)"          ;seconds
+     "\\)?\\)?\\)?\\)?\\)?"
+     "\\(?:"
+     "\\([+-Zz]\\)"                ;UT delta char
+     "\\(?:"
+     "\\([0-9]\\{2\\}\\)"          ;UT delta hours
+     "\\(?:"
+     "'"
+     "\\([0-9]\\{2\\}\\)"          ;UT delta minutes
+     "\\)?\\)?\\)?"
+     ;; "\\'"
+     ;; allow for trailing garbage
+     )))
+
+(defvar pdf-info--queue t
   "Internally used transmission-queue for the server.
 
 This variable is initially `t', telling the code starting the
 server, that it never ran.")
 
-(defvar pdf-info-asynchronous nil)
+
+;; * ================================================================== *
+;; * Process handling
+;; * ================================================================== *
 
 (defun pdf-info-process ()
   "Return the process object or nil."
-  (and pdf-info-queue
-       (not (eq t pdf-info-queue))
-       (tq-process pdf-info-queue)))
+  (and pdf-info--queue
+       (not (eq t pdf-info--queue))
+       (tq-process pdf-info--queue)))
 
-(defun pdf-info-process-assert-running (&optional force)
+ (defun pdf-info-process-assert-running (&optional force)
   "Assert a running process.
 
 If it never ran, i.e. `pdf-info-process' is t, start it
@@ -132,10 +172,10 @@ error."
                (eq (process-status (pdf-info-process))
                    'run))
     (when (pdf-info-process)
-      (tq-close pdf-info-queue)
-      (setq pdf-info-queue nil))
+      (tq-close pdf-info--queue)
+      (setq pdf-info--queue nil))
     (unless (or force
-                (eq pdf-info-queue t)
+                (eq pdf-info--queue t)
                 (and (eq pdf-info-restart-process-p 'ask)
                      (not noninteractive)
                      (y-or-n-p "The epdfinfo server quit, restart it ? "))
@@ -148,34 +188,18 @@ error."
       (error "The variable pdf-info-epdfinfo-program is unset or not executable: %s"
              pdf-info-epdfinfo-program))
     (let ((proc (start-process
-                 "epdfinfo" "*epdfinfo*" pdf-info-epdfinfo-program)))
+                 "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
+      (with-current-buffer " *epdfinfo*"
+        (erase-buffer))
       (set-process-query-on-exit-flag proc nil)
       (set-process-coding-system proc 'utf-8-unix 'utf-8-unix)
-      (setq pdf-info-queue (tq-create proc))))
-  pdf-info-queue)
+      (setq pdf-info--queue (tq-create proc))))
+  pdf-info--queue)
 
-(defun pdf-info-log (string &optional query-p)
-  "Log STRING as query/response, depending on QUERY-P.
-
-This is a no-op, if `pdf-info-log-buffer' is nil."
-  (when pdf-info-log-buffer
-    (with-current-buffer (get-buffer-create
-                          (if (or (bufferp pdf-info-log-buffer)
-                                  (stringp pdf-info-log-buffer))
-                              pdf-info-log-buffer
-                            "*pdf-info-log*"))
-      (save-excursion
-        (goto-char (point-max))
-        (unless (bolp)
-          (insert ?\n))
-        (insert
-         (propertize
-          (concat (format-time-string "%H:%M:%S") ":")
-          'face
-          (if query-p
-              'font-lock-keyword-face
-            'font-lock-function-name-face))
-         string)))))
+
+;; * ================================================================== *
+;; * Sending and receiving
+;; * ================================================================== *
 
 (defun pdf-info-query (cmd &rest args)
   "Query the server using CMD and ARGS."
@@ -184,34 +208,38 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
     (setq cmd (intern cmd)))
   (let* ((query (concat (mapconcat 'pdf-info-query--escape
                                    (cons cmd args) ":") "\n"))
-         response
-         (timeout 12)
-         (callback (lambda (_ r)
-                     (setq response r))))
-    (pdf-info-log query t)
+         (callback
+          (lambda (closure response)
+            (cl-destructuring-bind (status &rest result)
+                (pdf-info-query--parse-response cmd response)
+              (funcall closure status result))))
+         response status done
+         (closure (or pdf-info-asynchronous
+                      (lambda (s r)
+                        (setq status s
+                              response r
+                              done t)))))
+    (pdf-info-query--log query t)
     (tq-enqueue
-     pdf-info-queue query "^\\.\n" nil callback t)
-    (while (and (null response)
-                (eq (process-status (pdf-info-process))
-                    'run)
-                (or (not inhibit-quit)
-                    (> timeout 0)))
-      (unless (accept-process-output (pdf-info-process) 1)
-        (cl-decf timeout)))
-    (cond
-     (response
-      (pdf-info-log response)
-      (let ((response (pdf-info-query--parse-response cmd response)))
-        (when (and (consp response)
-                   (eq 'error (car response)))
-          (error "epdfinfo: %s" (cadr response)))
-        response))
-     ((not (eq (process-status (pdf-info-process))
-               'run))
-      ;; try again
-      (apply 'pdf-info-query cmd args))
-     (t
-      (error "The epdfinfo server timed-out on command %s" cmd)))))
+     pdf-info--queue query "^\\.\n" closure callback t)
+    (unless pdf-info-asynchronous
+      (while (and (not done)
+                  (eq (process-status (pdf-info-process))
+                      'run))
+        (accept-process-output (pdf-info-process) 0.01))
+      (when (and (not done)
+                 (not (eq (process-status (pdf-info-process))
+                          'run)))
+        (error "The epdfinfo server quit unexpectedly."))
+      (pdf-info-query--log response)
+      (cond
+       ((null status) response)
+       ((eq status 'error) 
+        (error "epdfinfo: %s" response))
+       ((eq status 'interrupted)
+        (error "epdfinfo: Command was interrupted"))
+       (t
+        (error "internal error: invalid response status"))))))
 
 (defun pdf-info-query--escape (arg)
   "Escape ARG for transmision to the server."
@@ -231,13 +259,18 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
       (buffer-string))))
   
 (defun pdf-info-query--parse-response (cmd response)
-  "Parse one epdfinfo RESPONSE to CMD."
+  "Parse one epdfinfo RESPONSE to CMD.
+
+Returns a cons \(STATUS . RESULT\), where STATUS is one of nil
+for a regular response, error for an error \(RESULT contains the
+error message\) or interrupted, i.e. the command was
+interrupted."
   (with-temp-buffer
     (save-excursion (insert response))
     (cond
      ((looking-at "ERR\n")
       (forward-line)
-      (list 'error (buffer-substring-no-properties
+      (cons 'error (buffer-substring-no-properties
                     (point)
                     (progn
                       (re-search-forward "^\\.\n")
@@ -247,10 +280,12 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
         (forward-line)
         (while (not (looking-at "^\\.\n"))
           (push (pdf-info-query--read-record) result))
-        (pdf-info-query--transform-response
-         cmd (nreverse result))))
+        (cons nil (pdf-info-query--transform-response
+                   cmd (nreverse result)))))
+     ((looking-at "INT\n")
+      (cons 'interrupted nil))
      (t
-      (error "Invalid server response")))))
+      (cons 'error "Invalid server response")))))
 
 (defun pdf-info-query--read-record ()
   "Read a single record of the response in current buffer."
@@ -411,14 +446,43 @@ This is a no-op, if `pdf-info-log-buffer' is nil."
                               (string-to-number (pop action)))))
                   (t action))))))
 
+(defun pdf-info-query--log (string &optional query-p)
+  "Log STRING as query/response, depending on QUERY-P.
+
+This is a no-op, if `pdf-info-log' is nil."
+  (when pdf-info-log
+    (with-current-buffer (get-buffer-create "*pdf-info-log*")
+      (buffer-disable-undo)
+      (save-excursion
+        (goto-char (point-max))
+        (unless (bolp)
+          (insert ?\n))
+        (insert
+         (propertize
+          (concat (format-time-string "%H:%M:%S") ":")
+          'face
+          (if query-p
+              'font-lock-keyword-face
+            'font-lock-function-name-face))
+         string)))))
+
+
+
+;; * ================================================================== *
+;; * Utility functions
+;; * ================================================================== *
+
 (defun pdf-info--normalize-file-or-buffer (file-or-buffer)
   "Return the PDF file corresponding to FILE-OR-BUFFER.
 
 FILE-OR-BUFFER may be nil, a PDF buffer, the name of a PDF buffer
 or a PDF file."
-  (unless file-or-buffer (setq file-or-buffer
-                               (or doc-view-buffer-file-name
-                                   (current-buffer))))
+  (unless file-or-buffer
+    (setq file-or-buffer
+          (cl-case major-mode
+            (doc-view-mode doc-view-buffer-file-name)
+            (pdf-view-mode (pdf-view-buffer-file-name))
+            (t (current-buffer)))))
   (when (bufferp file-or-buffer)
     (unless (buffer-live-p file-or-buffer)
       (error "Buffer is not live :%s" file-or-buffer))
@@ -472,37 +536,6 @@ PAGES may be one of
     (signal 'wrong-type-argument
             (list 'pdf-info-valid-page-spec-p pages)))))
 
-
-(defvar pdf-info-pdf-date-regexp
-  ;; Adobe PDF32000.book, 7.9.4 Dates
-  (concat
-   ;; allow for preceding garbage
-   ;;"\\`"
-   "[dD]:"
-   "\\([0-9]\\{4\\}\\)"          ;year
-   "\\(?:"
-   "\\([0-9]\\{2\\}\\)"          ;month
-   "\\(?:"
-   "\\([0-9]\\{2\\}\\)"          ;day
-   "\\(?:"
-   "\\([0-9]\\{2\\}\\)"          ;hour
-   "\\(?:"
-   "\\([0-9]\\{2\\}\\)"          ;minutes
-   "\\(?:"
-   "\\([0-9]\\{2\\}\\)"          ;seconds
-   "\\)?\\)?\\)?\\)?\\)?"
-   "\\(?:"
-   "\\([+-Zz]\\)"                ;UT delta char
-   "\\(?:"
-   "\\([0-9]\\{2\\}\\)"          ;UT delta hours
-   "\\(?:"
-   "'"
-   "\\([0-9]\\{2\\}\\)"          ;UT delta minutes
-   "\\)?\\)?\\)?"
-   ;; "\\'"
-   ;; allow for trailing garbage
-   ))
-
 (defun pdf-info-parse-pdf-date (date)
   (when (and date
              (string-match pdf-info-pdf-date-regexp date))
@@ -540,17 +573,15 @@ PAGES may be one of
   (unless (memq 'write-annotations (pdf-info-features))
     (error "Writing annotations is not supported by this version of epdfinfo")))
 
+
 
-;;
-;; High level interface
-;;
+;; * ================================================================== *
+;; * High level interface
+;; * ================================================================== *
 
 (defun pdf-info-features ()
-  "Return a list of symbols describing server compile-time features."
-  (unless pdf-info-features
-    (setq pdf-info-features
-          (pdf-info-query 'features)))
-  pdf-info-features)
+  "Return a list of symbols describing compile-time features."
+  (pdf-info-query 'features))
                           
 (defun pdf-info-open (&optional file-or-buffer password)
   "Open the docüment FILE-OR-BUFFER using PASSWORD.
@@ -718,8 +749,8 @@ The size is in pixel."
              (eq (process-status (pdf-info-process))
                  'run))
     (pdf-info-query 'quit)
-    (tq-close pdf-info-queue)
-    (setq pdf-info-queue nil)))
+    (tq-close pdf-info--queue)
+    (setq pdf-info--queue nil)))
 
 (defun pdf-info-getannots (&optional pages file-or-buffer)
   "Return the annotations on PAGE.
@@ -898,6 +929,17 @@ file        - The name of a tempfile containing the data (only present if
    (if do-save 1 0)))
 
 (defun pdf-info-synctex-forward-search (source &optional line column file-or-buffer)
+  "Perform a forward search with synctex.
+
+SOURCE should be a LaTeX buffer or the absolute filename of a
+corresponding file.  LINE and COLUMN represent the position in
+the buffer or file.  Finally FILE-OR-BUFFER corresponds to the
+PDF document.
+
+Returns a list of \(PAGE LEFT TOP RIGHT BOT\) of relative
+coordinates describing the position in the PDF document
+corresponding to the SOURCE location."
+  
   (let ((source (if (buffer-live-p (get-buffer source))
                     (buffer-file-name (get-buffer source))
                   source)))
@@ -909,6 +951,14 @@ file        - The name of a tempfile containing the data (only present if
      (or column 1))))
                                         
 (defun pdf-info-synctex-backward-search (page &optional x y file-or-buffer)
+  "Perform a backward search with synctex.
+
+This find the source location corresponding to the coordinates
+\(X . Y\) on PAGE in FILE-OR-BUFFER.  X and Y should be relative
+coordinates.
+
+Returns a list \(SOURCE LINE COLUMN\)."
+
   (pdf-info-query
    'synctex-backward-search
    (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -916,15 +966,23 @@ file        - The name of a tempfile containing the data (only present if
    (or x 0)
    (or y 0)))
 
-(defun pdf-info-renderpage (page width &optional fast file-or-buffer)
+(defun pdf-info-renderpage (page width &optional file-or-buffer)
+  "Render PAGE with width WIDTH.
+
+Return the filename of the corresponding image, which is owned by
+the caller."
   (pdf-info-query
    'renderpage
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   width
-   (if fast 1 0)))
+   width 0))
 
 (defun pdf-info-boundingbox (page &optional file-or-buffer)
+  "Return a bounding-box for PAGE.
+
+Returns a list \(LEFT TOP RIGHT BOT\) of the corresponding
+bounding-box in relative coordinate-space."
+  
   (pdf-info-query
    'boundingbox
    (pdf-info--normalize-file-or-buffer file-or-buffer)

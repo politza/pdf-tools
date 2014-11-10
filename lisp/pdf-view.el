@@ -87,8 +87,12 @@ of the page moves to the previous page."
 Each element on this list contains the page-number, the PNG blob
 and it's width as a cons \(PAGE WIDTH DATA\) .")
 
-(defvar-local pdf-view--image-slice nil
-  "The current slice in use, or nil.")
+(defvar-local pdf-view--buffer-file-name nil
+  "Local copy of remote files.")
+
+;; FIXME: imagemagick images scaled by the :width attribute look
+;; sometimes washed out.  Probably it is better to make the use
+;; optional.
 
 (defmacro pdf-view-image-type ()
   "Return the image-type in use.
@@ -98,7 +102,7 @@ The return value is either imagemagick (if available) or png."
 
 (defmacro pdf-view-imagemagick-p ()
   "Return non-nil if imagemagick is used as image-type."
-  `(eq (pdf-view-image-type) 'imagemagick))
+  `(fboundp 'imagemagick-types))
 
 (defmacro pdf-view-current-page (&optional window)
   `(image-mode-window-get 'page ,window))
@@ -106,7 +110,8 @@ The return value is either imagemagick (if available) or png."
   `(image-mode-window-get 'overlay ,window))
 (defmacro pdf-view-current-image (&optional window)
   `(image-mode-window-get 'image ,window))
-
+(defmacro pdf-view-current-slice (&optional window)
+  `(image-mode-window-get 'slice ,window))
 
 ;; * ================================================================== *
 ;; * Major Mode
@@ -167,6 +172,14 @@ PNG images in Emacs buffers.
   (interactive)
 
   (kill-all-local-variables)
+  (when (or jka-compr-really-do-compress
+            (let ((file-name-handler-alist nil))
+              (not (and buffer-file-name
+                        (file-readable-p buffer-file-name)))))
+    (let ((tempfile (make-temp-file "pdf-view" nil ".pdf")))
+      (set-file-modes tempfile #o0700)
+      (write-region nil nil tempfile)
+      (setq-local pdf-view--buffer-file-name tempfile)))                
   (use-local-map pdf-view-mode-map)
   (add-hook 'change-major-mode-hook
             (lambda ()
@@ -397,11 +410,11 @@ at the top edge of the page moves to the previous page."
 
 X, Y, WIDTH and HEIGHT should be relative coordinates, i.e. in
 \[0;1\].  To reset the slice use `pdf-view-reset-slice'."
-  (unless (equal pdf-view--image-slice
+  (unless (equal (pdf-view-current-slice)
                  (list x y width height))
-    (setq pdf-view--image-slice
+    (setf (pdf-view-current-slice)
           (list x y width height))
-    (pdf-view-redisplay-all-windows)))
+    (pdf-view-redisplay)))
 
 (defun pdf-view-set-slice-using-mouse ()
   "Set the slice of the images that should be displayed.
@@ -454,9 +467,9 @@ See also `pdf-view-bounding-box-margin'."
 After calling this function the whole page will be visible
 again."
   (interactive)
-  (when pdf-view--image-slice
-    (setq pdf-view--image-slice nil)
-    (pdf-view-redisplay-all-windows)))
+  (when (pdf-view-current-slice)
+    (setf (pdf-view-current-slice) nil)
+    (pdf-view-redisplay)))
 
 
 
@@ -488,7 +501,7 @@ again."
   (let ((ol (pdf-view-current-overlay window)))
     (when (window-live-p (overlay-get ol 'window))
       (let* ((size (image-size image t))
-             (slice pdf-view--image-slice)                    
+             (slice (pdf-view-current-slice window))                    
              (displayed-width (floor
                                (if slice
                                    (* (nth 2 slice)
@@ -621,7 +634,7 @@ supercede hotspots in lower ones."
 (defun pdf-view-desired-image-size (&optional page window)
   (let* ((pagesize (pdf-info-pagesize
                     (or page (pdf-view-current-page window))))
-         (slice pdf-view--image-slice)
+         (slice (pdf-view-current-slice window))
          (width-scale (/ (/ (float (window-width window t))
                             (or (nth 2 slice) 1.0))
                          (float (car pagesize))))
@@ -643,6 +656,14 @@ supercede hotspots in lower ones."
          (setq scale width-scale))))
     (cons (floor (* (car pagesize) scale))
           (floor (* (cdr pagesize) scale)))))
+
+(defun pdf-view-buffer-file-name ()
+  "Return the local filename of the PDF in the current buffer.
+
+This may be different from `buffer-file-name', when operating on
+a local copy of a remote file."
+  (or pdf-view--buffer-file-name
+      (buffer-file-name)))
 
 (defun pdf-view-get-image-data (page width &optional exact-width-p)
   "Return PAGE's PNG data as a string, according to WIDTH.

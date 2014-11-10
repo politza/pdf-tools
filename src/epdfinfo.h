@@ -58,6 +58,12 @@
     fflush (stdout);                            \
   } while (0)
 
+#define INT()                                   \
+  do {                                          \
+    puts ("INT\n.")                             \
+    fflush (stdout);                            \
+  } while (0)
+
 #ifdef WORDS_BIGENDIAN
 #define ARGB_TO_RGB(rgb, argb)                  \
   do {                                          \

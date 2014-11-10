@@ -29,9 +29,11 @@
 
 ;;; Code:
 
-;;
-;; User Options
-;; 
+
+
+;; * ================================================================== *
+;; * Customizables
+;; * ================================================================== *
 
 (defgroup pdf-links nil
   "Following links in PDF documents."
@@ -87,21 +89,24 @@ do something with it."
   :group 'pdf-links
   :type 'function)
 
+
+;; * ================================================================== *
+;; * Internal variables
+;; * ================================================================== *
+
+(defvar-local pdf-links-page-alist nil
+  "Alist of pages and corresponding links.")
+
+
+;; * ================================================================== *
+;; * Minor Mode
+;; * ================================================================== *
+
 (defvar pdf-links-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "f") 'pdf-links-isearch-link)
     (define-key kmap (kbd "F") 'pdf-links-do-action)
     kmap))
-;;
-;; Internal Variables
-;; 
-
-(defvar-local pdf-links-page-alist nil
-  "Alist of pages and corresponding links.")
-
-;;
-;; Function
-;; 
 
 ;;;###autoload
 (define-minor-mode pdf-links-minor-mode

@@ -1098,6 +1098,12 @@ attachment_print (PopplerAttachment *att, gboolean do_save)
  * Server command implementations
  * ================================================================== */
 
+/* Not implemented yet. */
+/* gboolean interrupted;           /\* TRUE, if the current command was interrupted. *\/
+ * gboolean interruptable;         /\* TRUE, is the current command is interruptable. *\/
+ * 
+ * #define INTERRUPTED_P() (interrupted) */
+
 /* Name: features
    Args: None
    Returns: A list of compile-time features.
