@@ -58,7 +58,8 @@ buffer is killed or reverted."
       (setq args (butlast args))
       (while (eq (car (last args)) '&optional)
         (setq args (butlast args)))
-      (let ((doc (format "Cached version of `%s', which see.\n\n%s"
+      (let ((doc (format "Cached version of `%s', which see.
+Be shure not to modify it's return value.\n\n%s"
                          fn (cons 'FN
                                   (mapcar (lambda (a)
                                             (let ((s (symbol-name a)))
@@ -67,15 +68,16 @@ buffer is killed or reverted."
                                                 (upcase s))))
                                           args)))))
         `(defun ,defn ,args ,doc
-                (funcall 'pdf-cache--common-get
-                         ,@(cons (list 'quote fn)
-                                 (cl-remove '&optional args))))))))
+                (pdf-cache--common-retrieve
+                 ,@(cons (list 'quote fn)
+                         (cl-remove '&optional args))))))))
 
-(defun pdf-cache--common-get (&rest args)
+(defun pdf-cache--common-retrieve (&rest args)
   (unless pdf-cache--common-cache
     (setq pdf-cache--common-cache
           (make-hash-table :test 'equal))
     (add-hook 'after-revert-hook 'pdf-cache-clear-common-cache nil t))
+  ;; FIXME: Create a copy of sequences ?
   (or (gethash args pdf-cache--common-cache)
       (puthash args (apply (car args) (cdr args))
                pdf-cache--common-cache)))
@@ -88,18 +90,19 @@ buffer is killed or reverted."
 (define-cacheable-epdfinfo-command number-of-pages)
 (define-cacheable-epdfinfo-command pagelinks)
 (define-cacheable-epdfinfo-command boundingbox)
-
+(define-cacheable-epdfinfo-command pagesize)
 
 
 
 ;; * ================================================================== *
-;; * PNG image cache
+;; * PNG image LRU cache
 ;; * ================================================================== *
 
 (defcustom pdf-cache-image-cache-limit 64
   "Maximum number of cached PNG images per buffer."
   :type 'number
-  :group 'pdf-tools)
+  :group 'pdf-cache
+  :group 'pdf-view)
 
 (defvar-local pdf-cache--image-cache nil)
 
@@ -130,15 +133,27 @@ hash-value is `eql' to HASH."
            (eql (pdf-cache--image/hash image)
                 hash))))
 
+(defun pdf-cache--image-lookup (page min-width &optional max-width hash)
+  "Return PAGE's PNG data as a string.
+
+Don't modify the cache.  See also `pdf-cache--image-get'."
+  (let ((image (car (cl-member
+                     (list page min-width max-width hash)
+                     pdf-cache--image-cache
+                     :test (lambda (spec image)
+                             (apply 'pdf-cache--image-match image spec))))))
+    (and image
+         (pdf-cache--image/data image))))
+  
 (defun pdf-cache--image-get (page min-width &optional max-width hash)
   "Return PAGE's PNG data as a string.
 
 Return an image of at least MIN-WIDTH and, if non-nil, maximum
 width MAX-WIDTH. If hash is non-nil, return an image which was
 previously put \(see `pdf-cache--image-put'\) with an `eql'
-value.
+value.  Remember that image was recently used.
 
-Return nil, if no matching image was found."
+Returns nil, if no matching image was found."
   (let ((cache (cons nil pdf-cache--image-cache))
         image)
     ;; Find it in the cache and remove it.  Therefore we need to find
@@ -166,6 +181,7 @@ the HASH argument.
 This function always returns nil."
   (push (pdf-cache--make-image page width data hash)
         pdf-cache--image-cache)
+  (add-hook 'after-revert-hook 'pdf-cache-clear-image-cache nil t)
   ;; Forget old image(s).
   (when (> (length pdf-cache--image-cache)
            pdf-cache-image-cache-limit)
@@ -176,26 +192,23 @@ This function always returns nil."
       (setq pdf-cache--image-cache nil)))
   nil)
                              
-(defun pdf-cache--image-create-data (fn &rest args)
-  "Create an image by calling FN with ARGS.
+(defun pdf-cache--image-munch-file (filename)
+  "Read contents from FILENAME and delete it.
 
-FN should return the filename of a PNG image.  Return the images
-data as a string."
-  (let (filename)
-    (unwind-protect
-        (progn
-          (setq filename (apply fn args))
-          (with-temp-buffer
-            (set-buffer-multibyte nil)
-            (insert-file-contents-literally filename)
-            (propertize
-             (buffer-substring-no-properties
-              (point-min)
-              (point-max)) 'display
-              "<image image hidden>")))
-      (when (and filename
-                 (file-exists-p filename))
-        (delete-file filename)))))
+Return the file's content as a unibyte string."
+  (unwind-protect
+      (with-temp-buffer
+        (set-buffer-multibyte nil)
+        (insert-file-contents-literally filename)
+        (buffer-substring-no-properties
+         (point-min)
+         (point-max)))
+    (when (and filename
+               (file-exists-p filename))
+      (delete-file filename))))
+
+(defun pdf-cache-clear-image-cache ()
+  (setq pdf-cache--image-cache nil))
 
 (defun pdf-cache-renderpage (page min-width &optional max-width)
   "Render PAGE according to MIN-WIDTH and MAX-WIDTH.
@@ -206,11 +219,32 @@ is at least MIN-WIDTH and, if non-nil, at most MAX-WIDTH.
 If such an image is not available in the cache, call
 `pdf-info-renderpage' to creat one."
   (or (pdf-cache--image-get page min-width max-width)
-      (let ((data (pdf-cache--image-create-data
-                    'pdf-info-renderpage
-                    page min-width)))
+      (let ((data (pdf-cache--image-munch-file
+                   (pdf-info-renderpage page min-width))))
         (pdf-cache--image-put page min-width data)
         data)))
+
+(defun pdf-cache-renderpage-async (page min-width &optional max-width callback)
+  (if (pdf-cache--image-lookup page min-width max-width)
+      (when callback
+        (funcall callback t))
+    (let* ((buffer (current-buffer))
+           (callback (or callback 'ignore))
+           (pdf-info-asynchronous
+            (lambda (status filename)
+              (with-current-buffer (if (buffer-live-p buffer)
+                                       buffer
+                                     (current-buffer))
+                (if (or status
+                        (not (file-readable-p filename))
+                        (not (buffer-live-p buffer)))
+                    (funcall callback nil)
+                  (pdf-cache--image-put
+                   page min-width 
+                   (pdf-cache--image-munch-file filename))
+                  (funcall callback t))))))
+      (pdf-info-renderpage page min-width)))
+  nil)
 
 (provide 'pdf-cache)
 

@@ -155,7 +155,7 @@ server, that it never ran.")
        (not (eq t pdf-info--queue))
        (tq-process pdf-info--queue)))
 
- (defun pdf-info-process-assert-running (&optional force)
+(defun pdf-info-process-assert-running (&optional force)
   "Assert a running process.
 
 If it never ran, i.e. `pdf-info-process' is t, start it
@@ -196,6 +196,37 @@ error."
       (setq pdf-info--queue (tq-create proc))))
   pdf-info--queue)
 
+(defadvice tq-process-buffer (around bugfix activate)
+  "Fix a bug in trunk where the wrong callback gets called."
+  (let ((tq (ad-get-arg 0)))
+    (if (not (equal (car (process-command (tq-process tq)))
+                    pdf-info-epdfinfo-program))
+        ad-do-it
+      (let ((buffer (tq-buffer tq)))
+        (when (buffer-live-p buffer)
+          (set-buffer buffer)
+          (if (= 0 (buffer-size)) ()
+            (if (tq-queue-empty tq)
+                (let ((buf (generate-new-buffer "*spurious*")))
+                  (copy-to-buffer buf (point-min) (point-max))
+                  (delete-region (point-min) (point))
+                  (pop-to-buffer buf nil)
+                  (error "Spurious communication from process %s, see buffer %s"
+                         (process-name (tq-process tq))
+                         (buffer-name buf)))
+              (goto-char (point-min))
+              (if (re-search-forward (tq-queue-head-regexp tq) nil t)
+                  (let ((answer (buffer-substring (point-min) (point)))
+                        (fn (tq-queue-head-fn tq))
+                        (closure (tq-queue-head-closure tq)))
+                    (delete-region (point-min) (point))
+                    (tq-queue-pop tq)
+                    (condition-case err
+                        (funcall fn closure answer)
+                      (error (message "Error while processing tq callback: %s"
+                                      (error-message-string err))))
+                    (tq-process-buffer tq))))))))))
+
 
 ;; * ================================================================== *
 ;; * Sending and receiving
@@ -212,8 +243,9 @@ error."
           (lambda (closure response)
             (cl-destructuring-bind (status &rest result)
                 (pdf-info-query--parse-response cmd response)
-              (pdf-info-query--log status result)
-              (funcall closure status result))))
+              (pdf-info-query--log response)
+              (let (pdf-info-asynchronous)
+                (funcall closure status result)))))
          response status done
          (closure (or pdf-info-asynchronous
                       (lambda (s r)
@@ -222,7 +254,7 @@ error."
                               done t)))))
     (pdf-info-query--log query t)
     (tq-enqueue
-     pdf-info--queue query "^\\.\n" closure callback t)
+     pdf-info--queue query "^\\.\n" closure callback)
     (unless pdf-info-asynchronous
       (while (and (not done)
                   (eq (process-status (pdf-info-process))
@@ -446,7 +478,7 @@ interrupted."
                               (string-to-number (pop action)))))
                   (t action))))))
 
-(defun pdf-info-query--log (status result &optional query-p)
+(defun pdf-info-query--log (string &optional query-p)
   "Log STRING as query/response, depending on QUERY-P.
 
 This is a no-op, if `pdf-info-log' is nil."
@@ -459,8 +491,7 @@ This is a no-op, if `pdf-info-log' is nil."
           (insert ?\n))
         (insert
          (propertize
-          (concat (format-time-string "%H:%M:%S")
-                  ":" status (if status ":"))                    
+          (format-time-string "%H:%M:%S ")
           'face
           (if query-p
               'font-lock-keyword-face
@@ -488,10 +519,13 @@ or a PDF file."
     (unless (buffer-live-p file-or-buffer)
       (error "Buffer is not live :%s" file-or-buffer))
     (with-current-buffer file-or-buffer
-      (unless (setq file-or-buffer (or doc-view-buffer-file-name
-                                       (buffer-file-name file-or-buffer)))
+      (unless (setq file-or-buffer
+                    (cl-case major-mode
+                      (doc-view-mode doc-view-buffer-file-name)
+                      (pdf-view-mode (pdf-view-buffer-file-name))
+                      (t (buffer-file-name))))
         (error "Buffer is not associated with any file :%s"
-               (buffer-name file-or-buffer)))))
+               (buffer-name)))))
   (unless (stringp file-or-buffer)
     (signal 'wrong-type-argument
             (list 'stringp 'bufferp 'null file-or-buffer)))

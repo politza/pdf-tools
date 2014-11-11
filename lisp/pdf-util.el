@@ -896,6 +896,19 @@ AWINDOW is deleted."
     (pdf-util-window-attach newwin window)
     newwin))
 
+(defvar pdf-util-debug nil)
+
+(defun pdf-util-toggle-debug ()
+  (interactive)
+  (setq pdf-util-debug (not pdf-util-debug))
+  (when (called-interactively-p 'any)
+    (message "Toggled debug %s" (if pdf-util-debug "on" "off"))))
+
+(defun pdf-util-debug-message (fmt &rest args)
+  (when pdf-util-debug
+    (apply 'message fmt args)))
+  
+    
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here
