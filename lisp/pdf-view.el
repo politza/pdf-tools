@@ -225,6 +225,9 @@ PNG images in Emacs buffers.
               '(" P" (:eval (number-to-string (pdf-view-current-page)))
                 "/" (:eval (number-to-string (pdf-cache-number-of-pages)))))
   (setq-local auto-hscroll-mode nil)
+  ;; High values of scroll-conservatively seem to trigger some display
+  ;; bug in xdisp.c:try_scrolling .
+  (setq-local scroll-conservatively 0)
   (setq-local cursor-type nil)
   (setq mode-name "PDFView"
         buffer-read-only t

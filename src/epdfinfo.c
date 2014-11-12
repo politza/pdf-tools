@@ -1372,9 +1372,9 @@ cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
           r->y1 = height - r->y2;
           r->y2 = height - y1;
 
-          printf ("%d:%f %f %f %f:", pn
-                  , r->x1 / width, r->y1 / height
-                  , r->x2 / width, r->y2 / height);
+          printf ("%d:%f %f %f %f:", pn,
+                  r->x1 / width, r->y1 / height,
+                  r->x2 / width, r->y2 / height);
           line = strchomp (poppler_page_get_selected_text
                            (page, POPPLER_SELECTION_LINE, r));
           print_response_string (line, NEWLINE);
@@ -2481,7 +2481,7 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
   cairo_t *cr = NULL;
   command_arg_t rest_arg;
   gchar *error_msg = NULL;
-  double pt_width, pt_height, scale;
+  double pt_width, pt_height;
   int i = 0;
   
   if (! page)
@@ -2492,9 +2492,8 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
 
   poppler_page_get_size (page, &pt_width, &pt_height);
   surface = image_render_page (doc->pdf, page, width);
-  scale = width / pt_width;
   cr = cairo_create (surface);
-  cairo_scale (cr, scale, scale);
+  cairo_scale (cr, width / pt_width, width / pt_width);
   
   while (i < nrest_args)
     {
@@ -2540,16 +2539,16 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
               switch (j)
                 {
                 case 0:
-                  selection.x1 = rest_arg.value.edge * pt_width;
+                  selection.x1 = (rest_arg.value.edge * pt_width) + 1;
                   break;
                 case 1:
-                  selection.y1 = rest_arg.value.edge * pt_height;
+                  selection.y1 = (rest_arg.value.edge * pt_height) + 1;
                   break;
                 case 2:
-                  selection.x2 = rest_arg.value.edge * pt_width;
+                  selection.x2 = (rest_arg.value.edge * pt_width) - 1;
                   break;
                 case 3:
-                  selection.y2 = rest_arg.value.edge * pt_height;
+                  selection.y2 = (rest_arg.value.edge * pt_height) - 1;
                   break;
                 }
             }
