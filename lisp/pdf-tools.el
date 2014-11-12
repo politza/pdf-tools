@@ -65,6 +65,12 @@
 
 ;;; Code:
 
+
+
+;; * ================================================================== *
+;; * Customizables
+;; * ================================================================== *
+
 (defgroup pdf-tools nil
   "Support library for PDF documents."
   :group 'doc-view)
@@ -107,6 +113,30 @@ PDF buffers."
   "A hook ran after PDF Tools is enabled in a buffer."
   :group 'pdf-tools
   :type 'hook)
+
+
+(defun pdf-tools-customize ()
+  "Customize Pdf Tools."
+  (interactive)
+  (customize-group 'pdf-tools))
+
+(defun pdf-tools-customize-faces ()
+  "Customize PDF Tool's faces."
+  (interactive)
+  (let ((buffer (format "*Customize Group: %s*"
+                        (custom-unlispify-tag-name 'pdf-tools-faces))))
+    (when (buffer-live-p (get-buffer buffer))
+      (with-current-buffer (get-buffer buffer)
+        (rename-uniquely )))
+    (customize-group 'pdf-tools-faces)
+    (with-current-buffer buffer
+      (set (make-local-variable 'custom-face-default-form) 'all))))
+
+
+;; * ================================================================== *
+;; * Initialization
+;; * ================================================================== *
+
 
 (defun pdf-tools-set-modes-enabled (enabled-p &optional modes)
   (dolist (m (or modes pdf-tools-enabled-modes))
@@ -159,23 +189,6 @@ See `pdf-tools-enabled-modes'."
         (pdf-tools-disable pdf-tools-modes))))
   (remove-hook 'doc-view-mode-hook 'pdf-tools-enable-maybe))
 
-(defun pdf-tools-customize ()
-  "Customize Pdf Tools."
-  (interactive)
-  (customize-group 'pdf-tools))
-
-(defun pdf-tools-customize-faces ()
-  "Customize PDF Tool's faces."
-  (interactive)
-  (let ((buffer (format "*Customize Group: %s*"
-                        (custom-unlispify-tag-name 'pdf-tools-faces))))
-    (when (buffer-live-p (get-buffer buffer))
-      (with-current-buffer (get-buffer buffer)
-        (rename-uniquely )))
-    (customize-group 'pdf-tools-faces)
-    (with-current-buffer buffer
-      (set (make-local-variable 'custom-face-default-form) 'all))))
-
 ;;;###autoload
 (defun pdf-tools-help ()
   (interactive)
@@ -189,7 +202,68 @@ See `pdf-tools-enabled-modes'."
       (describe-function-1 m)
       (terpri) (terpri)
       (princ "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"))))
+
+
+
+
+;; * ================================================================== *
+;; * Dedicated directory
+;; * ================================================================== *
+
+(defvar pdf-tools--directory nil
+  "A dedicated directory for pdf-tools.")
+
+(defun pdf-tools-directory ()
+  "Return the name of a dedicated directory.
+
+The directory will be deleted when Emacs is killed."
+  (unless (and pdf-tools--directory
+               (file-directory-p
+                pdf-tools--directory)
+               (not (file-symlink-p
+                     pdf-tools--directory)))
+    (add-hook 'kill-emacs-hook 'pdf-tools-delete-directory)
+    (with-file-modes #o0700
+      (setq pdf-tools--directory
+            (make-temp-file "pdf-tools" t))))
+  pdf-tools--directory)
+
+(defun pdf-tools-delete-directory ()
+  "Delete PDF Tools dedicated directory."
+  (delete-directory (pdf-tools-directory) t))
   
+(defun pdf-tools-expand-file-name (name)
+  "Expand filename against PDF Tool's dedicated directory."
+  (expand-file-name name (pdf-tools-directory)))
+
+(defun pdf-tools-make-temp-file (prefix &optional dir-flag suffix)
+  "Create a temporary file in PDF Tool's dedicated directory.
+
+See `make-temp-file' for meaning of the arguments."
+  (let ((temporary-file-directory
+         (pdf-tools-directory)))
+    (make-temp-file prefix dir-flag suffix)))
+
+
+
+;; * ================================================================== *
+;; * Debugging
+;; * ================================================================== *
+
+(defvar pdf-tools-debug nil
+  "Non-nil, if debugging PDF Tools.")
+
+(defun pdf-tools-toggle-debug ()
+  (interactive)
+  (setq pdf-tools-debug (not pdf-tools-debug))
+  (when (called-interactively-p 'any)
+    (message "Toggled debugging %s" (if pdf-tools-debug "on" "off"))))
+
+(defun pdf-tools-debug (fmt &rest args)
+  "If debugging like `message', else does nothing."
+  (when pdf-tools-debug
+    (apply 'message fmt args)))
+
 (provide 'pdf-tools)
 
 ;;; pdf-tools.el ends here

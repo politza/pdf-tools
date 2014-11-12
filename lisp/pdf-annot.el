@@ -321,7 +321,7 @@ current buffer."
              (color
               (unless (or (null val)
                           (and (stringp val)
-                               (pdf-annot-colorname-to-hex val)))
+                               (pdf-util-hexcolor val)))
                 (format "Invalid color spec: %s" val)))
              (contents
               (unless (stringp val)
@@ -1273,7 +1273,7 @@ i.e. a non mouse-movement event is read."
          (unless prop
            (error "Invalid column (read-only)"))
          (when (eq prop 'color)
-           (setq item (pdf-annot-colorname-to-hex item)))
+           (setq item (pdf-util-hexcolor item)))
          (pdf-annot-validate-property-value prop item)
          (pdf-annot-set id prop item)
          (cadr (pdf-annot-list-create-entry id)))))
@@ -1367,19 +1367,6 @@ i.e. a non mouse-movement event is read."
         (push (propertize c 'face `(:background ,c))
               colors)))
     (nreverse colors)))
-
-(defun pdf-annot-colorname-to-hex (color-name)
-  (or
-   (save-match-data
-     (and (string-match "\\` *\\(#[0-9a-fA-F]\\{6\\}\\) *\\'" color-name)
-          (match-string 1 color-name)))
-   (let ((values (color-values color-name)))
-     (unless values
-       (error "Invalid color name: %s" color-name))
-     (apply 'format "#%02x%02x%02x"
-            (mapcar (lambda (c) (lsh c -8))
-                    values)))))
-
 ;; 
 
 (defvar pdf-annot-minor-mode-map nil)

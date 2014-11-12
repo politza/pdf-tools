@@ -143,7 +143,7 @@ print_response_string (const char *str, int suffix_char)
     case COLON:
       putchar (':');
       break;
-    default: break;
+    default: ;
     }
 }
 
@@ -229,7 +229,7 @@ mktempfile()
  * @return A cairo_t context encapsulating the rendered image, or
  *         NULL, if rendering failed for some reason.
  */
-static cairo_t*
+static cairo_surface_t*
 image_render_page(PopplerDocument *pdf, PopplerPage *page, int width)
 {
   cairo_t *cr = NULL;
@@ -279,10 +279,9 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page, int width)
   cairo_set_source_rgb (cr, 1., 1., 1.);
   
   cairo_paint (cr);
-  cairo_surface_flush (surface);
-  cairo_surface_destroy (surface);
+  cairo_destroy (cr);
 
-  return cr;
+  return surface;
 
  error:
   if (surface != NULL)
@@ -302,7 +301,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page, int width)
  * @return 1 if the image was written successfully, else 0.
  */
 static gboolean
-image_write (cairo_t *cr, const char *filename, enum image_type type)
+image_write (cairo_surface_t *surface, const char *filename, enum image_type type)
 {
   
   int i, j;
@@ -310,7 +309,6 @@ image_write (cairo_t *cr, const char *filename, enum image_type type)
   int width, height;
   FILE *file = NULL;
   gboolean success = 0;
-  cairo_surface_t *surface = cairo_get_target (cr);
   
   if (! surface ||
       cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
@@ -325,6 +323,7 @@ image_write (cairo_t *cr, const char *filename, enum image_type type)
       return 0;
     }
 
+  cairo_surface_flush (surface);
   width = cairo_image_surface_get_width (surface);
   height = cairo_image_surface_get_height (surface);
   data = cairo_image_surface_get_data (surface);
@@ -401,7 +400,7 @@ image_write (cairo_t *cr, const char *filename, enum image_type type)
 }
 
 static void
-image_write_print_response(cairo_t *cr, enum image_type type)
+image_write_print_response(cairo_surface_t *surface, enum image_type type)
 {
   char *filename = mktempfile ();
   
@@ -410,7 +409,7 @@ image_write_print_response(cairo_t *cr, enum image_type type)
       printf_error_response ("Unable to create temporary file");
       return;
     }
-  if (image_write (cr, filename, type))
+  if (image_write (surface, filename, type))
     {
       OK_BEGIN ();
       print_response_string (filename, NEWLINE);
@@ -446,6 +445,7 @@ xpoppler_action_type_string(PopplerActionType type)
     case POPPLER_ACTION_RENDITION: return "rendition";
     case POPPLER_ACTION_OCG_STATE: return "ocg-state";
     case POPPLER_ACTION_JAVASCRIPT: return "javascript";
+    default: return "invalid";
     }
 }
 
@@ -487,6 +487,7 @@ xpoppler_annot_type_string (PopplerAnnotType type)
     case POPPLER_ANNOT_TRAP_NET: return "trap-net";
     case POPPLER_ANNOT_WATERMARK: return "watermark";
     case POPPLER_ANNOT_3D: return "3d";
+    default: return "invalid";
     }
 }
 
@@ -509,7 +510,8 @@ xpoppler_annot_text_state_string (PopplerAnnotTextState state)
     case POPPLER_ANNOT_TEXT_STATE_CANCELLED: return "cancelled";
     case POPPLER_ANNOT_TEXT_STATE_COMPLETED: return "completed";
     case POPPLER_ANNOT_TEXT_STATE_NONE: return "none";
-    case POPPLER_ANNOT_TEXT_STATE_UNKNOWN: return "unknown";
+    case POPPLER_ANNOT_TEXT_STATE_UNKNOWN:
+    default: return "unknown";
     }
 };  
 
@@ -543,48 +545,189 @@ document_open (const epdfinfo_t *ctx, const char *filename,
   return doc;
 }
 
-/* Helper function for parse_command_args. */
-static ptrdiff_t
-parse_command_args_next (const char *args, char *buf)
+/** 
+ * Split command args into a list of strings. 
+ * 
+ * @param args The colon separated list of arguments.  
+ * @param nargs[out] The number of returned arguments.
+ * 
+ * @return The list of arguments, which should be freed by the caller.
+ */
+static char **
+command_arg_split (const char *args, int *nargs)
 {
-  char *buf_p = buf;
-  const char *args_p = args;
-  gboolean esc = FALSE;
+  char **list = g_malloc (sizeof (char*) * 16);
+  int i = 0;
+  size_t allocated = 16;
+  char *buffer = NULL;
+  gboolean last = FALSE;
+  
+  if (! args)
+    goto theend;
 
-  if (*args)
+  buffer = g_malloc (strlen (args));
+
+  while (*args || last)
     {
-      assert (*args == ':');
-      ++args;
-    }
-  while (*args)
-    {
-      if (esc)
+      gboolean esc = FALSE;
+      char *buffer_p = buffer;
+      
+      while (*args && (*args != ':' || esc))
         {
-          if (*args == 'n')
+          if (esc)
+            {
+              if (*args == 'n')
+                {
+                  ++args;
+                  *buffer_p++ = '\n';
+                }
+              else
+                {
+                  *buffer_p++ = *args++;
+                }
+              esc = FALSE;
+            }
+          else if (*args == '\\')
             {
               ++args;
-              *buf_p++ = '\n';
+              esc = TRUE;
             }
           else
-            *buf_p++ = *args++;
-          esc = FALSE;
+            {
+              *buffer_p++ = *args++;
+            }
         }
-      else if (*args == '\\')
+
+      *buffer_p = '\0';
+
+      if (i >= allocated)
+        {
+          allocated = 2 * allocated + 1;
+          list = g_realloc (list, sizeof (char*) * allocated);
+        }
+      list[i++] = g_strdup (buffer);
+      
+      last = FALSE;
+      if (*args)
         {
           ++args;
-          esc = TRUE;
-        }
-      else if (*args != ':')
-        {
-          *buf_p++ = *args++;
-        }
-      else
-        {
-          break;
+          if (! *args)
+            last = TRUE;
         }
     }
-  *buf_p = '\0';
-  return args - args_p;
+
+ theend:
+  g_free (buffer);
+  *nargs = i;
+  
+  return list;
+}
+
+static gboolean
+command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
+                       command_arg_t *cmd_arg, command_arg_spec_t spec,
+                       gchar **error_msg)
+{
+  GError *gerror = NULL;
+
+  if (! arg || !cmd_arg)
+    return FALSE;
+  
+  switch (spec)
+    {
+    case ARG_DOC:
+      {
+        document_t *doc = document_open (ctx, arg, NULL, &gerror);
+        if (doc == NULL)
+          {
+            if (error_msg)
+              *error_msg = g_strdup_printf("Error opening %s:%s", arg,
+                                           gerror ? gerror->message : "Unknown reason");
+            if (gerror)
+              {
+                g_error_free (gerror);
+                gerror = NULL;
+              }
+            return FALSE;
+          }
+        else
+          {
+            cmd_arg->value.doc = doc;
+          }
+        break;
+      }
+    case ARG_FLAG:
+      if (strcmp (arg, "0") && strcmp (arg, "1"))
+        {
+          if (error_msg)
+            *error_msg = g_strdup_printf ("Expected 0 or 1:%s", arg);
+          return FALSE;
+        }
+      else
+        cmd_arg->value.flag = *arg == '1';
+      break;
+    case ARG_STRING_NONEMPTY:
+      if (! *arg)
+        {
+          if (error_msg)
+            *error_msg = g_strdup_printf ("Non-empty string expected");
+          return FALSE;
+        }
+      /* fall through */
+    case ARG_STRING:
+      cmd_arg->value.string = g_strdup (arg);
+      break;
+    case ARG_NATNUM:
+      {
+        char *endptr;
+        long n = strtol (arg, &endptr, 0);
+        if (*endptr || (n < 0))
+          {
+            if (error_msg)
+              *error_msg = g_strdup_printf ("Expected natural number:%s", arg);
+            return FALSE;
+          }
+        else
+          cmd_arg->value.natnum = n;
+        break;
+      }
+    case ARG_EDGE_OR_NEGNUM:
+    case ARG_EDGE:
+      {
+        char *endptr;
+        double n = strtod (arg, &endptr);
+        if (*endptr || (spec == ARG_EDGE && n < 0.0) || n > 1.0)
+          {
+            if (error_msg)
+              *error_msg = g_strdup_printf ("Expected 0 <= float <= 1:%s", arg);
+            return FALSE;
+          }
+        else
+          cmd_arg->value.edge = n;
+        break;
+      }
+    case ARG_COLOR:
+      {
+        guint r,g,b;
+        if (! strlen (arg) == 7
+            || 3 != sscanf (arg, "#%2x%2x%2x", &r, &g, &b))
+          {
+            if (error_msg)
+              *error_msg = g_strdup_printf ("Invalid color: %s", arg);
+            return FALSE;
+          }
+        cmd_arg->value.color.red = r << 8;
+        cmd_arg->value.color.green = g << 8; 
+        cmd_arg->value.color.blue = b << 8;
+      }
+      break;
+    default:
+      internal_error ("switch fell through");
+    }
+
+  cmd_arg->type = spec;
+
+  return TRUE;
 }
 
 /** 
@@ -600,115 +743,46 @@ parse_command_args_next (const char *args, char *buf)
  * @return 
  */
 static command_arg_t*
-parse_command_args(const epdfinfo_t *ctx, const char *args, size_t len,
-                   const command_t *cmd)
+command_arg_parse(epdfinfo_t *ctx, char **args, int nargs,
+                  const command_t *cmd, gchar **error_msg)
 {
-  gboolean failure = FALSE;
-  int i;
-  ssize_t read;
-  GError *gerror = NULL;
-  char *buf = g_malloc (len * sizeof (char));
   command_arg_t *cmd_args = g_malloc0 (cmd->nargs * sizeof (command_arg_t));
+  int i;
   
-  for (i = 0; i < cmd->nargs && !failure; ++i)
+  if (nargs < cmd->nargs
+      || (nargs > cmd->nargs
+          && (cmd->nargs == 0
+              || cmd->args_spec[cmd->nargs - 1] != ARG_REST)))
     {
-      if (! (read = parse_command_args_next (args, buf)))
+      if (error_msg)
         {
-          printf_error_response ("Command `%s' expects %d argument(s), %d given",
-                        cmd->name, cmd->nargs, i);
-          failure = TRUE;
-          break;
+          *error_msg = g_strdup_printf ("Command `%s' expects %d argument(s), %d given",
+                                        cmd->name, cmd->nargs, nargs);
         }
-      
-      args = args + read;
-
-      switch (cmd->args_spec[i])
+      goto failure;
+    }
+    
+  for (i = 0; i < cmd->nargs; ++i)
+    {
+      if (i == cmd->nargs - 1 && cmd->args_spec[i] == ARG_REST)
         {
-        case ARG_DOC:
-          {
-            document_t *doc = document_open (ctx, buf, NULL, &gerror);
-            if (doc == NULL)
-              {
-                printf_error_response ("Error opening %s:%s"
-                              , buf, gerror ? gerror->message : "?");
-                failure = TRUE;
-                if (gerror)
-                  {
-                    g_error_free (gerror);
-                    gerror = NULL;
-                  }
-              }
-            else
-              cmd_args[i].value.doc = doc;
-            break;
-          }
-        case ARG_FLAG:
-          if (strcmp (buf, "0") && strcmp (buf, "1"))
-            {
-              printf_error_response ("Expected 0 or 1:%s", buf);
-              failure = TRUE;
-            }
-          else
-            cmd_args[i].value.flag = *buf == '1';
-          break;
-        case ARG_STRING_NONEMPTY:
-          if (! *buf)
-            {
-              printf_error_response ("Non-empty string expected");
-              failure = TRUE;
-              break;
-            }
-          /* fall through */
-        case ARG_STRING:
-          cmd_args[i].value.string = g_strdup (buf);
-          break;
-        case ARG_NATNUM:
-          {
-            char *endptr;
-            long n = strtol (buf, &endptr, 0);
-            if (*endptr || (n < 0))
-              {
-                printf_error_response ("Expected natural number:%s", buf);
-                failure = TRUE;
-              }
-            else
-              cmd_args[i].value.natnum = n;
-            break;
-          }
-        case ARG_EDGE_OR_NEG:
-        case ARG_EDGE:
-          {
-            char *endptr;
-            double n = strtod (buf, &endptr);
-            if (*endptr || (cmd->args_spec[i] == ARG_EDGE && n < 0.0) || n > 1.0)
-              {
-                printf_error_response ("Expected 0 <= float <= 1:%s", buf);
-                failure = TRUE;
-              }
-            else
-              cmd_args[i].value.edge = n;
-            break;
-          }
-        default:
-          internal_error ("switch fell through");
+          cmd_args[i].value.rest.args = args + i;
+          cmd_args[i].value.rest.nargs = nargs - i;
+          cmd_args[i].type = ARG_REST;
         }
-      cmd_args[i].type = cmd->args_spec[i];
-    }
-
-  if (!failure && *args)
-    {
-      printf_error_response ("Command `%s' accepts at most %d argument(s)", cmd->name, cmd->nargs);
-      failure = TRUE;
-    }
-      
-  g_free(buf);
-  if (failure)
-    {
-      free_command_args (cmd_args, cmd->nargs);
-      return NULL;
+      else if (i >= nargs
+               || ! command_arg_parse_arg (ctx, args[i], cmd_args + i,
+                                           cmd->args_spec[i], error_msg))
+        {
+          goto failure;
+        }
     }
 
   return cmd_args;
+
+ failure:
+  free_command_args (cmd_args, cmd->nargs);
+  return NULL;
 }
 
 
@@ -730,7 +804,7 @@ action_is_handled (PopplerAction *action)
       /* case POPPLER_ACTION_LAUNCH: */
     case POPPLER_ACTION_URI:
       return TRUE;
-    default: break;      
+    default: ;      
     }
   return FALSE;
 }
@@ -811,7 +885,7 @@ action_print_destination (PopplerDocument *doc, PopplerAction *action)
     case POPPLER_DEST_FITR:
       printf ("%f", top);
       break;
-    default: break;
+    default: ;
     }
 
  theend:
@@ -842,7 +916,8 @@ action_print (PopplerDocument *doc, PopplerAction *action)
     case POPPLER_ACTION_URI:
       print_response_string (action->uri.uri, NEWLINE);
       break;
-    default: break;
+    default:
+      ;
     }
 }
 
@@ -851,17 +926,17 @@ action_print (PopplerDocument *doc, PopplerAction *action)
  * PDF Annotations and Attachments
  * ------------------------------------------------------------------ */
 
-static gint
-annotation_cmp_edges (const annotation_t *a1, const annotation_t *a2)
-{
-  PopplerRectangle *e1 = &a1->amap->area;
-  PopplerRectangle *e2 = &a2->amap->area;
-
-  return (e1->y1 > e2->y1 ? -1
-          : e1->y1 < e2->y1 ? 1
-          : e1->x1 < e2->x1 ? -1
-          : e1->x1 != e2->x1);
-}
+/* static gint
+ * annotation_cmp_edges (const annotation_t *a1, const annotation_t *a2)
+ * {
+ *   PopplerRectangle *e1 = &a1->amap->area;
+ *   PopplerRectangle *e2 = &a2->amap->area;
+ * 
+ *   return (e1->y1 > e2->y1 ? -1
+ *           : e1->y1 < e2->y1 ? 1
+ *           : e1->x1 < e2->x1 ? -1
+ *           : e1->x1 != e2->x1);
+ * } */
 
 static GList*
 annoation_get_for_page (document_t *doc, gint pn)
@@ -2062,8 +2137,8 @@ const command_arg_spec_t cmd_editannot_spec[] =
                                 /* Edges */
     ARG_EDGE,                   /* x1 */
     ARG_EDGE,                   /* y1 */
-    ARG_EDGE_OR_NEG,            /* x2 or keep width, if negative */
-    ARG_EDGE_OR_NEG,            /* y2 or keep height, if negative */
+    ARG_EDGE_OR_NEGNUM,         /* x2 or keep width, if negative */
+    ARG_EDGE_OR_NEGNUM,         /* y2 or keep height, if negative */
 
     ARG_STRING,                 /* color */
     ARG_STRING,                 /* contents */
@@ -2359,7 +2434,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   int width = args[2].value.natnum;
   int ppm = args[3].value.flag;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
-  cairo_t *cr = NULL;
+  cairo_surface_t *surface = NULL;
   
   if (! page)
     {
@@ -2367,22 +2442,133 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
       goto theend;
     }
 
-  cr = image_render_page (doc->pdf, page, width);
+  surface = image_render_page (doc->pdf, page, width);
 
-  if (! cr)
+  if (! surface)
     {
       printf_error_response ("Failed to render page %d", pn);
       goto theend;
     }
 
-  image_write_print_response (cr, ppm ? PPM : PNG);
+  image_write_print_response (surface, ppm ? PPM : PNG);
  theend:
-  if (cr)
-    cairo_destroy (cr);
+  if (surface)
+    cairo_surface_destroy (surface);
   if (page)
     g_object_unref (page);
 }
 
+const command_arg_spec_t cmd_renderpage_selection_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_NATNUM,                 /* width */
+    ARG_FLAG,                   /* ppm, else png */
+    ARG_REST                    /* (foreground background edges*)* */
+  };
+
+static void
+cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  document_t *doc = args[0].value.doc;
+  int pn = args[1].value.natnum;
+  int width = args[2].value.natnum;
+  int ppm = args[3].value.flag;
+  int nrest_args = args[4].value.rest.nargs;
+  char **rest_args = args[4].value.rest.args;
+  PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
+  cairo_surface_t *surface = NULL;
+  cairo_t *cr = NULL;
+  command_arg_t rest_arg;
+  gchar *error_msg = NULL;
+  double pt_width, pt_height, scale;
+  int i = 0;
+  
+  if (! page)
+    {
+      printf_error_response ("No such page %d", pn);
+      goto theend;
+    }
+
+  poppler_page_get_size (page, &pt_width, &pt_height);
+  surface = image_render_page (doc->pdf, page, width);
+  scale = width / pt_width;
+  cr = cairo_create (surface);
+  cairo_scale (cr, scale, scale);
+  
+  while (i < nrest_args)
+    {
+      PopplerColor fg, bg;
+
+    next:
+      if (! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR, &error_msg))
+        {
+          printf_error_response ("%s", error_msg);
+          goto theend;
+        }
+      fg = rest_arg.value.color;
+      ++i;
+
+      if (i >= nrest_args
+          || ! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR, &error_msg))
+        {
+          printf_error_response ("%s", error_msg);
+          goto theend;
+        }
+      bg = rest_arg.value.color;
+      ++i;
+
+      while (i < nrest_args)
+        {
+          PopplerRectangle selection;
+          int j;
+
+          for (j = 0; j < 4; ++j, ++i)
+            {
+              if (i >= nrest_args)
+                {
+                  printf_error_response ("Incomplete region detected");
+                  goto theend;
+                }
+              if (! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_EDGE, &error_msg))
+                {
+                  if (j == 0)
+                    goto next;
+                  printf_error_response ("%s", error_msg);
+                  goto theend;
+                }
+              switch (j)
+                {
+                case 0:
+                  selection.x1 = rest_arg.value.edge * pt_width;
+                  break;
+                case 1:
+                  selection.y1 = rest_arg.value.edge * pt_height;
+                  break;
+                case 2:
+                  selection.x2 = rest_arg.value.edge * pt_width;
+                  break;
+                case 3:
+                  selection.y2 = rest_arg.value.edge * pt_height;
+                  break;
+                }
+            }
+
+          poppler_page_render_selection (page, cr, &selection, NULL,
+                                         POPPLER_SELECTION_GLYPH, &fg, &bg);
+        }
+    }
+  
+  image_write_print_response (surface, ppm ? PPM : PNG);
+
+ theend:
+  if (cr)
+    cairo_destroy (cr);
+  if (surface)
+    cairo_surface_destroy (surface);
+  if (page)
+    g_object_unref (page);
+}
 
 const command_arg_spec_t cmd_boundingbox_spec[] =
   {
@@ -2396,7 +2582,6 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
-  cairo_t *cr = NULL;
   cairo_surface_t *surface = NULL;
   int width, height;
   double pt_width, pt_height;
@@ -2411,19 +2596,11 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
     }
 
   poppler_page_get_size (page, &pt_width, &pt_height);
-  cr = image_render_page (doc->pdf, page, (int) pt_width);
-
-  if (! cr)
-    {
-      printf_error_response ("Failed to render page %d", pn);
-      goto theend;
-    }
-
-  surface = cairo_get_target (cr);
+  surface = image_render_page (doc->pdf, page, (int) pt_width);
 
   if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
     {
-      printf_error_response ("Invalid cairo surface\n");
+      printf_error_response ("Failed to render page\n");
       goto theend;
     }
 
@@ -2501,8 +2678,8 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   OK_END ();
   
  theend:
-  if (cr)
-    cairo_destroy (cr);
+  if (surface)
+    cairo_surface_destroy (surface);
   if (page)
     g_object_unref (page);
 }
@@ -2553,16 +2730,18 @@ static const command_t commands [] =
     {"synctex-backward-search", cmd_synctex_backward_search, cmd_synctex_backward_search_spec,
      G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
     /* Rendering */
-    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)}
+    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)},
+    {"renderpage-selection", cmd_renderpage_selection, cmd_renderpage_selection_spec,
+     G_N_ELEMENTS (cmd_renderpage_selection_spec)}
   };
 
 int main(int argc, char **argv)
 {
   epdfinfo_t ctx;
-  char *line;
-  size_t buflen;
+  char *line = NULL;
   ssize_t read;
-  const char *error_log = "/dev/null";
+  size_t line_size;
+  const char *error_log = "/tmp/epdfinfo.log"; /* "/dev/null"; */
   
   if (argc > 2)
     {
@@ -2576,43 +2755,61 @@ int main(int argc, char **argv)
     err (2, "Unable to redirect stderr");
 
   g_type_init ();
-  line = g_malloc(INPUT_BUFFER_SIZE);             
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);
-  while ((read = getline (&line, &buflen, stdin)) != -1) 
+
+  while ((read = getline (&line, &line_size, stdin)) != -1) 
     {
-      size_t cmd_end;
+      int nargs = 0;
       command_arg_t *cmd_args;
+      char **args = NULL;
+      gchar *error_msg = NULL;
       int i;
 
       if (read <= 1 || line[read - 1] != '\n')
-        continue;
+        {
+          fprintf (stderr, "Skipped parts of a line\n");
+          goto next_line;
+        }
       
       line[read - 1] = '\0';
-      cmd_end = strcspn (line, ":");
+      args = command_arg_split (line, &nargs);
+      if (nargs == 0)
+        continue;
 
       for (i = 0; i < G_N_ELEMENTS (commands);  i++)
         {
-          if (strncmp (commands[i].name, line, strlen(commands[i].name)) == 0)
+          if (! strcmp (commands[i].name, args[0]))
             {
               if (commands[i].nargs == 0
-                  || (cmd_args = parse_command_args (&ctx, line + cmd_end,
-                                             read - cmd_end, commands + i)))
+                  || (cmd_args = command_arg_parse (&ctx, args + 1, nargs - 1,
+                                                    commands + i, &error_msg)))
                 {
                   commands[i].execute (&ctx, cmd_args);
                   if (commands[i].nargs > 0)
                     free_command_args (cmd_args, commands[i].nargs);
                 }
+              else
+                {
+                  printf_error_response ("%s", error_msg ? error_msg :
+                                         "Unknown error (this is a bug)");
+                }
+              if (error_msg)
+                g_free (error_msg);
               break;
             }
         }
       if (G_N_ELEMENTS (commands) == i)
         {
-          if (cmd_end < read)
-            line[cmd_end] = '\0';
-          printf_error_response ("Unknown command: %s", line);
+          printf_error_response ("Unknown command: %s", args[0]);
         }
+      for (i = 0; i < nargs; ++i)
+        g_free (args[i]);
+      g_free (args);
+    next_line:
+      free (line);
+      line = NULL;
     }
 
   if (ferror (stdin))

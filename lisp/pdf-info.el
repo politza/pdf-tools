@@ -106,7 +106,8 @@ ask -- ask whether to restart or not."
 ;; * ================================================================== *
 
 (defvar pdf-info-asynchronous nil)
-
+(defvar pdf-info-interruptable nil)
+  
 (defconst pdf-info-pdf-date-regexp
   ;; Adobe PDF32000.book, 7.9.4 Dates
   (eval-when-compile
@@ -187,8 +188,11 @@ error."
                  (file-executable-p pdf-info-epdfinfo-program))
       (error "The variable pdf-info-epdfinfo-program is unset or not executable: %s"
              pdf-info-epdfinfo-program))
-    (let ((proc (start-process
-                 "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
+    (let* ((process-connection-type)
+           (proc (start-process
+                  "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program
+                  ;; FIXME: Hardcoded filename.
+                  "/tmp/epdfinfo.log")))
       (with-current-buffer " *epdfinfo*"
         (erase-buffer))
       (set-process-query-on-exit-flag proc nil)
@@ -237,6 +241,9 @@ error."
   (pdf-info-process-assert-running)
   (unless (symbolp cmd)
     (setq cmd (intern cmd)))
+  (when (and pdf-info-interruptable
+             (null pdf-info-asynchronous))
+    (error "Synchronous requests are uncancelable"))
   (let* ((query (concat (mapconcat 'pdf-info-query--escape
                                    (cons cmd args) ":") "\n"))
          (callback
@@ -244,14 +251,13 @@ error."
             (cl-destructuring-bind (status &rest result)
                 (pdf-info-query--parse-response cmd response)
               (pdf-info-query--log response)
-              (let (pdf-info-asynchronous)
+              (let (pdf-info-asynchronous
+                    pdf-info-interruptable)
                 (funcall closure status result)))))
          response status done
          (closure (or pdf-info-asynchronous
                       (lambda (s r)
-                        (setq status s
-                              response r
-                              done t)))))
+                        (setq status s response r done t)))))
     (pdf-info-query--log query t)
     (tq-enqueue
      pdf-info--queue query "^\\.\n" closure callback)
@@ -273,6 +279,13 @@ error."
        (t
         (error "internal error: invalid response status"))))))
 
+(defun pdf-info-cancel-query (cookie)
+  (unless (memq cookie
+                pdf-info--cancelable-requests)
+    (error "Request is unknown or already canceled"))
+  (setq pdf-info--cancelable-requests
+        (remove cookie pdf-info--cancelable-requests)))
+  
 (defun pdf-info-query--escape (arg)
   "Escape ARG for transmision to the server."
   (if (null arg)
@@ -456,7 +469,7 @@ interrupted."
        (cons (caar response)
              (mapcar 'string-to-number (cdar response))))
       (delannot nil)
-      ((save renderpage) (caar response))
+      ((save renderpage renderpage-selection) (caar response))
       (t response))))
 
 (defun pdf-info-query--transform-action (action)
@@ -1011,6 +1024,40 @@ the caller."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
    width 0))
+
+(defun pdf-info-renderpage-selection (page width &optional file-or-buffer
+                                           &rest selections)
+  "Render PAGE with width WIDTH using SELECTIONS.
+
+SELECTIONS is a list determining foreground and background color
+and the regions to render. So each element should look like
+\(FG BG \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
+
+For the other args see `pdf-info-renderpage'.
+
+Return the filename of the corresponding image, which is owned by
+the caller."
+  
+  (when (consp file-or-buffer)
+    (push file-or-buffer selections)
+    (setq file-or-buffer nil))
+  
+  (apply 'pdf-info-query
+         'renderpage-selection
+         (pdf-info--normalize-file-or-buffer file-or-buffer)
+         page
+         width 0
+         (apply 'append
+                (mapcar
+                 (lambda (s)
+                   (cl-destructuring-bind (fg bg &rest edges)
+                       s
+                     (cons
+                      (pdf-util-hexcolor fg)
+                      (cons (pdf-util-hexcolor bg)
+                            (apply 'append edges)))))
+                 selections))))
+   
 
 (defun pdf-info-boundingbox (page &optional file-or-buffer)
   "Return a bounding-box for PAGE.

@@ -36,14 +36,6 @@
   "View PDF documents."
   :group 'pdf-tools)
 
-(defcustom pdf-view-image-data-cache-limit 64
-  "Maximum number of cached pages per document.
-
- FIXME: Explain, mention image-cache-eviction-delay
-"
-  :group 'pdf-view
-  :type 'number)
-
 (defcustom pdf-view-display-size 'fit-width
   "The desired size of displayed pages.
 
@@ -84,7 +76,7 @@ Emacs. FIXME: Explain dis-/advantages of imagemagick and png."
   :type 'boolean)
 
 (defcustom pdf-view-use-scaling nil
-  "Whether images should be scaled down for rendering.
+  "Whether images should be allowed to be scaled down for rendering.
 
 This variable has no effect, if imagemagick was not compiled into
 Emacs or `pdf-view-use-imagemagick' is nil.  FIXME: Explain
@@ -281,9 +273,7 @@ a local copy of a remote file."
 (defun pdf-view-enlarge (factor)
   (interactive
    (list (float pdf-view-resize-factor)))
-  ;; FIXME: Move related functions (e.g. pdf-util-image-size) in
-  ;; this library.
-  (let* ((size (image-size (pdf-view-current-image) t))
+  (let* ((size (pdf-view-image-size))
          (pagesize (pdf-cache-pagesize
                     (pdf-view-current-page)))
          (scale (/ (float (car size))
@@ -472,7 +462,7 @@ You set the slice by pressing mouse-1 at its top-left corner and
 dragging it to its bottom-right corner.  See also
 `pdf-view-set-slice' and `pdf-view-reset-slice'."
   (interactive)
-  (let ((size (image-size (pdf-view-current-image) t))
+  (let ((size (pdf-view-image-size))
         x y w h done)
     (while (not done)
       (let ((e (read-event
@@ -557,6 +547,9 @@ or png."
      data (pdf-view-image-type) t
      :width (car size)
      :map hotspots)))
+
+(defun pdf-view-image-size (&optional window)
+  (image-size (pdf-view-current-image window) t))
 
 (defun pdf-view-display-page (page &optional window inhibit-hotspots-p)
   "Display page PAGE in WINDOW."
@@ -722,7 +715,6 @@ supercede hotspots in lower ones."
 ;; * Prefetching images
 ;; * ================================================================== *
 
-
 (defun pdf-view-prefetch-pages-function-default ()
   (let ((current (pdf-view-current-page)))
     (butlast
@@ -754,31 +746,37 @@ supercede hotspots in lower ones."
 
 (defun pdf-view--prefetch-pages (window image-width)
   (unless pdf-view--prefetch-pages
-    (pdf-util-debug-message "Prefetching done."))
+    (pdf-util-debug "Prefetching done."))
   (when (and pdf-view--prefetch-pages
              (eq window (selected-window)))
-    (with-current-buffer (window-buffer)
-      (let ((page (pop pdf-view--prefetch-pages)))
-        (pdf-cache-renderpage-async
-         page
-         image-width
-         (if (not (pdf-view-use-scaling-p))
-             image-width
-           (* 2 image-width))
-         (lambda (success)
-           (when (and success
-                      (eq (current-buffer)
-                          (window-buffer)))
-             (image-size (pdf-view-create-image page))
-             (pdf-util-debug-message "Prefetched Page %s." page)
-             ;; Avoid max-lisp-eval-depth
-             (run-with-timer 0 nil 'pdf-view--prefetch-pages window image-width))))))))
+    (let ((page (pop pdf-view--prefetch-pages)))
+      (while (and page
+                  (pdf-cache-lookup-image
+                   page
+                   image-width
+                   (if (not (pdf-view-use-scaling-p))
+                       image-width
+                     (* 2 image-width))))
+        (setq page (pop pdf-view--prefetch-pages)))
+      (when page
+        (let ((pdf-info-asynchronous
+               (lambda (status data)
+                 (when (and (null status)
+                            (eq window
+                                (selected-window)))
+                   (pdf-cache-put-image page image-width data)
+                   (image-size (pdf-view-create-image page))
+                   (pdf-util-debug "Prefetched Page %s." page)
+                   ;; Avoid max-lisp-eval-depth
+                   (run-with-timer
+                       0 nil 'pdf-view--prefetch-pages window image-width)))))
+          (pdf-info-renderpage page image-width))))))
 
 (defun pdf-view--prefetch-start (buffer)
   "Start prefetching images in BUFFER."
-  (when (and (buffer-live-p buffer)
-             (eq (window-buffer)
-                 buffer)
+  (when (and pdf-view-prefetch-mode
+             (not isearch-mode)
+             (eq (window-buffer) buffer)
              (fboundp pdf-view-prefetch-pages-function))
     (let ((pages (funcall pdf-view-prefetch-pages-function)))
       (setq pdf-view--prefetch-pages

@@ -25,6 +25,53 @@
 ;; * Handle remote and locally cached documents.
 
 ;;; Code:
+
+(require 'faces) 
+
+(defun pdf-util-munch-file (filename &optional multibyte-p)
+  "Read contents from FILENAME and delete it.
+
+Return the file's content as a unibyte string, unless MULTIBYTE-P
+is non-nil."
+  (unwind-protect
+      (with-temp-buffer
+        (set-buffer-multibyte multibyte-p)
+        (insert-file-contents-literally filename)
+        (buffer-substring-no-properties
+         (point-min)
+         (point-max)))
+    (when (and filename
+               (file-exists-p filename))
+      (delete-file filename))))
+
+(defun pdf-util-hexcolor (color)
+  "Return COLOR in hex-format
+
+Singal an error, if color is invalid." 
+  (let ((values (color-values (string-trim color))))
+    (unless values
+      (error "Invalid color: %s" color))
+    (apply 'format "#%02x%02x%02x"
+           (mapcar (lambda (c) (lsh c -8))
+                   values))))
+
+
+(defun pdf-util-image-size (&optional sliced-p)
+  (image-size (pdf-view-current-image) t))
+
+
+
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;;
+;;                           O L D   C O D E
+;;                           
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+
 (require 'cl-lib)
 (require 'doc-view)
 (require 'format-spec)
@@ -46,8 +93,6 @@
 ;;
 ;; Variables
 ;;
-
-(defvar pdf-util-convert-program (executable-find "convert"))
 
 (defvar-local pdf-util-png-image-size-alist nil
   "Alist of cached png image sizes.")
@@ -343,17 +388,9 @@ dot."
                  (t
                   "png"))
               "png"))))
-  
-(defun pdf-util-image-size (&optional sliced-p)
-  (unless (with-current-buffer (window-buffer)
-            (pdf-util-docview-buffer-p))
-    (error "Selected window's buffer is not in DocView mode"))
-  (if sliced-p
-      (image-display-size (image-get-display-property) t)
-    (image-size (doc-view-current-image) t)))
 
 (defun pdf-util-image-offset ()
-  (let* ((slice (doc-view-current-slice)))
+  (let* ((slice (pdf-view-current-slice)))
     (if slice
         (cons (nth 0 slice) (nth 1 slice))
       (cons 0 0))))
@@ -551,7 +588,84 @@ to)."
       (let ((standard-input (current-buffer)))
         (cons (read) (read))))))
 
+(defun pdf-util-convert (in-file out-file &rest spec)
+  "Convert image IN-FILE to OUT-FILE according to SPEC.
+
+IN-FILE should be the name of a file containing an image.  Write
+the result to OUT-FILE.  The extension of this filename ususally
+determines the resulting image-type.
+
+SPEC is a property list, specifying what the convert programm
+should do with the image.  All manipulations operate on a
+rectangle, see below.
+
+SPEC may contain the following keys, respectively values.
+
+`:foreground' Set foreground color for all following operations.
+
+`:background' Dito, for the background color.
+
+`:commands' A list of strings representing arguments to convert
+for image manipulations.  It may contain %-escape characters, as
+follows.  
+
+%f -- Expands to the foreground color.
+%b -- Expands to the background color.
+%g -- Expands to the geometry of the current rectangle, i.e. WxH+X+Y.
+%x -- Expands to the left edge of rectangle.
+%X -- Expands to the right edge of rectangle.
+%y -- Expands to the top edge of rectangle.
+%Y -- Expands to the bottom edge of rectangle.
+%w -- Expands to the width of rectangle.
+%h -- Expands to the height of rectangle.
+%W -- Expands to the width of the image.
+%H -- Expands to the height of the image.
+
+Keep in mind, that every element of this list is seen by convert
+as a single argument.
+
+`:formats' An alist of additional %-escapes.  Every element
+should be a cons \(CHAR . STRING\) or \(CHAR . FUNCTION\).  In
+the first case, all occurences of %-CHAR in the above commands
+will be replaced by STRING.  In the second case FUNCTION is
+called with the current rectangle and it should return the
+replacement string.
+
+`:apply' A list of rectangles \(\(LEFT TOP RIGHT BOT\) ...\) in
+IN-FILE coordinates. Each such rectangle triggers one execution
+of the last commands given earlier in SPEC. E.g. a call like
+
+\(pdf-util-convert
+       image-file out-file
+       :foreground \"black\"
+       :background \"white\"
+       :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :apply '\(\(0 0 10 10\) \(10 10 20 20\)\)
+       :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :apply '\(\(10 0 20 10\) \(0 10 10 20\)\)\)
+
+will draw a 4x4 checkerboard pattern in the left corner of image,
+while leaving the rest of it as it was. \(Assuming image and size
+are variables containing appropriate values.\)
+
+Returns OUT-FILE.
+
+See url `http://www.imagemagick.org/script/convert.php'."
+  (pdf-util-assert-convert-program)
+  (let* ((cmds (pdf-util-convert--create-commands
+                (pdf-util-png-image-size)
+                spec))
+         (status (apply 'call-process
+                        pdf-util-convert-program nil
+                        (get-buffer-create "*pdf-util-convert-output*")
+                        nil
+                        `(,in-file ,@cmds ,out-file))))
+    (unless (and (numberp status) (= 0 status))
+      (error "The convert program exited with error status: %s" status))
+    out-file))
+
 (defun pdf-util-convert-asynch (in-file out-file &rest spec-and-callback)
+  ;; Influence compression level with -quality 0-100.
   (pdf-util-assert-convert-program)
   (let ((callback (car (last spec-and-callback)))
         spec)
@@ -570,20 +684,6 @@ to)."
       (when callback
         (set-process-sentinel proc callback))
       proc)))
-
-(defun pdf-util-convert (in-file out-file &rest spec)
-  (pdf-util-assert-convert-program)
-  (let* ((cmds (pdf-util-convert--create-commands
-                (pdf-util-png-image-size)
-                spec))
-         (status (apply 'call-process
-                        pdf-util-convert-program nil
-                        (get-buffer-create "*pdf-util-convert-output*")
-                        nil
-                        `(,in-file ,@cmds ,out-file))))
-    (unless (and (numberp status) (= 0 status))
-      (error "The convert program exited with error status: %s" status))
-    out-file))
 
 (defun pdf-util-convert--create-commands (image-size spec)
   (let ((fg "red")
@@ -896,19 +996,7 @@ AWINDOW is deleted."
     (pdf-util-window-attach newwin window)
     newwin))
 
-(defvar pdf-util-debug nil)
 
-(defun pdf-util-toggle-debug ()
-  (interactive)
-  (setq pdf-util-debug (not pdf-util-debug))
-  (when (called-interactively-p 'any)
-    (message "Toggled debug %s" (if pdf-util-debug "on" "off"))))
-
-(defun pdf-util-debug-message (fmt &rest args)
-  (when pdf-util-debug
-    (apply 'message fmt args)))
-  
-    
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here

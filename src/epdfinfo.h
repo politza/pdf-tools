@@ -22,7 +22,8 @@
 #include <poppler.h>
 #include <png.h>
 
-#define INPUT_BUFFER_SIZE 4096
+#define INPUT_BUFFER_SIZE (4096 * 4)
+#define MAX_COMMAND_NARGS 1024
 
 #define DISCARD_STDOUT(saved_fd)                \
   do {                                          \
@@ -129,8 +130,9 @@ typedef enum
     ARG_NATNUM,
     ARG_STRING_NONEMPTY,
     ARG_EDGE,
-    ARG_EDGE_OR_NEG,
-    ARG_COLOR
+    ARG_EDGE_OR_NEGNUM,
+    ARG_COLOR,
+    ARG_REST
 } command_arg_spec_t;
 
 typedef struct
@@ -142,6 +144,12 @@ typedef struct
     long natnum;
     document_t *doc;
     double edge;
+    PopplerColor color;
+    struct
+    {
+      char **args;
+      int nargs;
+    } rest;
   } value;
   command_arg_spec_t type;
 } command_arg_t;

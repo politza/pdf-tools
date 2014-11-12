@@ -22,8 +22,181 @@
 
 ;; 
 
+(defcustom pdf-render-convert-program (executable-find "convert")
+  "Absolute path to ImageMagick's convert programm."
+  :group 'pdf-render
+  :type 'executable)
+
+(defun pdf-render-assert-convert-program ()
+  "Check for the convert programm, signal an error otherwise."
+  (unless (and pdf-util-convert-program
+               (file-executable-p pdf-util-convert-program))
+    (error "`pdf-render-convert-program' is unset or non-executable")))
+
+(defun pdf-render-convert (image-data image-size &rest spec)
+  "Convert IMAGE-DATA of size IMAGE-SIZE according to SPEC.
+
+IMAGE-DATA should be a string containing the image, IMAGE-SIZE a
+cons \(WIDTH . HEIGHT\) describing the size of the image.  This
+argument is solely used for some %-escapes in `:commands' (see
+below).
+
+SPEC is a property list, specifying what the convert programm
+should do with the image.  All manipulations operate on a
+rectangle, see below.
+
+SPEC may contain the following keys, respectively values.
+
+`:foreground' Set foreground color for all following operations.
+
+`:background' Dito, for the background color.
+
+`:commands' A list of strings representing arguments to convert
+for image manipulations.  It may contain %-escape characters, as
+follows.  
+
+%f -- Expands to the foreground color.
+%b -- Expands to the background color.
+%g -- Expands to the geometry of the current rectangle, i.e. WxH+X+Y.
+%x -- Expands to the left edge of rectangle.
+%X -- Expands to the right edge of rectangle.
+%y -- Expands to the top edge of rectangle.
+%Y -- Expands to the bottom edge of rectangle.
+%w -- Expands to the width of rectangle.
+%h -- Expands to the height of rectangle.
+%W -- Expands to the width of the image.
+%H -- Expands to the height of the image.
+
+Keep in mind, that every element of this list is seen by convert
+as a single argument.
+
+`:formats' An alist of additional %-escapes.  Every element
+should be a cons \(CHAR . STRING\) or \(CHAR . FUNCTION\).  In
+the first case, all occurences of %-CHAR in the above commands
+will be replaced by STRING.  In the second case FUNCTION is
+called with the current rectangle and it should return the
+replacement string.
+
+`:apply' A list of rectangles \(\(LEFT TOP RIGHT BOT\) ...\) in
+IMAGE-DATA coordinates. Each such rectangle triggers one
+execution of the last commands given earlier in SPEC. E.g. a call
+like
+
+\(pdf-render-convert
+       image size
+       :foreground \"black\"
+       :background \"white\"
+       :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :apply '\(\(0 0 10 10\) \(10 10 20 20\)\)
+       :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :apply '\(\(10 0 20 10\) \(0 10 10 20\)\)\)
+
+will draw a 4x4 checkerboard pattern in the left corner of image,
+while leaving the rest of it as it was. \(Assuming image and size
+are variables containing appropriate values.\)
+
+Return the converted image as a string, suitable for
+`create-image'.
+
+See url `http://www.imagemagick.org/script/convert.php'."
+
+  (pdf-render-assert-convert-program)
+  (let* ((args (pdf-render-convert--make-arguments
+                image-size spec))
+         (stderr (make-temp-file "convert-stderr")))
+    (unwind-protect
+        (with-temp-buffer
+          (set-buffer-multibyte nil)
+          (insert image-data)
+          (unless (= 0 (apply 'call-process-region
+                              (point-min) (point-max)
+                              pdf-render-convert-program t
+                              `(t ,stderr) nil
+                              `("-" ,@args "-")))
+            (error "Error while converting image: %s"
+                   (with-temp-buffer
+                     (insert-file-contents stderr)
+                     (buffer-string))))
+          (buffer-substring-no-properties
+           (point-min) (point-max)))
+      (when (file-exists-p stderr)
+        (delete-file stderr)))))
+
+(defun pdf-render-convert-asynch (in-file out-file &rest spec-and-callback)
+  ;; Influence compression level with -quality 0-100.
+  (pdf-render-assert-convert-program)
+  (let ((callback (car (last spec-and-callback)))
+        spec)
+    (if (functionp callback)
+        (setq spec (butlast spec-and-callback))
+      (setq spec spec-and-callback
+            callback nil))
+    (let* ((cmds (pdf-render-convert--make-arguments
+                  (pdf-render-png-image-size)
+                  spec))
+           (proc
+            (apply 'start-process "pdf-render-convert"
+                   (get-buffer-create "*pdf-render-convert-output*")
+                   pdf-render-convert-program
+                   `(,in-file ,@cmds ,out-file))))
+      (when callback
+        (set-process-sentinel proc callback))
+      proc)))
+
+(defun pdf-render-convert--make-arguments (image-size spec)
+  (let ((fg "red")
+        (bg "red")
+        formats result cmds s)
+    (while (setq s (pop spec))
+      (unless spec
+        (error "Missing value in convert spec:%s" (cons s spec)))
+      (cl-case s
+        (:foreground
+         (setq fg (pop spec)))
+        (:background
+         (setq bg (pop spec)))
+        (:commands
+         (setq cmds (pop spec))
+         (if (and cmds (listp (car cmds)))
+             (setq formats (cdr cmds)
+                   cmds (car cmds))
+           (setq formats nil)))
+        (:apply
+         (dolist (m (pop spec))
+           (pdf-util-with-edges (m)
+             (let ((alist (append
+                           (mapcar (lambda (f)
+                                     (cons (car f)
+                                           (if (stringp (cdr f))
+                                               (cdr f)
+                                             (funcall (cdr f) m))))
+                                   formats)
+                           `((?g . ,(format "%dx%d+%d+%d"
+                                            m-width m-height
+                                            m-left m-top))
+                             (?x . ,m-left)
+                             (?X . ,m-right)
+                             (?y . ,m-top)
+                             (?Y . ,m-bot)
+                             (?w . ,(- m-right m-left))
+                             (?h . ,(- m-bot m-top))
+                             (?f . ,fg)
+                             (?b . ,bg)
+                             (?W . ,(nth 0 image-size))
+                             (?H . ,(cdr image-size))))))
+               (dolist (fmt cmds)
+                 (push (format-spec fmt alist) result))))))))
+    (nreverse result)))
+
+
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;;
+;;                           O L D   C O D E
+;;                           
+;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 (require 'org-macs) ;;org-with-gensyms
-(require 'pdf-util)
+(require 'pdf-render)
 
 ;;; Code:
 
@@ -72,7 +245,7 @@ supercede hotspots in lower ones."
       properties
     (let* ((width (or (plist-get :width properties)
                       doc-view-image-width))
-           (ifsize (pdf-util-png-image-size page))
+           (ifsize (pdf-render-png-image-size page))
            (size (if (fboundp 'imagemagick-types)
                      (cons width
                            (round (* (/ (float (cdr ifsize))
@@ -97,7 +270,7 @@ supercede hotspots in lower ones."
 
 FN will be called in the PDF buffer to be rendered, with the
 page-number as a single argument.  It should return a
-property-list applicable to the the `pdf-util-convert' funtion.
+property-list applicable to the the `pdf-render-convert' funtion.
 
 LAYER determines the order: Functions in a higher LAYER will
 paint over lower ones."
@@ -120,12 +293,12 @@ paint over lower ones."
   (unless (and pdf-render-temp-file
                (file-exists-p pdf-render-temp-file))
     (setq pdf-render-temp-file
-          (pdf-util-cache-make-filename 'pdf-render-temp-file)))
+          (pdf-render-cache-make-filename 'pdf-render-temp-file)))
   (unless (and pdf-render-intialized-p
                (not force))
     (pdf-render-state-load)
     (add-hook 'kill-buffer-hook 'pdf-render-state-save nil t)
-    (add-hook 'pdf-util-after-reconvert-hook 'pdf-render-state-load nil t)
+    (add-hook 'pdf-render-after-reconvert-hook 'pdf-render-state-load nil t)
     (setq pdf-render-intialized-p t)))
 
 (defun pdf-render-state-load ()
@@ -229,7 +402,7 @@ paint over lower ones."
        (t
         (let* ((cmds (pdf-render-convert-commands page))
                (in-file (pdf-render-image-file page))
-               (out-file (pdf-util-current-image-file page)))
+               (out-file (pdf-render-current-image-file page)))
           (unless cmds
             (pdf-render-set-state page nil)
             (copy-file in-file out-file t)
@@ -249,7 +422,7 @@ paint over lower ones."
                           (and pages (list (format ":Rendering (%d left)"
                                                    (length pages))))))
                   (apply
-                   'pdf-util-convert-asynch
+                   'pdf-render-convert-asynch
                    in-file pdf-render-temp-file
                    `(,@cmds
                      ,(lambda (_proc status)
@@ -284,7 +457,7 @@ paint over lower ones."
   (interactive)
   (save-current-buffer
     (when buffer (set-buffer buffer))
-    (pdf-util-assert-pdf-buffer)
+    (pdf-render-assert-pdf-buffer)
     (pdf-render-initialize)
     (pdf-render-cancel-redraw)
     (add-hook 'kill-buffer-hook 'pdf-render-cancel-redraw nil t)
@@ -310,13 +483,13 @@ paint over lower ones."
           exclusive-p nil))
   (org-with-gensyms (proc buffer tmp-in tmp-out fn page first-redraw)
     `(progn
-       (pdf-util-assert-pdf-window)
+       (pdf-render-assert-pdf-window)
        (let* ((,tmp-in
                (make-temp-file
-                "pdf-render" nil (concat "." (pdf-util-fast-image-format))))
+                "pdf-render" nil (concat "." (pdf-render-fast-image-format))))
               (,tmp-out
                (make-temp-file
-                "pdf-render" nil (concat "." (pdf-util-fast-image-format))))
+                "pdf-render" nil (concat "." (pdf-render-fast-image-format))))
               (,page (doc-view-current-page))
               (,fn ,render-fn)
               (,buffer (current-buffer))
@@ -327,7 +500,7 @@ paint over lower ones."
                ((redraw ()
                   (and (processp ,proc) (delete-process ,proc))
                   (setq ,proc
-                        (apply 'pdf-util-convert-asynch
+                        (apply 'pdf-render-convert-asynch
                                ,tmp-in
                                ,tmp-out
                                (append (funcall ,fn ,page)
@@ -345,7 +518,7 @@ paint over lower ones."
                                                     pdf-render-temp-file))))))))))
                (pdf-render-cancel-redraw)
                (pdf-render-initialize)
-               (apply 'pdf-util-convert
+               (apply 'pdf-render-convert
                       (pdf-render-image-file ,page)
                       ,tmp-in
                       (let ((pdf-render-render-functions
@@ -367,11 +540,11 @@ paint over lower ones."
 
 
 (defun pdf-render-redisplay-current-page ()
-  (pdf-util-assert-pdf-buffer)
+  (pdf-render-assert-pdf-buffer)
   (dolist (win (get-buffer-window-list))
     (with-selected-window win
-      (when (pdf-util-page-displayed-p)
-        (pdf-util-save-window-scroll
+      (when (pdf-render-page-displayed-p)
+        (pdf-render-save-window-scroll
           (doc-view-goto-page (doc-view-current-page)))))))
 
 (defun pdf-render-display-image (&optional file no-hotspots &rest properties)
@@ -379,7 +552,7 @@ paint over lower ones."
       (pdf-render-redisplay-current-page)
     (unless (file-equal-p
              file
-             (pdf-util-current-image-file))
+             (pdf-render-current-image-file))
       (let ((type (or (and (fboundp 'imagemagick-types)
                            'imagemagick)
                       (and (equal (file-name-extension file) "png")
@@ -408,27 +581,27 @@ paint over lower ones."
 (defvar pdf-render-momentarily-process nil)
 
 (defun pdf-render-momentarily (&rest spec)
-  (pdf-util-assert-pdf-window)
+  (pdf-render-assert-pdf-window)
   (let* ((window (selected-window))
          (image (doc-view-current-image))
          (buffer (window-buffer window))
          (page (doc-view-current-page))
-         (in-file (pdf-util-current-image-file))
-         (out-file (pdf-util-cache-make-filename
+         (in-file (pdf-render-current-image-file))
+         (out-file (pdf-render-cache-make-filename
                     'pdf-render-momentarily
-                    (pdf-util-fast-image-format))))
+                    (pdf-render-fast-image-format))))
     
     (when (processp pdf-render-momentarily-process)
       (delete-process pdf-render-momentarily-process))
     (setq pdf-render-momentarily-process
           (apply
-           'pdf-util-convert-asynch
+           'pdf-render-convert-asynch
            in-file out-file
            `(,@spec
              ,(lambda (_proc status)
                 (when (and (equal status "finished\n")
                            (buffer-live-p buffer)
-                           (pdf-util-pdf-buffer-p buffer)
+                           (pdf-render-pdf-buffer-p buffer)
                            (window-live-p window)
                            (eq (window-buffer window) buffer))
                   (with-selected-window window
@@ -443,12 +616,12 @@ paint over lower ones."
 (defadvice doc-view-insert-image (before pdf-render activate)
   "Not documented."
   (let (ov)
-    (when (and (pdf-util-pdf-buffer-p)
+    (when (and (pdf-render-pdf-buffer-p)
                (ad-get-arg 0)
                (file-readable-p (ad-get-arg 0))
                (setq ov (doc-view-current-overlay))
                (window-live-p (overlay-get ov 'window))
-               (pdf-util-png-image-size))
+               (pdf-render-png-image-size))
       (when pdf-render-inhibit-display
         (let* ((+file+ (ad-get-arg 0))
                (+page+ (save-match-data
