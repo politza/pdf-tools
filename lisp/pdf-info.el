@@ -675,8 +675,7 @@ This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
 has a form of \(EDGES TEXT\), where EDGES represent the
 coordinates of the match as a list of four values \(LEFT TOP
-RIGHT BOTTOM\). These values are relative, i.e. in the interval
-\[0;1\].  TEXT is the matched text and may be empty, if
+RIGHT BOTTOM\). TEXT is the matched text and may be empty, if
 extracting text is not available in the server."
 
   (let ((pages (pdf-info--normalize-pages pages)))
@@ -703,12 +702,12 @@ TYPE may be one of
 
 goto-dest -- This is a internal link to some page.  ARGS has the
 form \(PAGE TOP\), where PAGE is the page of the link and TOP
-it's (relative) vertical position.
+it's vertical position.
 
 goto-remote -- This a external link to some document.  ARGS is of
 the form \(PDFFILE PAGE TOP\), where PDFFILE is the filename of
-the external PDF, PAGE the page number and TOP the (relative)
-vertical position.
+the external PDF, PAGE the page number and TOP the vertical
+position.
 
 uri -- A link in form of some URI.  ARGS contains a single
 element, namely the URI.
@@ -743,9 +742,8 @@ the tree and ACTION has the same format as in
                               file-or-buffer)
   "Get text on PAGE according to edges X0, Y0, X1 and Y1.
 
-The coordinates of the edges are assumed to be relative,
-i.e. in the interval [0;1].  The selection may extend over
-multiple lines, which works similar to Emacs region.
+The selection may extend over multiple lines, which works similar
+to a Emacs region.
 
 Return the text contained in the selection."
 
@@ -810,7 +808,7 @@ alists.  Each element of this list describes one annotation and
 contains the following keys.
 
 page     - It's page number. 
-edges    - It's (relative) area.
+edges    - It's area.
 type     - A symbol describing the annotation's type.
 id       - A document-wide unique symbol referencing this annotation.
 flags    - It's flags, binary encoded.
@@ -984,9 +982,9 @@ corresponding file.  LINE and COLUMN represent the position in
 the buffer or file.  Finally FILE-OR-BUFFER corresponds to the
 PDF document.
 
-Returns a list of \(PAGE LEFT TOP RIGHT BOT\) of relative
-coordinates describing the position in the PDF document
-corresponding to the SOURCE location."
+Returns a list of \(PAGE LEFT TOP RIGHT BOT\) of coordinates
+describing the position in the PDF document corresponding to the
+SOURCE location."
   
   (let ((source (if (buffer-live-p (get-buffer source))
                     (buffer-file-name (get-buffer source))
@@ -1002,8 +1000,7 @@ corresponding to the SOURCE location."
   "Perform a backward search with synctex.
 
 This find the source location corresponding to the coordinates
-\(X . Y\) on PAGE in FILE-OR-BUFFER.  X and Y should be relative
-coordinates.
+\(X . Y\) on PAGE in FILE-OR-BUFFER.
 
 Returns a list \(SOURCE LINE COLUMN\)."
 
@@ -1063,7 +1060,7 @@ the caller."
   "Return a bounding-box for PAGE.
 
 Returns a list \(LEFT TOP RIGHT BOT\) of the corresponding
-bounding-box in relative coordinate-space."
+bounding-box."
   
   (pdf-info-query
    'boundingbox

@@ -129,8 +129,10 @@ typedef enum
     ARG_STRING,
     ARG_NATNUM,
     ARG_STRING_NONEMPTY,
-    ARG_EDGE,
-    ARG_EDGE_OR_NEGNUM,
+    ARG_REAL,
+    ARG_NONNEG_REAL,
+    ARG_RECTANGLE,
+    ARG_NONNEG_RECTANGLE,
     ARG_COLOR,
     ARG_REST
 } command_arg_spec_t;
@@ -143,8 +145,9 @@ typedef struct
     char *string;
     long natnum;
     document_t *doc;
-    double edge;
+    double real;
     PopplerColor color;
+    PopplerRectangle rectangle;
     struct
     {
       char **args;

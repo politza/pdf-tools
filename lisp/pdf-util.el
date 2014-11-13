@@ -50,7 +50,7 @@ is non-nil."
 Singal an error, if color is invalid." 
   (let ((values (color-values (string-trim color))))
     (unless values
-      (error "Invalid color: %s" color))
+      (signal 'wrong-type-argument (list 'color-defined-p color)))
     (apply 'format "#%02x%02x%02x"
            (mapcar (lambda (c) (lsh c -8))
                    values))))
@@ -60,6 +60,50 @@ Singal an error, if color is invalid."
   (image-size (pdf-view-current-image) t))
 
 
+(defun pdf-util-scale (list-of-edges scale &optional rounding-fn)
+  "Scale LIST-OF-EDGES by SCALE.
+
+SCALE is a cons (SX . SY), by which edges are scaled.  If
+ROUNDING-FN is non-nil, it should be a function of one argument,
+a real value, returning a rounded value (e.g. `ceiling').
+
+LIST-OF-EDGES may also be a single element.
+
+Return scaled list of edges if LIST-OF-EDGES was indeed a list,
+else return the scaled singleton."
+
+  (let ((have-list-p (listp (car list-of-edges))))
+    (unless have-list-p
+      (setq list-of-edges (list list-of-edges)))
+    (let* ((sx (car scale))
+           (sy (cdr scale))
+           (result (mapcar (lambda (edges)
+                             (let ((e (list (* (nth 0 edges) sx)
+                                            (* (nth 1 edges) sy)
+                                            (* (nth 2 edges) sx)
+                                            (* (nth 3 edges) sy))))
+                               (if rounding-fn
+                                   (mapcar rounding-fn e)
+                                 e)))
+                           list-of-edges)))
+      (if have-list-p
+          result
+        (car result)))))
+
+(defun pdf-util-scale-to-pixel (list-of-point-edges
+                                &optional rounding-fn window)
+  "Scale LIST-OF-EDGES to match SIZE.
+
+See also `pdf-util-scale'."
+  )
+
+(defun pdf-util-scale-to-points (list-of-pixel-edges
+                                 &optional rounding-fn window)
+  "Scale LIST-OF-EDGES to match SIZE.
+
+See also `pdf-util-scale'."
+  )
+                                        
 
 ;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;;

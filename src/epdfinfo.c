@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <png.h>
 #include "synctex_parser.h"
 #include "epdfinfo.h"
@@ -102,6 +103,77 @@ free_document (document_t *doc)
     }
   g_object_unref (doc->pdf);
   g_free (doc);
+}
+
+/** 
+ * Parse a list of whitespace separated doubles.
+ * 
+ * @param str The input string.
+ * @param values[out] Values are put here.  
+ * @param nvalues How many values to parse. 
+ * 
+ * @return TRUE, if exactly nvalues where read, else FALSE. 
+ */
+static gboolean
+parse_double_list (const char *str, gdouble *values, size_t nvalues)
+{
+  char *end;
+  int i;
+  
+  if (! str)
+    return FALSE;
+
+  errno = 0;
+  for (i = 0; i < nvalues; ++i)
+    {
+      gdouble n = g_ascii_strtod (str, &end);
+      
+      if (str == end || errno)
+        return FALSE;
+     
+      values[i] = n;
+      str = end;
+    }
+
+  if (*end)
+    return FALSE;
+  
+  return TRUE;
+}
+
+static gboolean
+parse_position (const char *str, gdouble *x, gdouble *y)
+{
+  gdouble values[2];
+
+  if (! parse_double_list (str, values, 2))
+    return FALSE;
+
+  if (x)
+    *x = values[0];
+  if (y)
+    *y = values[1];
+  
+  return TRUE;
+}
+
+static gboolean
+parse_rectangle (const char *str, PopplerRectangle *rectangle)
+{
+  gdouble values[4];
+
+  if (! parse_double_list (str, values, 4))
+    return FALSE;
+
+  if (rectangle)
+    {
+      rectangle->x1 = values[0];
+      rectangle->y1 = values[1];
+      rectangle->x2 = values[2];
+      rectangle->y2 = values[3];
+    }  
+  
+  return TRUE;
 }
 
 /** 
@@ -245,8 +317,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page, int width)
     width = 1;
   
   poppler_page_get_size (page, &pt_width, &pt_height);
-  if (pt_width > 0)
-    scale = width / pt_width;
+  scale = width / pt_width;
   height = (int) ((scale * pt_height) + 0.5);
   
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
@@ -689,21 +760,41 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
           }
         else
           cmd_arg->value.natnum = n;
-        break;
       }
-    case ARG_EDGE_OR_NEGNUM:
-    case ARG_EDGE:
+      break;
+    case ARG_RECTANGLE:
+    case ARG_NONNEG_RECTANGLE:
+      {
+        PopplerRectangle *r = &cmd_arg->value.rectangle;
+        if (! parse_rectangle (arg, r)
+            || (spec == ARG_NONNEG_RECTANGLE
+                && (r->x1 < 0 || r->y1 < 0 || r->x2 < 0 || r->y2 < 0)))
+          {
+            if (error_msg)
+              *error_msg = g_strdup_printf ("Expected a %srectangle: %s",
+                                            arg,
+                                            spec == ARG_NONNEG_RECTANGLE ?
+                                            "non-negative " : "");
+            return FALSE;
+          }
+      }
+      break;
+    case ARG_REAL:
+    case ARG_NONNEG_REAL:
       {
         char *endptr;
         double n = strtod (arg, &endptr);
-        if (*endptr || (spec == ARG_EDGE && n < 0.0) || n > 1.0)
+        if (*endptr || (spec == ARG_NONNEG_REAL && n < 0.0))
           {
             if (error_msg)
-              *error_msg = g_strdup_printf ("Expected 0 <= float <= 1:%s", arg);
+              *error_msg =
+                g_strdup_printf ("Expected a %sreal value: %s",
+                                 spec == ARG_NONNEG_REAL ? "non-negative " : "",
+                                 arg);
             return FALSE;
           }
         else
-          cmd_arg->value.edge = n;
+          cmd_arg->value.real = n;
         break;
       }
     case ARG_COLOR:
@@ -865,7 +956,7 @@ action_print_destination (PopplerDocument *doc, PopplerAction *action)
 
   poppler_page_get_size (page, &width, &height);
   g_object_unref (page);
-  top = (height - dest->top) / height;
+  top = height - dest->top;
 
   /* adapted from xpdf */
   switch (dest->type)
@@ -1022,8 +1113,7 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
   /* Page */
   printf ("%d:", poppler_page_get_index (page) + 1);
   /* Area */
-  printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
-          , r.x2 / width, r.y2 / height); 
+  printf ("%f %f %f %f:", r.x1, r.y1, r.x2, r.y2); 
       
   /* Type */
   printf ("%s:", xpoppler_annot_type_string (poppler_annot_get_annot_type (a)));
@@ -1091,9 +1181,8 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
       gdouble tmp = r.y1;
       r.y1 = height - r.y2;
       r.y2 = height - tmp;
-      printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
-              , r.x2 / width, r.y2 / height
-              , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
+      printf ("%f %f %f %f:%d:", r.x1, r.y1, r.x2, r.y2,
+              poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
           
     }
   else
@@ -1372,9 +1461,7 @@ cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
           r->y1 = height - r->y2;
           r->y2 = height - y1;
 
-          printf ("%d:%f %f %f %f:", pn,
-                  r->x1 / width, r->y1 / height,
-                  r->x2 / width, r->y2 / height);
+          printf ("%d:%f %f %f %f:", pn, r->x1, r->y1, r->x2, r->y2);
           line = strchomp (poppler_page_get_selected_text
                            (page, POPPLER_SELECTION_LINE, r));
           print_response_string (line, NEWLINE);
@@ -1593,9 +1680,7 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
       r->y1 = height - r->y2;
       r->y2 = height - x;
         
-      printf ("%f %f %f %f:"
-              , r->x1 / width, r->y1 / height
-              , r->x2 / width, r->y2 / height);
+      printf ("%f %f %f %f:", r->x1, r->y1, r->x2, r->y2);
       action_print (doc, link->action);
     }
   OK_END ();
@@ -1616,10 +1701,7 @@ const command_arg_spec_t cmd_gettext_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE,                   /* y1 */
+    ARG_NONNEG_RECTANGLE,       /* selection */
     ARG_NATNUM                  /* selection-style */
   };
 
@@ -1628,16 +1710,12 @@ cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
 {
   PopplerDocument *doc = args[0].value.doc->pdf;
   int pn = args[1].value.natnum;
-  double x1 = args[2].value.edge; 
-  double y1 = args[3].value.edge;
-  double x2 = args[4].value.edge;
-  double y2 = args[5].value.edge;
+  PopplerRectangle r = args[2].value.rectangle;
   int selection_style = args[5].value.natnum;
   PopplerPage *page;
   double width, height;
   gchar *text;
-  PopplerRectangle r;
-  
+
   switch (selection_style)
     {
     case POPPLER_SELECTION_GLYPH: break;
@@ -1653,12 +1731,6 @@ cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
     }
 
   page = poppler_document_get_page (doc, pn - 1);
-  poppler_page_get_size (page, &width, &height);
-  r.x1 = x1 * width;
-  r.x2 = x2 * width;
-  r.y1 = y1 * height;
-  r.y2 = y2 * height;
-  /* printf ("%f %f %f %f , %f %f\n", r.x1, r.y1, r.x2, r.y2, width, height); */
   text = poppler_page_get_selected_text (page, selection_style, &r);
 
   OK_BEGIN ();
@@ -1691,10 +1763,7 @@ const command_arg_spec_t cmd_getselection_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE,                   /* y1 */
+    ARG_NONNEG_RECTANGLE,       /* selection */
     ARG_NATNUM                  /* selection-style */
   };
 
@@ -1703,17 +1772,12 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   PopplerDocument *doc = args[0].value.doc->pdf;
   int pn = args[1].value.natnum;
-  double x1 = args[2].value.edge; 
-  double y1 = args[3].value.edge;
-  double x2 = args[4].value.edge;
-  double y2 = args[5].value.edge;
+  PopplerRectangle r = args[2].value.rectangle;
   int selection_style = args[5].value.natnum;
   
   cairo_region_t *region;
   int i;
   PopplerPage *page;
-  double width, height;
-  PopplerRectangle r;
   
   switch (selection_style)
     {
@@ -1729,12 +1793,6 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
       return;
     }
   page = poppler_document_get_page (doc, pn - 1);
-  poppler_page_get_size (page, &width, &height);
-  r.x1 = x1 * width;
-  r.x2 = x2 * width;
-  r.y1 = y1 * height;
-  r.y2 = y2 * height;
-
   region = poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, &r);
 
   OK_BEGIN ();
@@ -1744,10 +1802,7 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
 
       cairo_region_get_rectangle (region, i, &r);
       printf ("%f %f %f %f\n",
-              r.x / width,
-              r.y / height,
-              (r.x + r.width) / width,
-              (r.y + r.height) / height);
+              r.x, r.y, (r.x + r.width), (r.y + r.height));
     }
   OK_END ();
 
@@ -1984,10 +2039,7 @@ const command_arg_spec_t cmd_addannot_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x0 */
-    ARG_EDGE,                   /* y0 */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE                    /* y1 */
+    ARG_NONNEG_RECTANGLE,       /* area */
   };
 
 static void
@@ -1996,20 +2048,17 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   
   document_t *doc = args->value.doc;
   gint pn = args[1].value.natnum;
-  double x1 = args[2].value.edge; 
-  double y1 = args[3].value.edge;
-  double x2 = args[4].value.edge;
-  double y2 = args[5].value.edge;
+  PopplerRectangle r = args[2].value.rectangle;
   int i;
   PopplerPage *page;
   double width, height;
   PopplerAnnot *pannot;
-  PopplerRectangle rect;
   PopplerAnnotMapping *amap;
   annotation_t *annot;
   gchar *key;
   GList *annots;
-
+  gdouble tmp;
+  
   if (pn < 0 || pn > poppler_document_get_n_pages (doc->pdf))
     {
       printf_error_response ("No such page %d", pn);
@@ -2017,14 +2066,13 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
     }
   page = poppler_document_get_page (doc->pdf, pn - 1);
   poppler_page_get_size (page, &width, &height);
-  rect.x1 = x1 * width;
-  rect.x2 = x2 * width;
-  rect.y1 = height - (y2 * height);
-  rect.y2 = height - (y1 * height);
+  tmp = r.y1;
+  r.y1 = height - r.y2;
+  r.y2 = height - tmp;
 
-  pannot = poppler_annot_text_new (doc->pdf, &rect);
+  pannot = poppler_annot_text_new (doc->pdf, &r);
   amap = poppler_annot_mapping_new ();
-  amap->area = rect;
+  amap->area = r;
   amap->annot = pannot;
   annots = annoation_get_for_page (doc, pn);
 
@@ -2135,10 +2183,10 @@ const command_arg_spec_t cmd_editannot_spec[] =
     ARG_STRING_NONEMPTY,        /* Key */
     ARG_STRING,                 /* Bitmask of set values */
                                 /* Edges */
-    ARG_EDGE,                   /* x1 */
-    ARG_EDGE,                   /* y1 */
-    ARG_EDGE_OR_NEGNUM,         /* x2 or keep width, if negative */
-    ARG_EDGE_OR_NEGNUM,         /* y2 or keep height, if negative */
+    ARG_NONNEG_REAL,            /* x1 */
+    ARG_NONNEG_REAL,            /* y1 */
+    ARG_REAL,                   /* x2 or keep width, if negative */
+    ARG_REAL,                   /* y2 or keep height, if negative */
 
     ARG_STRING,                 /* color */
     ARG_STRING,                 /* contents */
@@ -2154,7 +2202,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
   char *key = args[1].value.string;
   annotation_t *annot = annotation_get_by_key (doc, key);
   char *setmask = args[2].value.string;
-  guint r,g,b;                  /* Colors */
+  PopplerColor color = args[7].value.color;
   PopplerAnnot *pannot;
   gint index;
   PopplerPage *page;
@@ -2182,16 +2230,6 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 
   /* Don't set anything, if some value is invalid. */
 
-  if (setmask[1] != '0')
-    {
-      char *color = args[7].value.string;
-      if (! strlen (color) == 7
-          || 3 != sscanf (color, "#%2x%2x%2x", &r, &g, &b))
-        {
-          printf_error_response ("Invalid color: %s", color);
-          return;
-        }
-    }
   if (setmask[3] != '0' && ! POPPLER_IS_ANNOT_MARKUP (pannot))
     {
       printf_error_response ("Not a markup annotation: %s", key);
@@ -2219,24 +2257,24 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 
       poppler_page_get_size (page, &width, &height);
 
-      x1 = args[3].value.edge; 
-      y1 = args[4].value.edge;
-      x2 = args[5].value.edge;
-      y2 = args[6].value.edge;
+      x1 = args[3].value.real; 
+      y1 = args[4].value.real;
+      x2 = args[5].value.real;
+      y2 = args[6].value.real;
 
       /* Translate Gravity and maybe keep the width and height. */
       if (x2 < 0)
-        area->x2 +=  (x1 * width) - area->x1;
+        area->x2 +=  x1 - area->x1;
       else
-        area->x2 = x2 * width;
+        area->x2 = x2;
 
       if (y2 < 0)
-        area->y1 -=  (y1 * height) - (height - area->y2);
+        area->y1 -=  y1 - (height - area->y2);
       else
-        area->y1 = height - (y2 * height);
+        area->y1 = height - y2;
 
-      area->x1 = x1 * width;
-      area->y2 = height - (y1 * height);
+      area->x1 = x1;
+      area->y2 = height - y1;
 
       poppler_annot_set_rectangle (pannot, area);
       g_object_unref (page);
@@ -2244,12 +2282,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 
   if (setmask[1] != '0')
     {
-      PopplerColor pcolor;
-
-      pcolor.red = r << 8;
-      pcolor.green = g << 8;
-      pcolor.blue = b << 8;
-      poppler_annot_set_color (pannot, &pcolor);
+      poppler_annot_set_color (pannot, &color);
     }
 
   if (setmask[2] != '0')
@@ -2341,10 +2374,6 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
         goto theend;
       }
     poppler_page_get_size (page, &width, &height);
-    x1 /= width;
-    y1 /= height;
-    x2 /= width;
-    y2 /= height;
     
     OK_BEGIN ();
     printf("%d:%f:%f:%f:%f\n", pn, x1, y1, x2, y2);
@@ -2360,8 +2389,8 @@ const command_arg_spec_t cmd_synctex_backward_search_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
-    ARG_EDGE,                   /* x */
-    ARG_EDGE                    /* y */
+    ARG_NONNEG_REAL,                   /* x */
+    ARG_NONNEG_REAL                    /* y */
   };
 
 static void
@@ -2369,8 +2398,8 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
-  double x = args[2].value.edge;
-  double y = args[3].value.edge;
+  double x = args[2].value.real;
+  double y = args[3].value.real;
   synctex_scanner_t scanner =
     synctex_scanner_new_with_output_file (doc->filename, NULL, 1);
   const char *filename;
@@ -2393,8 +2422,6 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
       goto free_scanner;
     }
   poppler_page_get_size (page, &width, &height);
-  x = x * width;
-  y = y * height;
 
   if (! synctex_edit_query (scanner, pn, x, y)
       || ! (node = synctex_next_result (scanner))
@@ -2499,7 +2526,6 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
     {
       PopplerColor fg, bg;
 
-    next:
       if (! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR, &error_msg))
         {
           printf_error_response ("%s", error_msg);
@@ -2517,44 +2543,13 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
       bg = rest_arg.value.color;
       ++i;
 
-      while (i < nrest_args)
+      while (i < nrest_args
+             && command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
+                                       ARG_NONNEG_RECTANGLE, &error_msg))
         {
-          PopplerRectangle selection;
-          int j;
-
-          for (j = 0; j < 4; ++j, ++i)
-            {
-              if (i >= nrest_args)
-                {
-                  printf_error_response ("Incomplete region detected");
-                  goto theend;
-                }
-              if (! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_EDGE, &error_msg))
-                {
-                  if (j == 0)
-                    goto next;
-                  printf_error_response ("%s", error_msg);
-                  goto theend;
-                }
-              switch (j)
-                {
-                case 0:
-                  selection.x1 = (rest_arg.value.edge * pt_width) + 1;
-                  break;
-                case 1:
-                  selection.y1 = (rest_arg.value.edge * pt_height) + 1;
-                  break;
-                case 2:
-                  selection.x2 = (rest_arg.value.edge * pt_width) - 1;
-                  break;
-                case 3:
-                  selection.y2 = (rest_arg.value.edge * pt_height) - 1;
-                  break;
-                }
-            }
-
-          poppler_page_render_selection (page, cr, &selection, NULL,
+          poppler_page_render_selection (page, cr, &rest_arg.value.rectangle, NULL,
                                          POPPLER_SELECTION_GLYPH, &fg, &bg);
+          ++i;
         }
     }
   
@@ -2660,7 +2655,6 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   bbox.y2 = i + 1;
 
   OK_BEGIN ();
-  /* printf ("%f:%f:%f:%f\n", bbox.x1, bbox.y1, bbox.x2, bbox.y2); */
   if (bbox.x1 > bbox.x2 || bbox.y1 > bbox.y2)
     {
       /* empty page */
@@ -2668,11 +2662,7 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
     }
   else
     {
-      printf ("%f:%f:%f:%f\n",
-              bbox.x1 / width,
-              bbox.y1 / height,
-              bbox.x2 / width,
-              bbox.y2 / height);
+      printf ("%f:%f:%f:%f\n", bbox.x1, bbox.y1, bbox.x2, bbox.y2);
     }
   OK_END ();
   
