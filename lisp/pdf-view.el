@@ -239,9 +239,7 @@ PNG images in Emacs buffers.
   
   ;; Setup initial page and start display
   (unless (pdf-view-current-page)
-    (setf (pdf-view-current-page) 1))
-  (when (pdf-util-pdf-window-p)
-    (pdf-view-redisplay))
+    (pdf-view-goto-page 1))
 
   (run-mode-hooks 'pdf-view-mode-hook))
 
@@ -301,6 +299,18 @@ a local copy of a remote file."
 ;; * Moving by pages and scrolling
 ;; * ================================================================== *
 
+
+
+(defcustom pdf-view-before-change-page-hook nil
+  "Hook run before changing to another page."
+  :group 'pdf-view
+  :type 'hook)
+
+(defcustom pdf-view-after-change-page-hook nil
+  "Hook run after changing to another page."
+  :group 'pdf-view
+  :type 'hook)
+
 (defun pdf-view-goto-page (page &optional window)
   (interactive
    (list (if current-prefix-arg
@@ -314,14 +324,20 @@ a local copy of a remote file."
           (if (pdf-util-pdf-window-p)
               (selected-window)
             t)))
-  (let ((changing-p
-         (not (eq page (pdf-view-current-page window)))))
-    (setf (pdf-view-current-page window) page)
+  (save-selected-window
+    ;; Select the window for the hooks below.
     (when (window-live-p window)
-      (pdf-view-redisplay window))
-    (when changing-p
-      (force-mode-line-update)
-      (run-hooks 'pdf-view-change-page-hook)))
+      (select-window window))
+    (let ((changing-p
+           (not (eq page (pdf-view-current-page window)))))
+      (when changing-p
+        (run-hooks 'pdf-view-before-change-page-hook))
+      (setf (pdf-view-current-page window) page)
+      (when (window-live-p window)
+        (pdf-view-redisplay window))
+      (when changing-p
+        (force-mode-line-update)
+        (run-hooks 'pdf-view-after-change-page-hook))))
   nil)
 
 (defun pdf-view-next-page (&optional n)
@@ -342,8 +358,9 @@ a local copy of a remote file."
     (user-error "Last page"))
   (when (< (+ (pdf-view-current-page) n) 1)
     (user-error "First page"))
-  (setf (pdf-view-current-page)
-        (+ (pdf-view-current-page) n))
+  (let ((pdf-view-inhibit-redisplay t))
+    (pdf-view-goto-page
+     (+ (pdf-view-current-page) n)))
   (force-mode-line-update)
   (sit-for 0)
   (when pdf-view--next-page-timer
@@ -522,6 +539,8 @@ again."
 ;; * Display
 ;; * ================================================================== *
 
+(defvar pdf-view-inhibit-redisplay nil)
+
 (defun pdf-view-image-type ()
   "Return the image-type which should be used.
 
@@ -551,7 +570,8 @@ or png."
     (create-image
      data (pdf-view-image-type) t
      :width (car size)
-     :map hotspots)))
+     :map hotspots
+     :pointer 'arrow)))
 
 (defun pdf-view-image-size (&optional displayed-p window)
   "Return the size in pixel of the current image.
@@ -622,9 +642,10 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
           (if vscroll (set-window-vscroll win vscroll)))))))
 
 (defun pdf-view-redisplay (&optional window)
-  (pdf-view-display-page
-   (pdf-view-current-page window)
-   window))
+  (unless pdf-view-inhibit-redisplay
+    (pdf-view-display-page
+     (pdf-view-current-page window)
+     window)))
 
 (defun pdf-view-redisplay-all-windows ()
   (dolist (window (get-buffer-window-list nil nil t))

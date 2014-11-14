@@ -21,6 +21,7 @@
 ;;; Commentary:
 ;; 
 
+(require 'pdf-view)
 (require 'pdf-util)
 (require 'pdf-info)
 (require 'tablist)
@@ -103,7 +104,7 @@ If EVENT is nil, use occurrence at current line."
                (tabulated-list-get-id))))))
     (when link
       (pop-to-buffer (car link))
-      (doc-view-goto-page (cadr link))
+      (pdf-view-goto-page (cadr link))
       (pdf-util-tooltip-arrow (nth 1 (nth 2 link)) 2))))
 
 (defun pdf-occur-view-occurrence (&optional event)
@@ -123,7 +124,7 @@ If EVENT is nil, use occurrence at current line."
                (tabulated-list-get-id))))))
     (when link
       (with-selected-window (display-buffer (car link))
-        (doc-view-goto-page (cadr link))
+        (pdf-view-goto-page (cadr link))
         (pdf-util-tooltip-arrow (nth 1 (nth 2 link)) 2)))))
 
 ;;;###autoload

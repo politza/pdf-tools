@@ -188,7 +188,7 @@ error."
                  (file-executable-p pdf-info-epdfinfo-program))
       (error "The variable pdf-info-epdfinfo-program is unset or not executable: %s"
              pdf-info-epdfinfo-program))
-    (let* ((process-connection-type)
+    (let* ((process-connection-type)    ;Avoid 4096 Byte bug #12440.
            (proc (start-process
                   "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program
                   ;; FIXME: Hardcoded filename.
@@ -241,9 +241,6 @@ error."
   (pdf-info-process-assert-running)
   (unless (symbolp cmd)
     (setq cmd (intern cmd)))
-  (when (and pdf-info-interruptable
-             (null pdf-info-asynchronous))
-    (error "Synchronous requests are uncancelable"))
   (let* ((query (concat (mapconcat 'pdf-info-query--escape
                                    (cons cmd args) ":") "\n"))
          (callback
@@ -258,6 +255,8 @@ error."
          (closure (or pdf-info-asynchronous
                       (lambda (s r)
                         (setq status s response r done t)))))
+    (when pdf-info-interruptable
+      (setq query (concat "!" query)))
     (pdf-info-query--log query t)
     (tq-enqueue
      pdf-info--queue query "^\\.\n" closure callback)
@@ -279,13 +278,12 @@ error."
        (t
         (error "internal error: invalid response status"))))))
 
-(defun pdf-info-cancel-query (cookie)
-  (unless (memq cookie
-                pdf-info--cancelable-requests)
-    (error "Request is unknown or already canceled"))
-  (setq pdf-info--cancelable-requests
-        (remove cookie pdf-info--cancelable-requests)))
-  
+(defun pdf-info-interrupt ()
+  (when (and (processp (pdf-info-process))
+             (eq (process-status (pdf-info-process))
+                 'run))
+    (signal-process (pdf-info-process) 'SIGUSR1)))
+                             
 (defun pdf-info-query--escape (arg)
   "Escape ARG for transmision to the server."
   (if (null arg)
@@ -498,18 +496,26 @@ This is a no-op, if `pdf-info-log' is nil."
   (when pdf-info-log
     (with-current-buffer (get-buffer-create "*pdf-info-log*")
       (buffer-disable-undo)
-      (save-excursion
-        (goto-char (point-max))
-        (unless (bolp)
-          (insert ?\n))
-        (insert
-         (propertize
-          (format-time-string "%H:%M:%S ")
-          'face
-          (if query-p
-              'font-lock-keyword-face
-            'font-lock-function-name-face))
-         string)))))
+      (let ((pos (point-max))
+            (window (get-buffer-window)))
+        (save-excursion
+          (goto-char (point-max))
+          (unless (bolp)
+            (insert ?\n))
+          (insert
+           (propertize
+            (format-time-string "%H:%M:%S ")
+            'face
+            (if query-p
+                'font-lock-keyword-face
+              'font-lock-function-name-face))
+           (if (> (length string) 170)
+               (concat (substring string 0 170)
+                       "...[truncated]\n")
+             string)))
+        (when (and (window-live-p window)
+                   (= pos (window-point window)))
+          (set-window-point window (point-max)))))))
 
 
 

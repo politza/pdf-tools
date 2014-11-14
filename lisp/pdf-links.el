@@ -24,7 +24,7 @@
 (require 'pdf-info)
 (require 'pdf-util)
 (require 'pdf-misc)
-(require 'pdf-render)
+(require 'pdf-cache)
 (require 'pdf-isearch)
 
 ;;; Code:
@@ -32,7 +32,7 @@
 
 
 ;; * ================================================================== *
-;; * Customizables
+;; * Customizations
 ;; * ================================================================== *
 
 (defgroup pdf-links nil
@@ -49,16 +49,15 @@
 (defcustom pdf-links-read-link-convert-commands
   '(;; "-font" "FreeMono"
     "-pointsize" "%P"
-     "-undercolor" "%f"
+    "-undercolor" "%f"
     "-fill" "%b"
     "-draw" "text %X,%Y '%c'")
 
-  "The commands for the convert program, when decorating links for read.
-See `pdf-isearch-convert-commands' for an explanation of the
-format.
+  "The commands for the convert program, when decorating links for reading.
+See `pdf-util-convert' for an explanation of the format.
 
-Aside from the format described there, two additional escape
-chars are available.
+Aside from the description there, two additional escape chars are
+available.
 
 %P -- The scaled font pointsize, i.e. IMAGE-WIDTH * SCALE (See
  `pdf-links-convert-pointsize-scale').
@@ -91,21 +90,13 @@ do something with it."
 
 
 ;; * ================================================================== *
-;; * Internal variables
-;; * ================================================================== *
-
-(defvar-local pdf-links-page-alist nil
-  "Alist of pages and corresponding links.")
-
-
-;; * ================================================================== *
 ;; * Minor Mode
 ;; * ================================================================== *
 
 (defvar pdf-links-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "f") 'pdf-links-isearch-link)
-    (define-key kmap (kbd "F") 'pdf-links-do-action)
+    (define-key kmap (kbd "F") 'pdf-links-action-perform)
     kmap))
 
 ;;;###autoload
@@ -113,7 +104,7 @@ do something with it."
   "Handle links in PDF documents.\\<pdf-links-minor-mode-map>
 
 If this mode is enabled, most links in the document may be
-activated by clicking on them or by pressing \\[pdf-links-do-action] and selecting
+activated by clicking on them or by pressing \\[pdf-links-action-perform] and selecting
 one of the displayed keys, or by using isearch limited to
 links via \\[pdf-links-isearch-link].
 
@@ -124,35 +115,21 @@ links via \\[pdf-links-isearch-link].
   (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-links-minor-mode
-    (pdf-render-register-hotspot-function 'pdf-links-hotspots-function 0))
+    (pdf-view-add-hotspot-function 'pdf-links-hotspots-function 0))
    (t
-    (pdf-render-unregister-hotspot-function 'pdf-links-hotspots-function)))
-  (doc-view-goto-page (doc-view-current-page)))
-
-(defun pdf-links-after-reconvert-hook ()
-  (setq pdf-links-page-alist nil))
-
-(defun pdf-links-pagelinks (&optional page)
-  "Return the cached links for page PAGE.
-
-PAGE defaults to the current page.  See `pdf-info-pagelinks' for
-the format of the return value."
-  (unless page (setq page (doc-view-current-page)))
-  (or (cdr (assq page pdf-links-page-alist))
-      (let ((links (pdf-info-pagelinks page)))
-        (push (cons page links) pdf-links-page-alist)
-        links)))
+    (pdf-view-remove-hotspot-function 'pdf-links-hotspots-function)))
+  (pdf-view-redisplay-all-windows))
 
 (defun pdf-links-hotspots-function (page size)
   "Create hotspots for links on PAGE using SIZE."
   
-  (let ((links (pdf-links-pagelinks page))
+  (let ((links (pdf-cache-pagelinks page))
         (id-fmt "link-%d-%d")
         (i 0)
         (pointer 'hand)
         hotspots)
     (dolist (l links)
-      (let ((e (pdf-util-scale-edges (car l) size))
+      (let ((e (pdf-util-scale (car l) size 'round))
             (id (intern (format id-fmt page
                                 (cl-incf i)))))
         (push `((rect . ((,(nth 0 e) . ,(nth 1 e))
@@ -166,8 +143,10 @@ the format of the return value."
          (vector id 'mouse-1)
          (lambda nil
            (interactive "@")
-           (pdf-links-do-action (cdr l))))
-        (pdf-util-image-map-divert-mouse-clicks id)))
+           (pdf-links-action-perform (cdr l))))
+        (local-set-key
+         (vector id t)
+         'pdf-util-image-map-mouse-event-proxy)))
     (nreverse hotspots)))
 
 (defun pdf-links-action-to-string (action)
@@ -213,7 +192,7 @@ the format of the return value."
       str)))
 
 ;;;###autoload
-(defun pdf-links-do-action (action)
+(defun pdf-links-action-perform (action)
   "Invoke ACTION, depending on it's type.
 
 This may turn to another page, switch to another PDF buffer or
@@ -251,9 +230,9 @@ scroll the current page."
            (display-buffer
             (or (find-buffer-visiting file)
                 (find-file-noselect file))))
-         (when (derived-mode-p 'doc-view-mode)
+         (when (derived-mode-p 'pdf-view-mode)
            (when (> page 0)
-             (doc-view-goto-page page))
+             (pdf-view-goto-page page))
            (when (and top
                       (pdf-util-page-displayed-p))
              (pdf-util-tooltip-arrow top)))))
@@ -265,38 +244,49 @@ scroll the current page."
        (error "Invalid link:%s" action)))
     nil))
     
-(defun pdf-links-read-link-action (prompt &optional page)
-  "Using PROMPT, interactively read a link-action from PAGE.
+(defun pdf-links-read-link-action (prompt)
+  "Using PROMPT, interactively read a link-action.
 
-See `pdf-links-do-action' for the interface."
-  (unless (pdf-util-page-displayed-p)
-    (error "Page is not ready"))
-  (let* ((links (pdf-links-pagelinks page))
+See `pdf-links-action-perform' for the interface."
+
+  (pdf-util-assert-pdf-window)
+  (let* ((links (pdf-cache-pagelinks
+                 (pdf-view-current-page)))
          (keys (pdf-links-read-link-action--create-keys
                 (length links)))
          (key-strings (mapcar (apply-partially 'apply 'string)
                               keys))
          (alist (cl-mapcar 'cons keys links))
+         (size (pdf-view-image-size))
          (colors (pdf-util-face-colors
-                  'pdf-links-read-link pdf-misc-dark-mode)))
+                  'pdf-links-read-link pdf-misc-dark-mode))
+         (args (list
+                :foreground (car colors)
+                :background (cdr colors)
+                :formats
+                `((?c . ,(lambda (_edges) (pop key-strings)))
+                  (?P . ,(number-to-string
+                          (max 1 (* (cdr size)
+                                    pdf-links-convert-pointsize-scale)))))
+                :commands pdf-links-read-link-convert-commands
+                :apply (pdf-util-scale-relative-to-pixel
+                        (mapcar 'car links)))))
     (unless links
       (error "No links on this page"))
     (unwind-protect
-        (progn
-          (pdf-render-momentarily
-           :commands (list pdf-links-read-link-convert-commands
-                           (cons ?c (lambda (_edges) (pop key-strings)))
-                           (cons ?P
-                                 `(lambda (_edges)
-                                    ,(max 1 (* (cdr (pdf-util-png-image-size))
-                                               pdf-links-convert-pointsize-scale)))))
-           :foreground (car colors)
-           :background (cdr colors)
-           :apply (pdf-util-scale-edges
-                   (mapcar 'car links)
-                   (pdf-util-png-image-size)))
+        (let ((image-data
+               (pdf-cache-get-image 
+                (pdf-view-current-page)
+                (car size) (car size) 'pdf-links-read-link-action)))
+          (unless image-data
+            (setq image-data (apply 'pdf-util-convert-page args ))
+            (pdf-cache-put-image
+             (pdf-view-current-page)
+             (car size) image-data 'pdf-links-read-link-action))
+          (pdf-view-display-image
+           (create-image image-data (pdf-view-image-type) t))
           (cdr (pdf-links-read-link-action--read-chars prompt alist)))
-      (pdf-render-redisplay-current-page))))
+      (pdf-view-redisplay))))
 
 (defun pdf-links-read-link-action--read-chars (prompt alist)
   (catch 'done
@@ -335,10 +325,6 @@ See `pdf-links-do-action' for the interface."
           (push key keys)))
       (nreverse keys))))
 
-(defun pdf-links-read-link--clear-cache ()
-  "Remove prepared image files for interactively reading links."
-  (pdf-util-cache-clear "pdf-links-read-link"))
-
 (defun pdf-links-isearch-link ()
   (interactive)
   (let* (quit-p
@@ -348,29 +334,34 @@ See `pdf-links-do-action' for the interface."
                 isearch-mode-end-hook))
          (pdf-isearch-filter-matches-function
           'pdf-links-isearch-link-filter-matches)
-         (isearch-message-prefix-add "(Links)"))
+         (pdf-isearch-narrow-to-page t)
+         (isearch-message-prefix-add "(Links)")
+         pdf-isearch-batch-mode)
     (isearch-forward)
     (unless (or quit-p (null pdf-isearch-current-match))
-      (let* ((match  pdf-isearch-current-match)
-             (size (pdf-util-image-size))
-             (links (sort (cl-remove-if (lambda (e)
-                                       (= 0 (pdf-utils-edges-intersection-area (car e) match)))
-                                     (mapcar (lambda (l)
-                                               (cons (pdf-util-scale-edges
-                                                      (car l) size)
-                                                     (cdr l)))
-                                             (pdf-links-pagelinks)))
+      (let* ((page (pdf-view-current-page))
+             (match  pdf-isearch-current-match)
+             (size (pdf-view-image-size))
+             (links (sort (cl-remove-if
+                           (lambda (e)
+                             (= 0 (pdf-utils-edges-intersection-area (car e) match)))
+                           (mapcar (lambda (l)
+                                     (cons (pdf-util-scale-edges
+                                            (car l) size)
+                                           (cdr l)))
+                                   (pdf-cache-pagelinks page)))
                           (lambda (e1 e2)
                             (> (pdf-utils-edges-intersection-area (car e1) match)
                                (pdf-utils-edges-intersection-area (car e2) match))))))
         (unless links
           (error "No link found at this position"))
-        (pdf-links-do-action (cdar links))))))
+        (pdf-links-action-perform (cdar links))))))
                    
 (defun pdf-links-isearch-link-filter-matches (matches)
   (let ((links (pdf-util-scale-edges
-                (mapcar 'car (pdf-links-pagelinks))
-                (pdf-util-image-size))))
+                (mapcar 'car (pdf-cache-pagelinks
+                              (pdf-view-current-page)))
+                (pdf-view-image-size))))
     (cl-remove-if-not
      (lambda (m)
        (cl-some (lambda (l)

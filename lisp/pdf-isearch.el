@@ -219,6 +219,10 @@ different images have to be displayed."
 The function receives one argument: a list of edges. It should
 return a subset of this list. The edges are in PDF points.")
 
+(defvar pdf-isearch-narrow-to-page nil
+  "Non-nil, if the search should be limited to the current page.")
+
+
 (defun pdf-isearch-search-function (string &rest _)
   "Search for STRING in the current PDF buffer.
 
@@ -258,7 +262,7 @@ This is a Isearch interface function."
         (if isearch-forward
             (re-search-forward ".")
           (re-search-backward ".")))
-       (t
+       ((not pdf-isearch-narrow-to-page)
         (let ((next-page (pdf-isearch-find-next-matching-page
                           string pdf-isearch-current-page isearch-forward t)))
           (when next-page
@@ -270,7 +274,7 @@ This is a Isearch interface function."
 
 This is a Isearch interface function."
   (let ((hscroll (window-hscroll))
-        (vscroll (window-vscroll nil t))
+        (vscroll (window-vscroll))
         (parms pdf-isearch-current-parameter)
         (matches pdf-isearch-current-matches)
         (match pdf-isearch-current-match)
@@ -286,8 +290,8 @@ This is a Isearch interface function."
         (pdf-isearch-hl-matches
          pdf-isearch-current-match
          pdf-isearch-current-matches))
-      (set-window-hscroll nil hscroll)
-      (set-window-vscroll nil vscroll t))))
+      (image-set-window-hscroll hscroll)
+      (image-set-window-vscroll vscroll))))
 
 (defun pdf-isearch-wrap-function ()
   "Go to first or last page.
@@ -296,7 +300,8 @@ This is a Isearch interface function."
   (let ((page (if isearch-forward
                   1
                 (pdf-cache-number-of-pages))))
-    (unless (= page (pdf-view-current-page))
+    (unless (or pdf-isearch-narrow-to-page
+                (= page (pdf-view-current-page)))
       (pdf-view-goto-page page)
       (let ((next-screen-context-lines 0))
         (if (= page 1)
@@ -404,30 +409,30 @@ If INTERACTIVE-P is non-nil, give some progress feedback.
 Returns the page number where STRING was found, or nil if there
 is no such page."
   ;; Do a exponentially expanding search.
-  (let* ((case-fold-search isearch-case-fold-search)
-         (incr 1)
+  (let* ((incr 1)
          (pages (if forward-p
                     (cons (1+ page)
                           (1+ page))
                   (cons (1- page)
                         (1- page))))
-         (final-page (and forward-p (pdf-cache-number-of-pages)))
          matched-page
          reporter)
 
     (while (and (null matched-page)
                 (or (and forward-p
-                         (<= (car pages) final-page))
+                         (<= (car pages)
+                             (pdf-cache-number-of-pages)))
                     (and (not forward-p)
                          (>= (cdr pages) 1))))
-      (let ((matches (pdf-info-search string nil pages)))
+      (let* ((case-fold-search isearch-case-fold-search)
+             (matches (pdf-info-search string nil pages)))
         (setq matched-page (if forward-p
                                (caar matches)
                              (caar (last matches)))))
       (setq incr (* incr 2))
       (cond (forward-p
              (setcar pages (1+ (cdr pages)))
-             (setcdr pages (min final-page
+             (setcdr pages (min (pdf-cache-number-of-pages)
                                 (+ (cdr pages) incr))))
             (t
              (setcdr pages (1- (car pages)))
@@ -440,7 +445,7 @@ is no such page."
                 (apply
                  'make-progress-reporter "Searching"
                  (if forward-p
-                     (list (car pages) final-page nil 0)
+                     (list (car pages) (pdf-cache-number-of-pages) nil 0)
                    (list 1 (cdr pages) nil 0)))))
         (when reporter
           (progress-reporter-update
@@ -574,6 +579,8 @@ MATCH-BG LAZY-FG LAZY-BG\)."
               (car lazy)
               (cdr lazy)))))))
 
+(defvar pdf-isearch-hl-matches-tick 0)
+
 (defun pdf-isearch-hl-matches (current matches)
   "Highlighting edges CURRENT and MATCHES."
   (let* ((width (car (pdf-view-image-size)))
@@ -586,8 +593,9 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                            (reverse matches)
                          matches)
                        page 
-                       (and (boundp 'pdf-misc-dark-mode)
-                            pdf-misc-dark-mode)
+                       (if (boundp 'pdf-misc-dark-mode)
+                           pdf-misc-dark-mode
+                         'unbound)
                        pdf-isearch-batch-mode
                        pdf-isearch-current-parameter))))
          (data (pdf-cache-lookup-image page width nil hash)))
@@ -596,9 +604,11 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                                  data (pdf-view-image-type) t))
       (let* ((window (selected-window))
              (buffer (current-buffer))
+             (tick (cl-incf pdf-isearch-hl-matches-tick))
              (pdf-info-asynchronous
               (lambda (status file)
                 (when (and (null status)
+                           (eq tick pdf-isearch-hl-matches-tick)
                            (buffer-live-p buffer)
                            (window-live-p window)
                            (eq (window-buffer window)

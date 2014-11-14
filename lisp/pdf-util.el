@@ -445,7 +445,7 @@ Singal an error, if color is invalid."
     (setq dy (max 0 (- dy
                        (cdr (pdf-view-image-offset))
                        (window-vscroll nil t))))
-    (when (overlay-get (doc-view-current-overlay) 'before-string)
+    (when (overlay-get (pdf-view-current-overlay) 'before-string)
       (let* ((e (window-inside-pixel-edges))
              (xw (pdf-util-with-edges (e) e-width)))
         (cl-incf dx (/ (- xw (car (pdf-view-image-size))) 2))))
@@ -544,6 +544,19 @@ AWINDOW is deleted also."
   :group 'pdf-tools
   :type 'executable)
 
+(defcustom pdf-util-fast-image-format nil
+  "An image format appropriate for fast displaying.
+
+This should be a cons \(TYPE . EXT\) where type is the Emacs
+image-type and EXT the appropriate file extension starting with a
+dot. If nil, the value is determined automatically.
+
+Different formats have different properties, with respect to
+Emacs loading time, convert creation time and the file-size.  In
+general, uncompressed formats are faster, but may need a fair
+amount of (temporary) disk space."
+  :group 'pdf-tools)
+
 (defun pdf-util-assert-convert-program ()
   (unless (and pdf-util-convert-program
                (file-executable-p pdf-util-convert-program))
@@ -593,8 +606,6 @@ follows.
 %Y -- Expands to the bottom edge of rectangle.
 %w -- Expands to the width of rectangle.
 %h -- Expands to the height of rectangle.
-%W -- Expands to the width of the image.
-%H -- Expands to the height of the image.
 
 Keep in mind, that every element of this list is seen by convert
 as a single argument.
@@ -626,9 +637,7 @@ Returns OUT-FILE.
 
 See url `http://www.imagemagick.org/script/convert.php'."
   (pdf-util-assert-convert-program)
-  (let* ((cmds (pdf-util-convert--create-commands
-                (pdf-util-png-image-size)
-                spec))
+  (let* ((cmds (pdf-util-convert--create-commands spec))
          (status (apply 'call-process
                         pdf-util-convert-program nil
                         (get-buffer-create "*pdf-util-convert-output*")
@@ -652,9 +661,7 @@ Returns the convert process."
         (setq spec (butlast spec-and-callback))
       (setq spec spec-and-callback
             callback nil))
-    (let* ((cmds (pdf-util-convert--create-commands
-                  (pdf-util-png-image-size)
-                  spec))
+    (let* ((cmds (pdf-util-convert--create-commands spec))
            (proc
             (apply 'start-process "pdf-util-convert"
                    (get-buffer-create "*pdf-util-convert-output*")
@@ -664,7 +671,31 @@ Returns the convert process."
         (set-process-sentinel proc callback))
       proc)))
 
-(defun pdf-util-convert--create-commands (image-size spec)
+(defun pdf-util-convert-page (&rest specs)
+  "Convert image of current page according to SPECS.
+
+Return the converted PNG image as a string.  See also
+`pdf-util-convert'."
+
+  (pdf-util-assert-pdf-window)
+  (let ((in-file (make-temp-file "pdf-util-convert" nil ".png"))
+        (out-file (make-temp-file "pdf-util-convert" nil ".png")))
+    (unwind-protect
+        (let ((image-data
+               (plist-get (cdr (pdf-view-current-image)) :data)))
+          (with-temp-file in-file
+            (set-buffer-multibyte nil)
+            (insert image-data))
+          (pdf-util-munch-file
+           (apply 'pdf-util-convert
+                  in-file out-file specs)))
+      (when (file-exists-p in-file)
+        (delete-file in-file))
+      (when (file-exists-p out-file)
+        (delete-file out-file)))))
+        
+
+(defun pdf-util-convert--create-commands (spec)
   (let ((fg "red")
         (bg "red")
         formats result cmds s)
@@ -677,11 +708,9 @@ Returns the convert process."
         (:background
          (setq bg (pop spec)))
         (:commands
-         (setq cmds (pop spec))
-         (if (and cmds (listp (car cmds)))
-             (setq formats (cdr cmds)
-                   cmds (car cmds))
-           (setq formats nil)))
+         (setq cmds (pop spec)))
+        (:formats
+         (setq formats (append formats (pop spec) nil)))
         (:apply
          (dolist (m (pop spec))
            (pdf-util-with-edges (m)
@@ -702,29 +731,12 @@ Returns the convert process."
                              (?w . ,(- m-right m-left))
                              (?h . ,(- m-bot m-top))
                              (?f . ,fg)
-                             (?b . ,bg)
-                             (?W . ,(nth 0 image-size))
-                             (?H . ,(cdr image-size))))))
+                             (?b . ,bg)))))
                (dolist (fmt cmds)
                  (push (format-spec fmt alist) result))))))))
     (nreverse result)))
 
-
-
-;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-;;
-;;                           O L D   C O D E
-;;                           
-;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-;;
-;; Handling Edges
-;; 
-
-
-
-
-
+;; FIXME: Check code below and document.
 
 (defun pdf-utils-edges-inside-p (edges pos &optional epsilon)
   (pdf-utils-edges-contained-p
@@ -761,8 +773,6 @@ Returns the convert process."
       (pdf-util-with-edges (inters)
         (* inters-width inters-height)))))
 
-
-
 (defun pdf-util-read-image-position (prompt)
   (pdf-util-assert-pdf-window)
   (save-selected-window
@@ -780,7 +790,7 @@ Returns the convert process."
         (posn-object-x-y posn)))))
 
 (defun pdf-util-image-map-mouse-event-proxy (event)
-  "Remove the POS-OR-AREA symbol from EVENT and restuff it."
+  "Set POS-OR-AREA in EVENT to 1 and unread it."
   (interactive "e")
   (setcar (cdr (cadr event)) 1)
   (setq unread-command-events (list event)))
@@ -791,16 +801,6 @@ Returns the convert process."
       (local-set-key
        (vector id (intern (format "%smouse-%d" kind b)))
        'pdf-util-image-map-mouse-event-proxy))))
-  
-  
-
-
-
-;;
-;; Various Functions
-;; 
-
-
 
 (provide 'pdf-util)
 

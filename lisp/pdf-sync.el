@@ -20,6 +20,7 @@
 ;;; Commentary:
 ;; 
 
+(require 'pdf-view)
 (require 'pdf-info)
 
 ;;; Code:
@@ -36,14 +37,22 @@ This key is added to `TeX-source-correlate-method', when
   :group 'pdf-sync
   :type 'key-sequence)
 
-(defcustom pdf-sync-after-goto-tex-hook nil
-  "Hook ran after going to a source location."
+(defcustom pdf-sync-goto-tex-hook nil
+  "Hook ran after going to a source location.
+
+The hook is run in the TeX buffer."
+  :group 'pdf-sync
+  :type 'hook)
+
+(defcustom pdf-sync-display-pdf-hook nil
+  "Hook ran after displaying ther PDF buffer.
+
+The hook is run in the PDF's buffer and it's window selected."
   :group 'pdf-sync
   :type 'hook)
 
 (defvar pdf-sync-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    ;; (define-key kmap [down-mouse-1] 'ignore)
     (define-key kmap [double-mouse-1] 'pdf-sync-mouse-goto-tex)
     kmap))
 
@@ -104,8 +113,8 @@ with AUCTeX."
         (goto-char 1)
         (forward-line (1- line))))
     (when (> column 0)
-      (forward-char (1- column))))
-  (run-hooks 'pdf-sync-after-goto-tex-hook))
+      (forward-char (1- column)))
+    (run-hooks 'pdf-sync-goto-tex-hook)))
 
 (defun pdf-sync-correlate-tex (x y)
   "Find the source corresponding to image coordinates X, Y.
@@ -114,7 +123,7 @@ Returns a list \(SOURCE LINE COLUMN\)."
 
   (pdf-util-assert-pdf-window)
   (let ((size (pdf-util-image-size))
-        (page (doc-view-current-page)))
+        (page (pdf-view-current-page)))
     (setq x (/ x (float (car size)))
           y (/ y (float (cdr size))))
     (cl-destructuring-bind (source line column)
@@ -130,10 +139,11 @@ Returns a list \(SOURCE LINE COLUMN\)."
     (with-selected-window (display-buffer
                            (or (find-buffer-visiting pdf)
                                (find-file-noselect pdf)))
-      (doc-view-goto-page page)
+      (pdf-view-goto-page page)
       (when (pdf-util-page-displayed-p)
         (let ((top (* y1 (cdr (pdf-util-image-size)))))
-          (pdf-util-tooltip-arrow (round top)))))))
+          (pdf-util-tooltip-arrow (round top))))
+      (run-hooks 'pdf-sync-display-pdf-hook))))
 
 (defun pdf-sync-correlate-pdf (&optional line column)
   "Find the PDF location corresponding to LINE, COLUMN.
