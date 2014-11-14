@@ -32,91 +32,68 @@
 
 ;;; Code:
 
-;;
-;; *Customizable variables
-;;
+
+
+;; * ================================================================== *
+;; * Customizations
+;; * ================================================================== *
 
 (defgroup pdf-isearch nil
   "Isearch in pdf buffers."
   :group 'pdf-tools)
   
-(defcustom pdf-isearch-convert-commands
-  '("-fuzz" "30%%" "-region" "%g"
-    "-fill" "%b" "-draw" "color 0,-1 replace")
-  "The commands  for the external convert program.
-
-This should be a list of strings, possibly containing special
-escape characters.  Every found match produces one such command
-in the pipeline of the program.  The format is used with the
-function `format-spec' and the following specs are available:
-
-%g -- Expands to the geometry of the match, i.e. WxH+X+Y.
-%f -- Expands to the foreground color.
-%b -- Expands to the background color.
-%x -- Expands to the left edge of the match.
-%X -- Expands to the right edge of the match.
-%y -- Expands to the top edge of the match.
-%Y -- Expands to the bottom edge of the match.
-%w -- Expands to the width of the match.
-%h -- Expands to the height of the match
-%W -- Expands to the width of the file image.
-%H -- Expands to the height of the file image.
-%s -- Expands to the matched text (FIXME: Not implemented).
-
-Keep in mind, that every element of this list is treated as one
-argument for the convert program.  Also note, that the notion of
-image-size may be different between Emacs and the image on disk.
-All format spec coordinates are with respect to the actual
-image (the one convert operates on).
-
-See url `http://www.imagemagick.org/script/convert.php'."
-  :group 'pdf-isearch
-  :type '(repeat string)
-  :link '(url-link "http://www.imagemagick.org/script/convert.php"))
-
 (defface pdf-isearch-match
   '((((background dark)) (:inherit isearch))
     (((background light)) (:inherit isearch)))
   "Face used to determine the colors of the current match."
-  ;; :group 'pdf-isearch
+  :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
 (defface pdf-isearch-lazy
   '((((background dark)) (:inherit lazy-highlight))
     (((background light)) (:inherit lazy-highlight)))
   "Face used to determine the colors of non-current matches."
-  ;; :group 'pdf-isearch
+  :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
 (defface pdf-isearch-batch
   '((((background dark)) (:inherit match))
     (((background light)) (:inherit match)))
   "Face used to determine the colors in `pdf-isearch-batch-mode'."
-  ;; :group 'pdf-isearch
+  :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
-;;
-;; * Internal Variables
-;; 
+(defcustom pdf-isearch-cache-images nil
+  "Whether already displayed images should be cached.
 
-(defvar-local pdf-isearch-page nil
+FIXME: Explain."
+  :group 'pdf-isearch
+  :type 'boolean)
+
+
+
+
+;; * ================================================================== *
+;; * Internal Variables
+;; * ================================================================== *
+
+(defvar-local pdf-isearch-current-page nil
   "The page that is currently searched.")
 
 (defvar-local pdf-isearch-current-match nil
   "A list (LEFT TOP RIGHT BOT) of the current match or nil.")
   
-(defvar-local pdf-isearch-matches nil
+(defvar-local pdf-isearch-current-matches nil
   "A list of matches of the last search.")
 
-(defvar-local pdf-isearch-search-parameter nil
-  "A list of search parameter (search-string, regex-p and case-fold).")
+(defvar-local pdf-isearch-current-parameter nil
+  "A list of search parameter \(search-string regex-p case-fold\).")
 
-(defvar-local pdf-isearch-convert-process nil
-  "Process used to convert images.")
 
-;;
+
+;; * ================================================================== *
 ;; * Modes
-;; 
+;; * ================================================================== *
 
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
@@ -161,19 +138,15 @@ from stopping at and highlighting every single match, but rather
 display them batch-wise.  Here a batch means a number of matches
 currently visible in the selected window.
 
-Performance is also greatly influenced by the kind of image the
-convert program produces. This may be determined by the variable
-`pdf-util-fast-image-format'.
-
-The kind of highlighting is determined by the variable
-`pdf-isearch-convert-commands' and the three faces pdf-isearch-match
-\(for the current match\), pdf-isearch-lazy \(for all other matches\)
-and pdf-isearch-batch \(when in batch mode\), which see.
+The kind of highlighting is determined by three faces
+`pdf-isearch-match' \(for the current match\), `pdf-isearch-lazy'
+\(for all other matches\) and `pdf-isearch-batch' \(when in batch
+mode\), which see.
 
 Colors may also be influenced by the minor-mode
-`pdf-misc-dark-mode'.  If this is enabled, each face's dark
-colors, are used (see variable `frame-background-mode' etc.),
-rather than the light ones.
+`pdf-misc-dark-mode'.  If this is minor mode enabled, each face's
+dark colors, are used (see e.g. `frame-background-mode'), instead
+of the light ones.
 
 \\{pdf-isearch-minor-mode-map}
 While in `isearch-mode' the following keys are available.
@@ -196,14 +169,16 @@ While in `isearch-mode' the following keys are available.
          ;; This maybe edit or t, but edit would suppress our cmds
          ;; in isearch-other-meta-char.
          (not (not search-exit-option)))
+    ;; FIXME: Die Variable imagemagick-render-type entweder an anderer
+    ;; Stelle global setzen oder nur irgendwo auf den
+    ;; Performancegewinn hinweisen.
     (when (and (boundp 'imagemagick-render-type)
                (= 0 imagemagick-render-type))
       ;; This enormously speeds up rendering.
       (setq imagemagick-render-type 1))
     (add-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize nil t)
     (add-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup nil t)
-    (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t)
-    (advice-add 'isearch-done :around 'pdf-isearch-done-advice))
+    (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t))
    (t
     (kill-local-variable 'search-exit-option)
     (kill-local-variable 'isearch-allow-scroll)
@@ -213,41 +188,18 @@ While in `isearch-mode' the following keys are available.
     (kill-local-variable 'isearch-lazy-highlight)
     (remove-hook 'isearch-update-post-hook 'pdf-isearch-update t)
     (remove-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize t)
-    (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t)
-    (advice-remove 'isearch-done 'pdf-isearch-done-advice))))
+    (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t))))
 
-(defvar pdf-isearch-suspended-p nil
-  "Non-nil in `isearch-mode-end-hook', if isearch is suspended.")
 
-(defun pdf-isearch-done-advice (fn &optional nopush edit)
-  "Make a supsended isearch distinguishable from a quit.
-
-Binds `pdf-isearch-suspended-p' to the EDIT argument around
-`isearch-done'."
-  (let ((pdf-isearch-suspended-p edit))
-    (funcall fn nopush edit)))
-
-(define-minor-mode pdf-isearch-active-mode
-  "" nil nil nil
-  (cond
-   (pdf-isearch-active-mode
-    ;; The PDF buffer is usually in binary mode, but we probably want
-    ;; to search for multibyte characters.
-    ;; (unless enable-multibyte-characters
-    ;;   (set-buffer-multibyte t))
-    )
-   (t
-    ;; (unless pdf-isearch-suspended-p
-    ;;   (set-buffer-multibyte nil))
-    )))
+(define-minor-mode pdf-isearch-active-mode "" nil nil nil)
 
 (define-minor-mode pdf-isearch-batch-mode
-  "Incrementally search PDF documents in batches.
+  "Isearch PDF documents batch-wise.
 
 If this mode is enabled, isearching does not stop at every match,
-but rather moves to next one not currently visible.  This
+but rather moves to the next one not currently visible.  This
 behaviour is much faster than ordinary isearch, since far less
-images have to be created."
+different images have to be displayed."
   nil nil nil
   :group 'pdf-isearch
   (when isearch-mode
@@ -255,11 +207,17 @@ images have to be created."
     (pdf-isearch-message
      (if pdf-isearch-batch-mode "batch mode" "isearch mode"))))
 
-;;
-;; * Isearch Interface
-;;
 
-(defvar pdf-isearch-filter-matches-function nil)
+
+;; * ================================================================== *
+;; * Isearch interface
+;; * ================================================================== *
+
+(defvar pdf-isearch-filter-matches-function nil
+  "A function for filtering isearch matches.
+
+The function receives one argument: a list of edges. It should
+return a subset of this list. The edges are in PDF points.")
 
 (defun pdf-isearch-search-function (string &rest _)
   "Search for STRING in the current PDF buffer.
@@ -267,32 +225,32 @@ images have to be created."
 This is a Isearch interface function."
   (when (> (length string) 0)
     (let ((same-search-p (pdf-isearch-same-search-p))
-          (oldpage pdf-isearch-page)
+          (oldpage pdf-isearch-current-page)
           (matches (pdf-isearch-search-page string))
           next-match)
       ;; matches is a list of edges ((x0 y1 x1 y2) ...), sorted top to
-      ;; bottom ,left to right,
+      ;; bottom ,left to right, in points
       (unless isearch-forward
         (setq matches (reverse matches)))
       (when pdf-isearch-filter-matches-function
         (setq matches (funcall pdf-isearch-filter-matches-function matches)))
       ;; Where to go next ?
-      (setq pdf-isearch-page (pdf-view-current-page)
-            pdf-isearch-matches matches
+      (setq pdf-isearch-current-page (pdf-view-current-page)
+            pdf-isearch-current-matches matches
             next-match
             (pdf-isearch-next-match
-             oldpage pdf-isearch-page
+             oldpage pdf-isearch-current-page
              pdf-isearch-current-match matches
              same-search-p
              isearch-forward)
-            pdf-isearch-search-parameter
+            pdf-isearch-current-parameter
             (list string nil isearch-case-fold-search))
       (cond
        (next-match
         (setq pdf-isearch-current-match next-match)
         (pdf-isearch-hl-matches next-match matches)
         (pdf-isearch-focus-match next-match)
-        ;; Is this necessary ? Does this mess up isearch ?
+        ;; Don't get off track.
         (when (or (and (bobp) (not isearch-forward))
                   (and (eobp) isearch-forward))
           (goto-char (1+ (/ (buffer-size) 2))))
@@ -302,36 +260,34 @@ This is a Isearch interface function."
           (re-search-backward ".")))
        (t
         (let ((next-page (pdf-isearch-find-next-matching-page
-                          string pdf-isearch-page isearch-forward t)))
-          (when nil ;; next-page
-            (let ((pdf-render-inhibit-display t))
-              (pdf-view-goto-page next-page))
+                          string pdf-isearch-current-page isearch-forward t)))
+          (when next-page
+            (pdf-view-goto-page next-page)
             (pdf-isearch-search-function string))))))))
 
 (defun pdf-isearch-push-state-function ()
   "Push the current search state.
 
 This is a Isearch interface function."
-  (let ((hscroll (* (window-hscroll) (frame-char-width)))
+  (let ((hscroll (window-hscroll))
         (vscroll (window-vscroll nil t))
-        (parms pdf-isearch-search-parameter)
-        (matches pdf-isearch-matches)
+        (parms pdf-isearch-current-parameter)
+        (matches pdf-isearch-current-matches)
         (match pdf-isearch-current-match)
-        (page pdf-isearch-page))
+        (page pdf-isearch-current-page))
     (lambda (_state)
-      (setq pdf-isearch-search-parameter parms
-            pdf-isearch-matches matches
+      (setq pdf-isearch-current-parameter parms
+            pdf-isearch-current-matches matches
             pdf-isearch-current-match match
-            pdf-isearch-page page)
+            pdf-isearch-current-page page)
 
-      (let ((pdf-render-inhibit-display t))
-        (pdf-view-goto-page pdf-isearch-page))
+      (pdf-view-goto-page pdf-isearch-current-page)
       (when pdf-isearch-current-match
         (pdf-isearch-hl-matches
          pdf-isearch-current-match
-         pdf-isearch-matches))
-      (pdf-util-set-window-pixel-hscroll hscroll)
-      (pdf-util-set-window-pixel-vscroll vscroll))))
+         pdf-isearch-current-matches))
+      (set-window-hscroll nil hscroll)
+      (set-window-vscroll nil vscroll t))))
 
 (defun pdf-isearch-wrap-function ()
   "Go to first or last page.
@@ -339,10 +295,9 @@ This is a Isearch interface function."
 This is a Isearch interface function."
   (let ((page (if isearch-forward
                   1
-                (pdf-info-number-of-pages))))
+                (pdf-cache-number-of-pages))))
     (unless (= page (pdf-view-current-page))
-      (let ((pdf-render-inhibit-display t))
-        (pdf-view-goto-page page))
+      (pdf-view-goto-page page)
       (let ((next-screen-context-lines 0))
         (if (= page 1)
             (image-scroll-down)
@@ -354,18 +309,17 @@ This is a Isearch interface function."
 
 This is a Isearch interface function."
   (pdf-isearch-active-mode -1)
-  (pdf-view-redisplay)
-  (pdf-util-cache-clear "pdf-isearch"))
+  (pdf-view-redisplay))
 
 (defun pdf-isearch-mode-initialize ()
   "Initialize isearching.
 
 This is a Isearch interface function."
   (pdf-isearch-active-mode 1)
-  (setq pdf-isearch-page (pdf-view-current-page)
+  (setq pdf-isearch-current-page (pdf-view-current-page)
         pdf-isearch-current-match nil
-        pdf-isearch-matches nil
-        pdf-isearch-search-parameter nil)
+        pdf-isearch-current-matches nil
+        pdf-isearch-current-parameter nil)
   (goto-char (1+ (/ (buffer-size) 2))))
 
 (defun pdf-isearch-same-search-p (&optional ignore-search-string-p)
@@ -374,11 +328,11 @@ This is a Isearch interface function."
 Parameter inspected are `isearch-string' (unless
 IGNORE-SEARCH-STRING-P is t) and `isearch-case-fold-search'.  If
 there was no previous search, this function returns t."
-  (or (null pdf-isearch-search-parameter)
+  (or (null pdf-isearch-current-parameter)
       (if ignore-search-string-p
-          (equal (cdr pdf-isearch-search-parameter)
+          (equal (cdr pdf-isearch-current-parameter)
                  (list isearch-regexp isearch-case-fold-search))
-        (equal pdf-isearch-search-parameter
+        (equal pdf-isearch-current-parameter
                (list isearch-string isearch-regexp
                      isearch-case-fold-search)))))
 
@@ -402,14 +356,14 @@ there was no previous search, this function returns t."
 (defun pdf-isearch-redisplay ()
   "Redisplay the current highlighting."
   (pdf-isearch-hl-matches pdf-isearch-current-match
-                          pdf-isearch-matches))
+                          pdf-isearch-current-matches))
 
 (defun pdf-isearch-update ()
   "Update search and redisplay, if necessary."
   (unless (pdf-isearch-same-search-p t)
-    (setq pdf-isearch-search-parameter
+    (setq pdf-isearch-current-parameter
           (list isearch-string nil isearch-case-fold-search)
-          pdf-isearch-matches
+          pdf-isearch-current-matches
           (pdf-isearch-search-page isearch-string))
     (pdf-isearch-redisplay)))
 
@@ -424,20 +378,23 @@ there was no previous search, this function returns t."
           (sit-for 1))
       (message "%s" fmt))))
 
-;;
+
+
+;; * ================================================================== *
 ;; * Interface to epdfinfo
-;;
+;; * ================================================================== *
 
 (defun pdf-isearch-search-page (string &optional page)
   "Search STRING on PAGE in the current window.
 
-Returns a list of edges (LEFT TOP RIGHT BOTTOM) in image
+Returns a list of edges (LEFT TOP RIGHT BOTTOM) in PDF
 coordinates, sorted top to bottom, then left to right."
 
   (unless page (setq page (pdf-view-current-page)))
   (let ((case-fold-search isearch-case-fold-search))
-    (mapcar 'car (cdar (pdf-info-search
-                        string nil page)))))
+    (pdf-util-scale-relative-to-pixel
+     (mapcar 'car (cdar (pdf-info-search
+                         string nil page))))))
 
 (defun pdf-isearch-find-next-matching-page (string page &optional
                                                    forward-p interactive-p)
@@ -454,7 +411,7 @@ is no such page."
                           (1+ page))
                   (cons (1- page)
                         (1- page))))
-         (final-page (and forward-p (pdf-info-number-of-pages)))
+         (final-page (and forward-p (pdf-cache-number-of-pages)))
          matched-page
          reporter)
 
@@ -467,7 +424,6 @@ is no such page."
         (setq matched-page (if forward-p
                                (caar matches)
                              (caar (last matches)))))
-      ;; (logger "%s %s %s" pages matched-page pdf-isearch-search-parameter)
       (setq incr (* incr 2))
       (cond (forward-p
              (setcar pages (1+ (cdr pages)))
@@ -493,9 +449,11 @@ is no such page."
                       (- page (car pages)))))))
     matched-page))
 
-;;
+
+
+;; * ================================================================== *
 ;; * Isearch Behavior
-;; 
+;; * ================================================================== *
 
 (defun pdf-isearch-next-match-isearch (last-page this-page last-match
                                                  matches same-search-p
@@ -512,7 +470,7 @@ match."
                   (if forward
                       (cons iedges-left iedges-top)
                     (cons iedges-right iedges-bot)))))
-      (pdf-isearch-nearest-match pos matches forward)))
+      (pdf-isearch-closest-match pos matches forward)))
    ((not (eq last-page this-page))
     ;; First match from top-left or bottom-right of the new
     ;; page.
@@ -523,21 +481,13 @@ match."
         (cadr (member last-match matches))))
    (matches
     ;; Next match of new search closest to the last one.
-    (pdf-isearch-nearest-match
+    (pdf-isearch-closest-match
      last-match matches forward))))
   
-(defun pdf-isearch-focus-match-isearch (match &optional eager-p)
+(defun pdf-isearch-focus-match-isearch (match)
   "Make the image area in MATCH visible in the selected window."
 
-  (unless (image-get-display-property)
-    (error "No image found in buffer"))
-  (let ((hscroll (pdf-util-required-hscroll match eager-p))
-        (vscroll (pdf-util-required-vscroll match eager-p)))
-    (when hscroll
-      (pdf-util-set-window-pixel-hscroll hscroll))
-    (when vscroll
-      (pdf-util-set-window-pixel-vscroll vscroll)))
-  nil)
+  (pdf-util-display-edges match))
 
 (defun pdf-isearch-next-match-batch (last-page this-page last-match
                                                matches same-search-p
@@ -562,76 +512,9 @@ match."
 
 (defun pdf-isearch-focus-match-batch (match)
   "Make the image area in MATCH eagerly visible in the selected window."
-  (pdf-isearch-focus-match-isearch match t))
+  (pdf-util-display-edges match t))
 
-;;
-;; * Highlighting matches
-;;
-
-(defun pdf-isearch-current-colors ()
-  "Return the current color set.
-
-The return value depends on `pdf-misc-dark-mode' and
-`pdf-isearch-batch-mode'.  It is a list of four colors \(MATCH-FG
-MATCH-BG LAZY-FG LAZY-BG\)."
-  (let ((dark-p pdf-misc-dark-mode))
-    (cond
-     (pdf-isearch-batch-mode
-      (let ((colors (pdf-util-face-colors 'pdf-isearch-batch dark-p)))
-        (list (car colors)
-              (cdr colors)
-              (car colors)
-              (cdr colors))))
-     (t
-      (let ((match (pdf-util-face-colors 'pdf-isearch-match dark-p))
-            (lazy (pdf-util-face-colors 'pdf-isearch-lazy dark-p)))
-        (list (car match)
-              (cdr match)
-              (car lazy)
-              (cdr lazy)))))))
-
-(defun pdf-isearch-hl-matches (current matches)
-  "Highlighting edges CURRENT and MATCHES using the convert program."
-  (let* ((hash (sxhash (cons current matches)))
-         (width (car (image-size (pdf-view-current-image) t)))
-         (page (pdf-view-current-page))
-         (data ;; (pdf-cache-lookup-image page width nil hash)
-          ))
-    (if data
-        (pdf-view-display-image (create-image
-                                 data (pdf-view-image-type) t))
-      (let* ((window (selected-window))
-             (buffer (current-buffer))
-             (pdf-info-cancelable nil)
-             (pdf-info-asynchronous
-              (lambda (status file)
-                (when (and (null status)
-                           (buffer-live-p buffer)
-                           (window-live-p window)
-                           (eq (window-buffer window)
-                               buffer))
-                  (with-selected-window window
-                    (when (and (eq major-mode 'pdf-view-mode)
-                               isearch-mode
-                               (eq page (pdf-view-current-page))
-                               (file-readable-p file))
-                      (let ((data (pdf-util-munch-file file)))
-                        (setq pdf-isearch-query-cookie nil)
-                        (pdf-cache-put-image page width data hash) 
-                        (pdf-view-display-image
-                         (create-image data (pdf-view-image-type) t)))))))))
-        (cl-destructuring-bind (fg1 bg1 fg2 bg2)
-            (pdf-isearch-current-colors)
-          (pdf-info-renderpage-selection
-           page width nil
-           `(,fg1 ,bg1 ,current)
-           `(,fg2 ,bg2 ,@(remq current matches))))))))
-
-;;
-;; * Utility functions and macros
-;;
-
-(defun pdf-isearch-nearest-match (match-or-pos list-of-matches
+(defun pdf-isearch-closest-match (match-or-pos list-of-matches
                                                &optional forward-p)
   "Find the nearest element to MATCH-OR-POS in LIST-OF-MATCHES.
 
@@ -663,68 +546,135 @@ FORWARD-P."
             (setq found edges)))))
     found))
 
-;; Redefinition: This isearch-search function is debugable.
-;; (defun isearch-search ()
-;;   ;; Do the search with the current search string.
-;;   (if isearch-message-function
-;;       (funcall isearch-message-function nil t)
-;;     (isearch-message nil t))
-;;   (if (and (eq isearch-case-fold-search t) search-upper-case)
-;;       (setq isearch-case-fold-search
-;;             (isearch-no-upper-case-p isearch-string isearch-regexp)))
-;;   (condition-case lossage
-;;       (let ((inhibit-point-motion-hooks
-;;              ;; FIXME: equality comparisons on functions is asking for trouble.
-;;              (and (eq isearch-filter-predicate 'isearch-filter-visible)
-;;                   search-invisible))
-;;             (inhibit-quit nil)
-;;             (case-fold-search isearch-case-fold-search)
-;;             (retry t))
-;;         (setq isearch-error nil)
-;;         (while retry
-;;           (setq isearch-success
-;;                 (isearch-search-string isearch-string nil t))
-;;           ;; Clear RETRY unless the search predicate says
-;;           ;; to skip this search hit.
-;;           (if (or (not isearch-success)
-;;                   (bobp) (eobp)
-;;                   (= (match-beginning 0) (match-end 0))
-;;                   (funcall isearch-filter-predicate
-;;                            (match-beginning 0) (match-end 0)))
-;;               (setq retry nil)))
-;;         (setq isearch-just-started nil)
-;;         (if isearch-success
-;;             (setq isearch-other-end
-;;                   (if isearch-forward (match-beginning 0) (match-end 0)))))
 
-;;     (quit (isearch-unread ?\C-g)
-;;           (setq isearch-success nil))
+
+;; * ================================================================== *
+;; * Display
+;; * ================================================================== *
 
-;;     (invalid-regexp
-;;      (setq isearch-error (car (cdr lossage)))
-;;      (if (string-match
-;;           "\\`Premature \\|\\`Unmatched \\|\\`Invalid "
-;;           isearch-error)
-;;          (setq isearch-error "incomplete input")))
 
-;;     (search-failed
-;;      (setq isearch-success nil)
-;;      (setq isearch-error (nth 2 lossage)))
+(defun pdf-isearch-current-colors ()
+  "Return the current color set.
 
-;;     ;; (error
-;;     ;;  ;; stack overflow in regexp search.
-;;     ;;  (setq isearch-error (format "%s" lossage)))
-;;     )
+The return value depends on `pdf-misc-dark-mode' and
+`pdf-isearch-batch-mode'.  It is a list of four colors \(MATCH-FG
+MATCH-BG LAZY-FG LAZY-BG\)."
+  (let ((dark-p pdf-misc-dark-mode))
+    (cond
+     (pdf-isearch-batch-mode
+      (let ((colors (pdf-util-face-colors 'pdf-isearch-batch dark-p)))
+        (list (car colors)
+              (cdr colors)
+              (car colors)
+              (cdr colors))))
+     (t
+      (let ((match (pdf-util-face-colors 'pdf-isearch-match dark-p))
+            (lazy (pdf-util-face-colors 'pdf-isearch-lazy dark-p)))
+        (list (car match)
+              (cdr match)
+              (car lazy)
+              (cdr lazy)))))))
 
-;;   (if isearch-success
-;;       nil
-;;     ;; Ding if failed this time after succeeding last time.
-;;     (and (isearch--state-success (car isearch-cmds))
-;;          (ding))
-;;     (if (functionp (isearch--state-pop-fun (car isearch-cmds)))
-;;         (funcall (isearch--state-pop-fun (car isearch-cmds))
-;;                  (car isearch-cmds)))
-;;     (goto-char (isearch--state-point (car isearch-cmds)))))
+(defun pdf-isearch-hl-matches (current matches)
+  "Highlighting edges CURRENT and MATCHES."
+  (let* ((hash (sxhash (cons current matches)))
+         (width (car (pdf-view-image-size)))
+         (page (pdf-view-current-page))
+         (data ;; (pdf-cache-lookup-image page width nil hash)
+          ))
+    (if data
+        (pdf-view-display-image (create-image
+                                 data (pdf-view-image-type) t))
+      (let* ((window (selected-window))
+             (buffer (current-buffer))
+             (pdf-info-asynchronous
+              (lambda (status file)
+                (when (and (null status)
+                           (buffer-live-p buffer)
+                           (window-live-p window)
+                           (eq (window-buffer window)
+                               buffer))
+                  (with-selected-window window
+                    (when (and (eq major-mode 'pdf-view-mode)
+                               isearch-mode
+                               (eq page (pdf-view-current-page))
+                               (file-readable-p file))
+                      (let ((data (pdf-util-munch-file file)))
+                        (pdf-cache-put-image page width data hash) 
+                        (pdf-view-display-image
+                         (create-image data (pdf-view-image-type) t)))))))))
+        (cl-destructuring-bind (fg1 bg1 fg2 bg2)
+            (pdf-isearch-current-colors)
+          (pdf-info-renderpage-selection
+           page width nil
+           `(,fg1 ,bg1 ,(pdf-util-scale-pixel-to-relative current))
+           `(,fg2 ,bg2 ,@(pdf-util-scale-pixel-to-relative
+                          (remq current matches)))))))))
+
+
+;; The following isearch-search function is debugable.
+;; 
+(defun isearch-search ()
+  ;; Do the search with the current search string.
+  (if isearch-message-function
+      (funcall isearch-message-function nil t)
+    (isearch-message nil t))
+  (if (and (eq isearch-case-fold-search t) search-upper-case)
+      (setq isearch-case-fold-search
+            (isearch-no-upper-case-p isearch-string isearch-regexp)))
+  (condition-case lossage
+      (let ((inhibit-point-motion-hooks
+             ;; FIXME: equality comparisons on functions is asking for trouble.
+             (and (eq isearch-filter-predicate 'isearch-filter-visible)
+                  search-invisible))
+            (inhibit-quit nil)
+            (case-fold-search isearch-case-fold-search)
+            (retry t))
+        (setq isearch-error nil)
+        (while retry
+          (setq isearch-success
+                (isearch-search-string isearch-string nil t))
+          ;; Clear RETRY unless the search predicate says
+          ;; to skip this search hit.
+          (if (or (not isearch-success)
+                  (bobp) (eobp)
+                  (= (match-beginning 0) (match-end 0))
+                  (funcall isearch-filter-predicate
+                           (match-beginning 0) (match-end 0)))
+              (setq retry nil)))
+        (setq isearch-just-started nil)
+        (if isearch-success
+            (setq isearch-other-end
+                  (if isearch-forward (match-beginning 0) (match-end 0)))))
+
+    (quit (isearch-unread ?\C-g)
+          (setq isearch-success nil))
+
+    (invalid-regexp
+     (setq isearch-error (car (cdr lossage)))
+     (if (string-match
+          "\\`Premature \\|\\`Unmatched \\|\\`Invalid "
+          isearch-error)
+         (setq isearch-error "incomplete input")))
+
+    (search-failed
+     (setq isearch-success nil)
+     (setq isearch-error (nth 2 lossage)))
+
+    ;; (error
+    ;;  ;; stack overflow in regexp search.
+    ;;  (setq isearch-error (format "%s" lossage)))
+    )
+
+  (if isearch-success
+      nil
+    ;; Ding if failed this time after succeeding last time.
+    (and (isearch--state-success (car isearch-cmds))
+         (ding))
+    (if (functionp (isearch--state-pop-fun (car isearch-cmds)))
+        (funcall (isearch--state-pop-fun (car isearch-cmds))
+                 (car isearch-cmds)))
+    (goto-char (isearch--state-point (car isearch-cmds)))))
 
 
 (provide 'pdf-isearch)

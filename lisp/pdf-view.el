@@ -446,18 +446,18 @@ at the top edge of the page moves to the previous page."
 ;; * Slicing
 ;; * ================================================================== *
 
-(defun pdf-view-set-slice (x y width height)
+(defun pdf-view-set-slice (x y width height &optional window)
   "Set the slice of the pages that should be displayed.
 
 X, Y, WIDTH and HEIGHT should be relative coordinates, i.e. in
 \[0;1\].  To reset the slice use `pdf-view-reset-slice'."
-  (unless (equal (pdf-view-current-slice)
+  (unless (equal (pdf-view-current-slice window)
                  (list x y width height))
-    (setf (pdf-view-current-slice)
+    (setf (pdf-view-current-slice window)
           (mapcar (lambda (v)
                     (max 0 (min 1 v)))
                   (list x y width height)))
-    (pdf-view-redisplay)))
+    (pdf-view-redisplay window)))
 
 (defun pdf-view-set-slice-using-mouse ()
   "Set the slice of the images that should be displayed.
@@ -483,8 +483,8 @@ dragging it to its bottom-right corner.  See also
             (cons (/ 1.0 (float (car size)))
                   (/ 1.0 (float (cdr size))))))))
 
-(defun pdf-view-set-slice-from-bounding-box ()
-  "Set the slice from the document's bounding-box.
+(defun pdf-view-set-slice-from-bounding-box (&optional window)
+  "Set the slice from the page's bounding-box.
 
 The result is that the margins are almost completely cropped,
 much more accurate than could be done manually using
@@ -492,7 +492,7 @@ much more accurate than could be done manually using
 
 See also `pdf-view-bounding-box-margin'."
   (interactive)
-  (let* ((bb (pdf-cache-boundingbox (pdf-view-current-page)))
+  (let* ((bb (pdf-cache-boundingbox (pdf-view-current-page window)))
          (margin (max 0 (or pdf-view-bounding-box-margin 0)))
          (slice (list (- (nth 0 bb)
                          (/ margin 2.0))
@@ -502,17 +502,19 @@ See also `pdf-view-bounding-box-margin'."
                          margin)
                       (+ (- (nth 3 bb) (nth 1 bb))
                          margin))))
-    (apply 'pdf-view-set-slice slice)))
+    (apply 'pdf-view-set-slice
+           (append slice (and window (list window))))))
 
-(defun pdf-view-reset-slice ()
+(defun pdf-view-reset-slice (&optional window)
   "Reset the current slice.
 
 After calling this function the whole page will be visible
 again."
   (interactive)
-  (when (pdf-view-current-slice)
-    (setf (pdf-view-current-slice) nil)
-    (pdf-view-redisplay)))
+  (when (pdf-view-current-slice window)
+    (setf (pdf-view-current-slice window) nil)
+    (pdf-view-redisplay window))
+  nil)
 
 
 
@@ -551,8 +553,32 @@ or png."
      :width (car size)
      :map hotspots)))
 
-(defun pdf-view-image-size (&optional window)
-  (image-size (pdf-view-current-image window) t))
+(defun pdf-view-image-size (&optional displayed-p window)
+  "Return the size in pixel of the current image.
+
+If DISPLAYED-P is non-nil, returned the size of the displayed
+image.  These may be different, if slicing is in use."
+  (if displayed-p
+      (with-selected-window (or window (selected-window))
+        (image-display-size
+         (image-get-display-property) t))
+    (image-size (pdf-view-current-image window) t)))
+
+(defalias 'pdf-util-image-size 'pdf-view-image-size)
+
+(defun pdf-view-image-offset (&optional window)
+  "Return the offset of the current image.
+
+It is equal to \(LEFT . TOP\) of the current slice in pixel."
+
+  (let* ((slice (pdf-view-current-slice window)))
+    (cond
+     (slice
+      (pdf-util-scale-relative-to-pixel
+       (cons (nth 0 slice) (nth 1 slice))
+       window))
+     (t
+      (cons 0 0)))))
 
 (defun pdf-view-display-page (page &optional window inhibit-hotspots-p)
   "Display page PAGE in WINDOW."
@@ -748,8 +774,6 @@ supercede hotspots in lower ones."
            (pdf-view-current-page))))))))))
 
 (defun pdf-view--prefetch-pages (window image-width)
-  (unless pdf-view--prefetch-pages
-    (pdf-util-debug "Prefetching done."))
   (when (and pdf-view--prefetch-pages
              (eq window (selected-window)))
     (let ((page (pop pdf-view--prefetch-pages)))
@@ -761,18 +785,21 @@ supercede hotspots in lower ones."
                        image-width
                      (* 2 image-width))))
         (setq page (pop pdf-view--prefetch-pages)))
-      (when page
+      (if (null page)
+          (pdf-tools-debug "Prefetching done.")
         (let ((pdf-info-asynchronous
                (lambda (status data)
                  (when (and (null status)
                             (eq window
                                 (selected-window)))
-                   (pdf-cache-put-image page image-width data)
-                   (image-size (pdf-view-create-image page))
-                   (pdf-util-debug "Prefetched Page %s." page)
-                   ;; Avoid max-lisp-eval-depth
-                   (run-with-timer
-                       0 nil 'pdf-view--prefetch-pages window image-width)))))
+                   (with-current-buffer (window-buffer)
+                     (pdf-cache-put-image
+                      page image-width (pdf-util-munch-file data))
+                     (image-size (pdf-view-create-image page))
+                     (pdf-tools-debug "Prefetched Page %s." page)
+                     ;; Avoid max-lisp-eval-depth
+                     (run-with-timer
+                         0 nil 'pdf-view--prefetch-pages window image-width))))))
           (pdf-info-renderpage page image-width))))))
 
 (defun pdf-view--prefetch-start (buffer)
@@ -784,7 +811,7 @@ supercede hotspots in lower ones."
     (let ((pages (funcall pdf-view-prefetch-pages-function)))
       (setq pdf-view--prefetch-pages
             (butlast pages (max 0 (- (length pages)
-                                     pdf-cache-image-cache-limit))))
+                                     pdf-cache-image-limit))))
       (pdf-view--prefetch-pages
        (selected-window)
        (car (pdf-view-desired-image-size))))))

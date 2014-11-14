@@ -1052,7 +1052,10 @@ the caller."
                      (cons
                       (pdf-util-hexcolor fg)
                       (cons (pdf-util-hexcolor bg)
-                            (apply 'append edges)))))
+                            (mapcar
+                             (lambda (e)
+                               (mapconcat 'number-to-string e " "))
+                             edges)))))
                  selections))))
    
 

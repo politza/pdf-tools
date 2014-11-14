@@ -1318,7 +1318,7 @@ i.e. a non mouse-movement event is read."
                                buffer
                                '(nil (inhibit-same-window . t))))
       (when (pdf-util-page-displayed-p)
-        (pdf-util-scroll-to-edges
+        (pdf-util-display-edges
          (pdf-util-scale-edges
           (pdf-annot-get a 'edges)
           (pdf-util-image-size t)))
