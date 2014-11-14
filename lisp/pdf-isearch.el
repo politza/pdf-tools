@@ -486,7 +486,6 @@ match."
   
 (defun pdf-isearch-focus-match-isearch (match)
   "Make the image area in MATCH visible in the selected window."
-
   (pdf-util-display-edges match))
 
 (defun pdf-isearch-next-match-batch (last-page this-page last-match
@@ -577,11 +576,21 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 
 (defun pdf-isearch-hl-matches (current matches)
   "Highlighting edges CURRENT and MATCHES."
-  (let* ((hash (sxhash (cons current matches)))
-         (width (car (pdf-view-image-size)))
+  (let* ((width (car (pdf-view-image-size)))
          (page (pdf-view-current-page))
-         (data ;; (pdf-cache-lookup-image page width nil hash)
-          ))
+         (hash (sxhash
+                (format
+                 "%S"
+                 (list current
+                       (if (not isearch-forward)
+                           (reverse matches)
+                         matches)
+                       page 
+                       (and (boundp 'pdf-misc-dark-mode)
+                            pdf-misc-dark-mode)
+                       pdf-isearch-batch-mode
+                       pdf-isearch-current-parameter))))
+         (data (pdf-cache-lookup-image page width nil hash)))
     (if data
         (pdf-view-display-image (create-image
                                  data (pdf-view-image-type) t))
@@ -597,8 +606,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                   (with-selected-window window
                     (when (and (eq major-mode 'pdf-view-mode)
                                isearch-mode
-                               (eq page (pdf-view-current-page))
-                               (file-readable-p file))
+                               (eq page (pdf-view-current-page)))
                       (let ((data (pdf-util-munch-file file)))
                         (pdf-cache-put-image page width data hash) 
                         (pdf-view-display-image

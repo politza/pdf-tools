@@ -134,7 +134,7 @@ typedef enum
     ARG_EDGES,
     ARG_COLOR,
     ARG_REST
-} command_arg_spec_t;
+} command_arg_type_t;
 
 typedef struct
 {
@@ -153,7 +153,7 @@ typedef struct
       int nargs;
     } rest;
   } value;
-  command_arg_spec_t type;
+  command_arg_type_t type;
 } command_arg_t;
 
 typedef struct
@@ -165,7 +165,7 @@ typedef struct
 {
   const char *name;             /* Name des Kommandos */
   void (* execute) (const epdfinfo_t *ctxt, const command_arg_t *args);
-  const command_arg_spec_t *args_spec; /* Art der Argumente */
+  const command_arg_type_t *args_spec; /* Art der Argumente */
   int nargs;                    /* Anzahl Argumente */
 } command_t;
 

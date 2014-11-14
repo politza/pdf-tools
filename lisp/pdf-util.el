@@ -26,7 +26,10 @@
 
 ;;; Code:
 
-(require 'faces) 
+(require 'cl-lib)
+(require 'format-spec)
+(require 'faces)
+(require 'pdf-view)
 
 
 ;; * ================================================================== *
@@ -92,7 +95,7 @@ FROM and TO should both be a cons \(WIDTH . HEIGTH\).  See also
                   rounding-fn))
 
 (defun pdf-util-scale-pixel-to-points (list-of-pixel-edges
-                                       &optional window)
+                                       &optional displayed-p window)
   "Scale LIST-OF-PIXEL-EDGES to point values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -100,11 +103,11 @@ See also `pdf-util-scale'."
   (pdf-util-assert-pdf-window window)
   (pdf-util-scale-to
    list-of-pixel-edges
-   (pdf-view-image-size window)
+   (pdf-view-image-size displayed-p window)
    (pdf-cache-pagesize)))
 
 (defun pdf-util-scale-points-to-pixel (list-of-points-edges
-                                       &optional window)
+                                       &optional displayed-p window)
   "Scale LIST-OF-POINTS-EDGES to point values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -113,7 +116,7 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-points-edges
    (pdf-cache-pagesize)
-   (pdf-view-image-size window)
+   (pdf-view-image-size displayed-p window)
    'round))
 
 (defun pdf-util-scale-relative-to-points (list-of-relative-edges
@@ -140,7 +143,7 @@ See also `pdf-util-scale'."
    '(1.0 . 1.0)))
 
 (defun pdf-util-scale-pixel-to-relative (list-of-pixel-edges
-                                         &optional window)
+                                         &optional displayed-p window)
   "Scale LIST-OF-PIXEL-EDGES to relative values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -148,12 +151,12 @@ See also `pdf-util-scale'."
   (pdf-util-assert-pdf-window window)
   (pdf-util-scale-to
    list-of-pixel-edges
-   (pdf-view-image-size window)
+   (pdf-view-image-size displayed-p window)
    '(1.0 . 1.0)))
 
 
 (defun pdf-util-scale-relative-to-pixel (list-of-relative-edges
-                                         &optional window)
+                                         &optional displayed-p window)
   "Scale LIST-OF-EDGES to match SIZE.
 
 The result depends on the currently displayed page in WINDOW.
@@ -162,18 +165,26 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-relative-edges
    '(1.0 . 1.0)
-   (pdf-view-image-size window)
+   (pdf-view-image-size displayed-p window)
    'round))
 
-(defun pdf-util-translate-edges (list-of-edges-or-pos
-                                 offset &optional negative-offset-p)
+(defun pdf-util-translate (list-of-edges-or-pos
+                           offset &optional opposite-direction-p)
+  "Translate LIST-OF-EDGES-OR-POS by OFFSET
+
+OFFSET should be a cons \(X . Y\), by which to translate
+LIST-OF-EDGES-OR-POS.  If OPPOSITE-DIRECTION-P is non-nil
+translate by \(-X . -Y\).
+
+See `pdf-util-scale' for the LIST-OF-EDGES-OR-POS argument."
+
   (let ((have-list-p (listp (car list-of-edges-or-pos))))
     (unless have-list-p
       (setq list-of-edges-or-pos (list list-of-edges-or-pos)))
-    (let* ((ox (if negative-offset-p
+    (let* ((ox (if opposite-direction-p
                    (- (car offset))
                  (car offset)))
-           (oy (if negative-offset-p
+           (oy (if opposite-direction-p
                    (- (cdr offset))
                  (cdr offset)))
            (result
@@ -193,16 +204,17 @@ See also `pdf-util-scale'."
           result
         (car result)))))
 
-
-;; * ================================================================== *
-;; * Scrolling
-;; * ================================================================== *
-
-
 (defmacro pdf-util-with-edges (list-of-edges &rest body)
+  "Provide some convenient macros for the edges in LIST-OF-EDGES.
+
+LIST-OF-EDGES should be a list of variables \(X ...\), each one
+holding a list of edges. Inside BODY the symbols X-left, X-top,
+X-right, X-bot, X-width and X-height expand to their respective
+values."
+
   (declare (indent 1) (debug (sexp &rest form)))
   (unless (cl-every 'symbolp list-of-edges)
-    (signal 'wrong-type-argument (list 'list-of-symbols list-of-edges)))
+    (error "Argument should be a list of symbols"))
   (let ((list-of-syms
          (mapcar (lambda (edge)
                    (cons edge (mapcar
@@ -228,6 +240,11 @@ See also `pdf-util-scale'."
                    list-of-syms))
         ,@body))))
 
+
+;; * ================================================================== *
+;; * Scrolling
+;; * ================================================================== *
+
 (defun pdf-util-image-displayed-edges (&optional window)
   "Return the visible region of the image in WINDOW.
 
@@ -247,13 +264,21 @@ Returns a list of pixel edges."
     (list x0 y0 x1 y1)))
 
 (defun pdf-util-required-hscroll (edges &optional eager-p context-pixel)
+  "Return the amount of scrolling nescessary, to make image EDGES visible.
+
+Scroll as little as necessary.  Unless EAGER-P is non-nil, in
+which case scroll as much as possible.
+
+Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
+top of the window.  CONTEXT-PIXEL defaults to 0."
+
   (unless context-pixel
     (setq context-pixel 0))
   (let* ((win (window-inside-pixel-edges))
          (image-width (car (pdf-view-image-size t)))
          (image-left (* (frame-char-width)
                         (window-hscroll)))
-         (edges (pdf-util-translate-edges
+         (edges (pdf-util-translate
                  edges
                  (pdf-view-image-offset) t)))
     (pdf-util-with-edges (win edges)
@@ -272,10 +297,19 @@ Returns a list of pixel edges."
                      (- edges-right win-width)))))))))
 
 (defun pdf-util-required-vscroll (edges &optional eager-p context-pixel)
+  "Return the amount of scroll nescessary to make image EDGES visible.
+
+Scroll as little as necessary.  Unless EAGER-P is non-nil, in
+which case scroll as much as possible.
+
+Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
+top of the window.  CONTEXT-PIXEL defaults to an equivalent
+pixel-value of `next-screen-context-lines'."
+  
   (let* ((win (window-inside-pixel-edges))
          (image-height (cdr (pdf-view-image-size t)))
          (image-top (window-vscroll nil t))
-         (edges (pdf-util-translate-edges
+         (edges (pdf-util-translate
                  edges
                  (pdf-view-image-offset) t)))
     (pdf-util-with-edges (win edges)
@@ -298,18 +332,25 @@ Returns a list of pixel edges."
                      (- edges-bot win-height)))))))))
 
 (defun pdf-util-set-window-pixel-vscroll (vscroll)
+  "Like `image-set-window-vscroll' but pixel-wise."
   (setq vscroll (max (round vscroll) 0))
   (set-window-vscroll (selected-window) vscroll t)
   (setf (image-mode-window-get 'vscroll) (window-vscroll))
   nil)
 
 (defun pdf-util-set-window-pixel-hscroll (hscroll)
+  "Like `image-set-window-hscroll' but pixel-wise."
   (setq hscroll (max 0 (round (/ hscroll (float (frame-char-width))))))
-  (setf (image-mode-window-get 'hscroll) hscroll)
   (set-window-hscroll nil hscroll)
+  (setf (image-mode-window-get 'hscroll) (window-vscroll))
   nil)
 
 (defun pdf-util-display-edges (edges &optional eager-p)
+  "Scroll window such that image EDGES are visible.
+
+Scroll as little as necessary.  Unless EAGER-P is non-nil, in
+which case scroll as much as possible."
+ 
   (let ((vscroll (pdf-util-required-vscroll edges eager-p))
         (hscroll (pdf-util-required-hscroll edges eager-p)))
     (when vscroll
@@ -575,12 +616,11 @@ of the last commands given earlier in SPEC. E.g. a call like
        :background \"white\"
        :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
        :apply '\(\(0 0 10 10\) \(10 10 20 20\)\)
-       :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :commands '\(\"-fill\" \"%b\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
        :apply '\(\(10 0 20 10\) \(0 10 10 20\)\)\)
 
-will draw a 4x4 checkerboard pattern in the left corner of image,
-while leaving the rest of it as it was. \(Assuming image and size
-are variables containing appropriate values.\)
+would draw a 4x4 checkerboard pattern in the left corner of the
+image, while leaving the rest of it as it was.
 
 Returns OUT-FILE.
 
@@ -599,6 +639,12 @@ See url `http://www.imagemagick.org/script/convert.php'."
     out-file))
 
 (defun pdf-util-convert-asynch (in-file out-file &rest spec-and-callback)
+  "Like `pdf-util-convert', but asynchronous.
+
+If the last argument is a function, it is installed as the
+process sentinel.
+
+Returns the convert process."
   (pdf-util-assert-convert-program)
   (let ((callback (car (last spec-and-callback)))
         spec)
@@ -670,14 +716,6 @@ See url `http://www.imagemagick.org/script/convert.php'."
 ;;                           O L D   C O D E
 ;;                           
 ;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-
-
-
-
-(require 'cl-lib)
-(require 'format-spec)
 
 ;;
 ;; Handling Edges

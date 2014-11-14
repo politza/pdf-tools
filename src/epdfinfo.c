@@ -106,13 +106,13 @@ free_document (document_t *doc)
 }
 
 /** 
- * Parse a list of whitespace separated doubles.
+ * Parse a list of whitespace separated double values.
  * 
  * @param str The input string.
  * @param values[out] Values are put here.  
  * @param nvalues How many values to parse. 
  * 
- * @return TRUE, if exactly nvalues where read, else FALSE. 
+ * @return TRUE, if str contained exactly nvalues, else FALSE. 
  */
 static gboolean
 parse_double_list (const char *str, gdouble *values, size_t nvalues)
@@ -142,36 +142,20 @@ parse_double_list (const char *str, gdouble *values, size_t nvalues)
 }
 
 static gboolean
-parse_position (const char *str, gdouble *x, gdouble *y)
-{
-  gdouble values[2];
-
-  if (! parse_double_list (str, values, 2))
-    return FALSE;
-
-  if (x)
-    *x = values[0];
-  if (y)
-    *y = values[1];
-  
-  return TRUE;
-}
-
-static gboolean
-parse_rectangle (const char *str, PopplerRectangle *rectangle)
+parse_rectangle (const char *str, PopplerRectangle *r)
 {
   gdouble values[4];
 
+  if (! r)
+    return FALSE;
+  
   if (! parse_double_list (str, values, 4))
     return FALSE;
 
-  if (rectangle)
-    {
-      rectangle->x1 = values[0];
-      rectangle->y1 = values[1];
-      rectangle->x2 = values[2];
-      rectangle->y2 = values[3];
-    }  
+  r->x1 = values[0];
+  r->y1 = values[1];
+  r->x2 = values[2];
+  r->y2 = values[3];
   
   return TRUE;
 }
@@ -706,7 +690,7 @@ command_arg_split (const char *args, int *nargs)
 
 static gboolean
 command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
-                       command_arg_t *cmd_arg, command_arg_spec_t spec,
+                       command_arg_t *cmd_arg, command_arg_type_t type,
                        gchar **error_msg)
 {
   GError *gerror = NULL;
@@ -714,7 +698,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
   if (! arg || !cmd_arg)
     return FALSE;
   
-  switch (spec)
+  switch (type)
     {
     case ARG_DOC:
       {
@@ -788,7 +772,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
       {
         char *endptr;
         double n = strtod (arg, &endptr);
-        if (*endptr || (spec != ARG_EDGE_OR_NEG && n < 0.0 || n > 1.0))
+        if (*endptr || (type != ARG_EDGE_OR_NEG && n < 0.0 || n > 1.0))
           {
             if (error_msg)
               *error_msg =
@@ -818,7 +802,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
       internal_error ("switch fell through");
     }
 
-  cmd_arg->type = spec;
+  cmd_arg->type = type;
 
   return TRUE;
 }
@@ -1278,7 +1262,7 @@ attachment_print (PopplerAttachment *att, gboolean do_save)
    Errors: None
 */
 
-const command_arg_spec_t cmd_features_spec[] = {};
+const command_arg_type_t cmd_features_spec[] = {};
 
 static void
 cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
@@ -1314,7 +1298,7 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
    Errors: If file can't be opened or is not a PDF document.
 */
 
-const command_arg_spec_t cmd_open_spec[] =
+const command_arg_type_t cmd_open_spec[] =
   {
     ARG_NONEMPTY_STRING,        /* filename */
     ARG_STRING,                 /* password */
@@ -1360,7 +1344,7 @@ cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
    Errors: None
 */
 
-const command_arg_spec_t cmd_close_spec[] =
+const command_arg_type_t cmd_close_spec[] =
   {
     ARG_NONEMPTY_STRING         /* filename */
   };
@@ -1410,7 +1394,7 @@ cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_search_spec[] =
+const command_arg_type_t cmd_search_spec[] =
   {
     ARG_DOC,
     ARG_FLAG,                   /* ignore-case */
@@ -1491,7 +1475,7 @@ cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
    
 */
 
-const command_arg_spec_t cmd_metadata_spec[] =
+const command_arg_type_t cmd_metadata_spec[] =
   {
     ARG_DOC,
   };
@@ -1574,7 +1558,7 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
     } while (poppler_index_iter_next (iter));
 }
 
-const command_arg_spec_t cmd_outline_spec[] =
+const command_arg_type_t cmd_outline_spec[] =
   {
     ARG_DOC,
   };
@@ -1601,7 +1585,7 @@ cmd_outline (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_quit_spec[] = {};
+const command_arg_type_t cmd_quit_spec[] = {};
 
 static void
 cmd_quit (const epdfinfo_t *ctx, const command_arg_t *args)
@@ -1617,7 +1601,7 @@ cmd_quit (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_number_of_pages_spec[] =
+const command_arg_type_t cmd_number_of_pages_spec[] =
   {
     ARG_DOC
   };
@@ -1651,7 +1635,7 @@ cmd_number_of_pages (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_pagelinks_spec[] =
+const command_arg_type_t cmd_pagelinks_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM                  /* page number */
@@ -1705,7 +1689,7 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_gettext_spec[] =
+const command_arg_type_t cmd_gettext_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -1773,7 +1757,7 @@ cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_getselection_spec[] =
+const command_arg_type_t cmd_getselection_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -1840,7 +1824,7 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_pagesize_spec[] =
+const command_arg_type_t cmd_pagesize_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM                  /* page number */
@@ -1899,7 +1883,7 @@ cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_getannots_spec[] =
+const command_arg_type_t cmd_getannots_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* first page */
@@ -1946,7 +1930,7 @@ cmd_getannots(const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_getannot_spec[] =
+const command_arg_type_t cmd_getannot_spec[] =
   {
     ARG_DOC,
     ARG_NONEMPTY_STRING,        /* annotation's key */
@@ -1988,7 +1972,7 @@ cmd_getannot (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_spec_t cmd_getattachment_from_annot_spec[] =
+const command_arg_type_t cmd_getattachment_from_annot_spec[] =
   {
     ARG_DOC,
     ARG_NONEMPTY_STRING,        /* annotation's name */
@@ -2030,7 +2014,7 @@ cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args)
 
 
 /* document-level attachments */
-const command_arg_spec_t cmd_getattachments_spec[] =
+const command_arg_type_t cmd_getattachments_spec[] =
   {
     ARG_DOC,
     ARG_FLAG,        /* save attachments */
@@ -2058,7 +2042,7 @@ cmd_getattachments (const epdfinfo_t *ctx, const command_arg_t *args)
 
 #ifdef HAVE_POPPLER_ANNOT_WRITE
 
-const command_arg_spec_t cmd_addannot_spec[] =
+const command_arg_type_t cmd_addannot_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -2121,7 +2105,7 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
 }
 
 
-const command_arg_spec_t cmd_delannot_spec[] =
+const command_arg_type_t cmd_delannot_spec[] =
   {
     ARG_DOC,
     ARG_NONEMPTY_STRING         /* Annotation's key */
@@ -2160,7 +2144,7 @@ cmd_delannot (const epdfinfo_t *ctx, const command_arg_t *args)
   OK ();
 }
 
-const command_arg_spec_t cmd_save_spec[] =
+const command_arg_type_t cmd_save_spec[] =
   {
     ARG_DOC,
   };
@@ -2201,7 +2185,7 @@ cmd_save (const epdfinfo_t *ctx, const command_arg_t *args)
 }
 
 
-const command_arg_spec_t cmd_editannot_spec[] =
+const command_arg_type_t cmd_editannot_spec[] =
   {
     ARG_DOC,
     ARG_NONEMPTY_STRING,        /* Key */
@@ -2348,7 +2332,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 #endif  /* HAVE_POPPLER_ANNOT_WRITE */
 
 
-const command_arg_spec_t cmd_synctex_forward_search_spec[] =
+const command_arg_type_t cmd_synctex_forward_search_spec[] =
   {
     ARG_DOC,
     ARG_NONEMPTY_STRING,        /* source file */
@@ -2413,7 +2397,7 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
 }
 
 
-const command_arg_spec_t cmd_synctex_backward_search_spec[] =
+const command_arg_type_t cmd_synctex_backward_search_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -2475,7 +2459,7 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
 }
 
 
-const command_arg_spec_t cmd_renderpage_spec[] =
+const command_arg_type_t cmd_renderpage_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -2515,7 +2499,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
     g_object_unref (page);
 }
 
-const command_arg_spec_t cmd_renderpage_selection_spec[] =
+const command_arg_type_t cmd_renderpage_selection_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -2606,7 +2590,7 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
     g_object_unref (page);
 }
 
-const command_arg_spec_t cmd_boundingbox_spec[] =
+const command_arg_type_t cmd_boundingbox_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
