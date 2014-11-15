@@ -2491,7 +2491,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
     g_object_unref (page);
 }
 
-const command_arg_type_t cmd_renderpage_selection_spec[] =
+const command_arg_type_t cmd_renderpage_regions_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -2502,7 +2502,7 @@ const command_arg_type_t cmd_renderpage_selection_spec[] =
   };
 
 static void
-cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
+cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
@@ -2516,6 +2516,7 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
   command_arg_t rest_arg;
   gchar *error_msg = NULL;
   double pt_width, pt_height;
+  int height;
   int i = 0;
   
   if (! page)
@@ -2750,8 +2751,8 @@ static const command_t commands [] =
      G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
     /* Rendering */
     {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)},
-    {"renderpage-selection", cmd_renderpage_selection, cmd_renderpage_selection_spec,
-     G_N_ELEMENTS (cmd_renderpage_selection_spec)}
+    {"renderpage-regions", cmd_renderpage_regions, cmd_renderpage_regions_spec,
+     G_N_ELEMENTS (cmd_renderpage_regions_spec)}
   };
 
 int main(int argc, char **argv)
