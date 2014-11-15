@@ -61,7 +61,7 @@
 
 #define INT()                                   \
   do {                                          \
-    puts ("INT\n.")                             \
+    puts ("INT\n.");                            \
     fflush (stdout);                            \
   } while (0)
 

@@ -21,10 +21,6 @@
 
 ;;; Commentary:
 ;;
-;; TODO:
-;; * Handle server quits and more generally outdated datastructures.
-;; * Add more documentation.
-;; * The create convert commands code seems confused.
 
 (require 'pdf-info)
 (require 'pdf-render)

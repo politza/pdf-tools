@@ -259,16 +259,20 @@ a local copy of a remote file."
 (defun pdf-view-fit-page-to-window ()
   (interactive)
   (setq pdf-view-display-size 'fit-page)
+  (image-set-window-vscroll 0)
+  (image-set-window-hscroll 0)
   (pdf-view-redisplay-all-windows))
 
 (defun pdf-view-fit-height-to-window ()
   (interactive)
   (setq pdf-view-display-size 'fit-height)
+  (image-set-window-vscroll 0)
   (pdf-view-redisplay-all-windows))
 
 (defun pdf-view-fit-width-to-window ()
   (interactive)
   (setq pdf-view-display-size 'fit-width)
+  (image-set-window-hscroll 0)
   (pdf-view-redisplay-all-windows))
 
 (defun pdf-view-enlarge (factor)
@@ -556,7 +560,12 @@ or png."
            (pdf-view-image-type))
        pdf-view-use-scaling))
 
-(defun pdf-view-create-image (page &optional window inhibit-hotspots-p)
+(defmacro pdf-view-create-image (data &rest props)
+  "Like `create-image', but with set DATA-P and TYPE arguments."
+  (declare (indent 1) (debug t))
+  `(create-image ,data (pdf-view-image-type) t ,@props))
+
+(defun pdf-view-create-page (page &optional window inhibit-hotspots-p)
   "Create an image of PAGE for display on WINDOW."
   (let* ((size (pdf-view-desired-image-size page window))
          (data (pdf-cache-renderpage
@@ -567,11 +576,10 @@ or png."
          (hotspots (unless inhibit-hotspots-p
                      (pdf-view-apply-hotspot-functions
                       window page size))))
-    (create-image
-     data (pdf-view-image-type) t
-     :width (car size)
-     :map hotspots
-     :pointer 'arrow)))
+    (pdf-view-create-image data 
+      :width (car size)
+      :map hotspots
+      :pointer 'arrow)))
 
 (defun pdf-view-image-size (&optional displayed-p window)
   "Return the size in pixel of the current image.
@@ -603,7 +611,7 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
 (defun pdf-view-display-page (page &optional window inhibit-hotspots-p)
   "Display page PAGE in WINDOW."
   (pdf-view-display-image
-   (pdf-view-create-image page window inhibit-hotspots-p)
+   (pdf-view-create-page page window inhibit-hotspots-p)
    window))
 
 (defun pdf-view-display-image (image &optional window inhibit-slice-p)
@@ -749,8 +757,8 @@ supercede hotspots in lower ones."
                    :key 'cdr)))
 
 (defun pdf-view-sorted-hotspot-functions ()
-  (mapcar 'cdr (sort (copy-sequence pdf-view--hotspot-functions)
-                     '>)))
+  (mapcar 'cdr (cl-sort (copy-sequence pdf-view--hotspot-functions)
+                        '> :key 'car)))
 
 (defun pdf-view-apply-hotspot-functions (window page image-size)
   (save-selected-window
@@ -766,37 +774,34 @@ supercede hotspots in lower ones."
 ;; * ================================================================== *
 
 (defun pdf-view-prefetch-pages-function-default ()
-  (let ((current (pdf-view-current-page)))
-    (butlast
-     (cl-remove-duplicates
-      (cl-remove-if-not
-       (lambda (page)
-         (and (>= page 1)
-              (<= page (pdf-cache-number-of-pages))))
-       (append
-        ;; +1, -1, +2, -2, ...
-        (let ((sign 1)
-              (incr 1)
-              (value current))
-          (mapcar (lambda (i)
-                    (setq value (+ value (* sign incr))
-                          sign (- sign)
-                          incr (1+ incr))
-                    value)
-                  (number-sequence 1 16)))
-        ;; First and last
-        (list 1 (pdf-cache-number-of-pages))
-        ;; Links
-        (mapcar
-         'cadddr
-         (cl-remove-if-not
-          (lambda (link) (eq (cadr link) 'goto-dest))
-          (pdf-cache-pagelinks
-           (pdf-view-current-page))))))))))
+  (let ((page (pdf-view-current-page)))
+    (cl-remove-duplicates
+     (cl-remove-if-not
+      (lambda (page)
+        (and (>= page 1)
+             (<= page (pdf-cache-number-of-pages))))
+      (append
+       ;; +1, -1, +2, -2, ...
+       (let ((sign 1)
+             (incr 1))
+         (mapcar (lambda (i)
+                   (setq page (+ page (* sign incr))
+                         sign (- sign)
+                         incr (1+ incr))
+                   page)
+                 (number-sequence 1 16)))
+       ;; First and last
+       (list 1 (pdf-cache-number-of-pages))
+       ;; Links
+       (mapcar
+        'cadddr
+        (cl-remove-if-not
+         (lambda (link) (eq (cadr link) 'goto-dest))
+         (pdf-cache-pagelinks
+          (pdf-view-current-page)))))))))
 
 (defun pdf-view--prefetch-pages (window image-width)
-  (when (and pdf-view--prefetch-pages
-             (eq window (selected-window)))
+  (when (eq window (selected-window))
     (let ((page (pop pdf-view--prefetch-pages)))
       (while (and page
                   (pdf-cache-lookup-image
@@ -815,18 +820,19 @@ supercede hotspots in lower ones."
                                 (selected-window)))
                    (with-current-buffer (window-buffer)
                      (pdf-cache-put-image
-                      page image-width (pdf-util-munch-file data))
-                     (image-size (pdf-view-create-image page))
+                      page image-width data)
+                     (image-size (pdf-view-create-page page))
                      (pdf-tools-debug "Prefetched Page %s." page)
                      ;; Avoid max-lisp-eval-depth
                      (run-with-timer
-                         0 nil 'pdf-view--prefetch-pages window image-width))))))
+                         0.001 nil 'pdf-view--prefetch-pages window image-width))))))
           (pdf-info-renderpage page image-width))))))
 
 (defun pdf-view--prefetch-start (buffer)
   "Start prefetching images in BUFFER."
   (when (and pdf-view-prefetch-mode
              (not isearch-mode)
+             (null pdf-view--prefetch-pages)
              (eq (window-buffer) buffer)
              (fboundp pdf-view-prefetch-pages-function))
     (let ((pages (funcall pdf-view-prefetch-pages-function)))

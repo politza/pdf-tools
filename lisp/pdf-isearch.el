@@ -579,7 +579,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
               (car lazy)
               (cdr lazy)))))))
 
-(defvar pdf-isearch-hl-matches-tick 0)
+(defvar pdf-isearch--hl-matches-tick 0)
 
 (defun pdf-isearch-hl-matches (current matches)
   "Highlighting edges CURRENT and MATCHES."
@@ -598,17 +598,18 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                          'unbound)
                        pdf-isearch-batch-mode
                        pdf-isearch-current-parameter))))
-         (data (pdf-cache-lookup-image page width nil hash)))
+         (data nil ;; (pdf-cache-lookup-image page width nil hash)
+               ))
     (if data
         (pdf-view-display-image (create-image
                                  data (pdf-view-image-type) t))
       (let* ((window (selected-window))
              (buffer (current-buffer))
-             (tick (cl-incf pdf-isearch-hl-matches-tick))
+             (tick (cl-incf pdf-isearch--hl-matches-tick))
              (pdf-info-asynchronous
-              (lambda (status file)
+              (lambda (status data)
                 (when (and (null status)
-                           (eq tick pdf-isearch-hl-matches-tick)
+                           (eq tick pdf-isearch--hl-matches-tick)
                            (buffer-live-p buffer)
                            (window-live-p window)
                            (eq (window-buffer window)
@@ -617,14 +618,13 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                     (when (and (eq major-mode 'pdf-view-mode)
                                isearch-mode
                                (eq page (pdf-view-current-page)))
-                      (let ((data (pdf-util-munch-file file)))
-                        (pdf-cache-put-image page width data hash) 
-                        (pdf-view-display-image
-                         (create-image data (pdf-view-image-type) t)))))))))
+                      (pdf-cache-put-image page width data hash) 
+                      (pdf-view-display-image
+                       (pdf-view-create-image data))))))))
         (cl-destructuring-bind (fg1 bg1 fg2 bg2)
             (pdf-isearch-current-colors)
           (pdf-info-renderpage-selection
-           page width nil
+           page width t nil
            `(,fg1 ,bg1 ,(pdf-util-scale-pixel-to-relative current))
            `(,fg2 ,bg2 ,@(pdf-util-scale-pixel-to-relative
                           (remq current matches)))))))))

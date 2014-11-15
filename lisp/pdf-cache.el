@@ -70,7 +70,8 @@ is non-nil.  Be shure, not to modify the return value.\n" fn))
   (unless pdf-cache--cache
     (setq pdf-cache--cache
           (make-hash-table :test 'equal))
-    (add-hook 'after-revert-hook 'pdf-cache-clear-cache nil t))
+    (add-hook 'after-revert-hook 'pdf-cache-clear-cache nil t)
+    (add-hook 'after-save-hook 'pdf-cache-clear-cache nil t))
   ;; FIXME: Create a copy of sequences ?
   (or (and (not refresh-p)
            (gethash args pdf-cache--cache))
@@ -86,7 +87,7 @@ is non-nil.  Be shure, not to modify the return value.\n" fn))
 (define-cacheable-epdfinfo-command pagelinks)
 (define-cacheable-epdfinfo-command boundingbox)
 (define-cacheable-epdfinfo-command pagesize)
-
+(define-cacheable-epdfinfo-command getselection)
 
 
 ;; * ================================================================== *
@@ -176,6 +177,7 @@ This function always returns nil."
   (push (pdf-cache--make-image page width data hash)
         pdf-cache--image-cache)
   (add-hook 'after-revert-hook 'pdf-cache-clear-images nil t)
+  (add-hook 'after-save-hook 'pdf-cache-clear-images nil t)
   ;; Forget old image(s).
   (when (> (length pdf-cache--image-cache)
            pdf-cache-image-limit)
@@ -199,21 +201,22 @@ is at least MIN-WIDTH and, if non-nil, at most MAX-WIDTH.
 If such an image is not available in the cache, call
 `pdf-info-renderpage' to create one."
   (or (pdf-cache-get-image page min-width max-width)
-      (let ((data (pdf-util-munch-file
-                   (pdf-info-renderpage page min-width))))
+      (let ((data (pdf-info-renderpage page min-width)))
         (pdf-cache-put-image page min-width data)
         data)))
 
-(defun pdf-cache-renderpage-selection (page width &rest selection)
+(defun pdf-cache-renderpage-selection (page width single-line-p
+                                            &rest selection)
   "Render PAGE according to WIDTH and SELECTION.
 
 See also `pdf-info-renderpage-selection' and
 `pdf-cache-renderpage'."
-  (let ((hash (sxhash (cons 'renderpage-selection selection))))
+  (let ((hash (sxhash
+               (format "%S" (cons 'renderpage-selection
+                                  (cons single-line-p selection))))))
     (or (pdf-cache-get-image page width nil hash)
-        (let ((data (pdf-util-munch-file
-                     (apply 'pdf-info-renderpage-selection
-                            page width nil selection))))
+        (let ((data (apply 'pdf-info-renderpage-selection
+                           page width single-line-p nil selection)))
           (pdf-cache-put-image page width data hash)
           data))))
 

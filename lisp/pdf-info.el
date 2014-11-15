@@ -434,7 +434,7 @@ interrupted."
              ,@(when a
                  `((label . ,(pop-not-empty a))
                    (subject . ,(pop-not-empty a))
-                   (opacity . ,(pop a))
+                   (opacity . ,(string-to-number (pop-not-empty a)))
                    (popup-edges . ,(let ((p (pop-not-empty a)))
                                      (when p
                                        (mapcar 'string-to-number
@@ -467,7 +467,9 @@ interrupted."
        (cons (caar response)
              (mapcar 'string-to-number (cdar response))))
       (delannot nil)
-      ((save renderpage renderpage-selection) (caar response))
+      ((save) (caar response))
+      ((renderpage renderpage-selection)
+       (pdf-util-munch-file (caar response)))
       (t response))))
 
 (defun pdf-info-query--transform-action (action)
@@ -756,7 +758,8 @@ Return the text contained in the selection."
   (pdf-info-query
    'gettext
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   page x0 y0 x1 y1
+   page
+   (mapconcat 'number-to-string (list x0 y0 x1 y1) " ")
    (cl-case selection-style
      (glyph 0)
      (word 1)
@@ -774,7 +777,8 @@ the aforementioned function when called with the same arguments."
   (pdf-info-query
    'getselection
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   page x0 y0 x1 y1
+   page
+   (mapconcat 'number-to-string (list x0 y0 x1 y1) " ")
    (cl-case selection-style
      (glyph 0)
      (word 1)
@@ -869,7 +873,7 @@ returns."
    'addannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   x0 y0 x1 y1))
+   (mapconcat 'number-to-string (list x0 y0 x1 y1) " ")))
 
 (defun pdf-info-delannot (id &optional file-or-buffer)
   "Delete the annotation with ID in FILE-OR-BUFFER.
@@ -889,7 +893,13 @@ does not exist."
 ID should be a symbol, which was previously returned in a
 `pdf-info-getannots' query.  Signal an error, if annotation ID
 does not exist."
-  (pdf-info-editannot id `((edges . ,edges)) file-or-buffer))
+  (apply 'pdf-info-query
+   'editannot
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   id
+   "100000"
+   (append edges
+           (list nil nil nil nil nil))))
 
 (defun pdf-info-editannot (id modifications &optional file-or-buffer)
   "Send modifications to annotation ID to the server.
@@ -1020,15 +1030,15 @@ Returns a list \(SOURCE LINE COLUMN\)."
 (defun pdf-info-renderpage (page width &optional file-or-buffer)
   "Render PAGE with width WIDTH.
 
-Return the filename of the corresponding image, which is owned by
-the caller."
+Return the data of the corresponding PNG image."
   (pdf-info-query
    'renderpage
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   width 0))
+   width))
 
-(defun pdf-info-renderpage-selection (page width &optional file-or-buffer
+(defun pdf-info-renderpage-selection (page width single-line-p
+                                           &optional file-or-buffer
                                            &rest selections)
   "Render PAGE with width WIDTH using SELECTIONS.
 
@@ -1036,10 +1046,13 @@ SELECTIONS is a list determining foreground and background color
 and the regions to render. So each element should look like
 \(FG BG \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
 
+If SINGLE-LINE-P is non-nil, the edges in SELECTIONS are supposed
+to limited to a single line in the document.  Setting this avoids
+rendering neighboring lines.
+
 For the other args see `pdf-info-renderpage'.
 
-Return the filename of the corresponding image, which is owned by
-the caller."
+Return the data of the corresponding PNG image."
   
   (when (consp file-or-buffer)
     (push file-or-buffer selections)
@@ -1049,7 +1062,7 @@ the caller."
          'renderpage-selection
          (pdf-info--normalize-file-or-buffer file-or-buffer)
          page
-         width 0
+         width (if single-line-p 1 0)
          (apply 'append
                 (mapcar
                  (lambda (s)

@@ -95,7 +95,7 @@ FROM and TO should both be a cons \(WIDTH . HEIGTH\).  See also
                   rounding-fn))
 
 (defun pdf-util-scale-pixel-to-points (list-of-pixel-edges
-                                       &optional displayed-p window)
+                                       &optional rounding-fn displayed-p window)
   "Scale LIST-OF-PIXEL-EDGES to point values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -104,10 +104,11 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-pixel-edges
    (pdf-view-image-size displayed-p window)
-   (pdf-cache-pagesize)))
+   (pdf-cache-pagesize)
+   rounding-fn))
 
 (defun pdf-util-scale-points-to-pixel (list-of-points-edges
-                                       &optional displayed-p window)
+                                       &optional rounding-fn displayed-p window)
   "Scale LIST-OF-POINTS-EDGES to point values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -117,10 +118,10 @@ See also `pdf-util-scale'."
    list-of-points-edges
    (pdf-cache-pagesize)
    (pdf-view-image-size displayed-p window)
-   'round))
+   rounding-fn))
 
 (defun pdf-util-scale-relative-to-points (list-of-relative-edges
-                                          &optional window)
+                                          &optional rounding-fn window)
   "Scale LIST-OF-RELATIVE-EDGES to point values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -129,10 +130,11 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-relative-edges
    '(1.0 . 1.0)
-   (pdf-cache-pagesize)))
+   (pdf-cache-pagesize)
+   rounding-fn))
 
 (defun pdf-util-scale-points-to-relative (list-of-points-edges
-                                          &optional window)
+                                          &optional rounding-fn window)
   "Scale LIST-OF-POINTS-EDGES to relative values.
 
 See also `pdf-util-scale'."
@@ -140,10 +142,11 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-points-edges
    (pdf-cache-pagesize)
-   '(1.0 . 1.0)))
+   '(1.0 . 1.0)
+   rounding-fn))
 
 (defun pdf-util-scale-pixel-to-relative (list-of-pixel-edges
-                                         &optional displayed-p window)
+                                         &optional rounding-fn displayed-p window)
   "Scale LIST-OF-PIXEL-EDGES to relative values.
 
 The result depends on the currently displayed page in WINDOW.
@@ -152,11 +155,12 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-pixel-edges
    (pdf-view-image-size displayed-p window)
-   '(1.0 . 1.0)))
+   '(1.0 . 1.0)
+   rounding-fn))
 
 
 (defun pdf-util-scale-relative-to-pixel (list-of-relative-edges
-                                         &optional displayed-p window)
+                                         &optional rounding-fn displayed-p window)
   "Scale LIST-OF-EDGES to match SIZE.
 
 The result depends on the currently displayed page in WINDOW.
@@ -166,7 +170,7 @@ See also `pdf-util-scale'."
    list-of-relative-edges
    '(1.0 . 1.0)
    (pdf-view-image-size displayed-p window)
-   'round))
+   rounding-fn))
 
 (defun pdf-util-translate (list-of-edges-or-pos
                            offset &optional opposite-direction-p)
@@ -270,7 +274,10 @@ Scroll as little as necessary.  Unless EAGER-P is non-nil, in
 which case scroll as much as possible.
 
 Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
-top of the window.  CONTEXT-PIXEL defaults to 0."
+top of the window.  CONTEXT-PIXEL defaults to 0.
+
+Return the require hscroll in columns or nil, if scrolling is not
+needed."
 
   (unless context-pixel
     (setq context-pixel 0))
@@ -285,26 +292,31 @@ top of the window.  CONTEXT-PIXEL defaults to 0."
       (let* ((edges-left (- edges-left context-pixel))
              (edges-right (+ edges-right context-pixel)))
         (if (< edges-left image-left)
-            (max 0 (if eager-p
-                       (- edges-right win-width)
-                     edges-left))
+            (/ (max 0 (if eager-p
+                          (- edges-right win-width)
+                        edges-left))
+               (frame-char-width))
           (if (> (min image-width
                       edges-right)
                  (+ image-left win-width))
-              (min (- image-width win-width)
-                   (if eager-p
-                       edges-left
-                     (- edges-right win-width)))))))))
+              (/ (min (- image-width win-width)
+                      (if eager-p
+                          edges-left
+                        (- edges-right win-width)))
+                 (frame-char-width))))))))
 
 (defun pdf-util-required-vscroll (edges &optional eager-p context-pixel)
-  "Return the amount of scroll nescessary to make image EDGES visible.
+  "Return the amount of scrolling nescessary, to make image EDGES visible.
 
 Scroll as little as necessary.  Unless EAGER-P is non-nil, in
 which case scroll as much as possible.
 
 Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
-top of the window.  CONTEXT-PIXEL defaults to an equivalent
-pixel-value of `next-screen-context-lines'."
+top of the window.  CONTEXT-PIXEL defaults to an equivalent pixel
+value of `next-screen-context-lines'.
+
+Return the require vscroll in lines or nil, if scrolling is not
+needed."
   
   (let* ((win (window-inside-pixel-edges))
          (image-height (cdr (pdf-view-image-size t)))
@@ -315,35 +327,23 @@ pixel-value of `next-screen-context-lines'."
     (pdf-util-with-edges (win edges)
       (let* ((context-pixel (or context-pixel
                                 (* next-screen-context-lines
-                                   edges-height)))
+                                   (frame-char-height))))
              ;;Be careful not to modify edges.
              (edges-top (- edges-top context-pixel))
              (edges-bot (+ edges-bot context-pixel)))
         (if (< edges-top image-top)
-            (max 0 (if eager-p
-                       (- edges-bot win-height)
-                     edges-top))
+            (/ (max 0 (if eager-p
+                          (- edges-bot win-height)
+                        edges-top))
+               (float (frame-char-height)))
           (if (> (min image-height
                       edges-bot)
                  (+ image-top win-height))
-              (min (- image-height win-height)
-                   (if eager-p
-                       edges-top
-                     (- edges-bot win-height)))))))))
-
-(defun pdf-util-set-window-pixel-vscroll (vscroll)
-  "Like `image-set-window-vscroll' but pixel-wise."
-  (setq vscroll (max (round vscroll) 0))
-  (set-window-vscroll (selected-window) vscroll t)
-  (setf (image-mode-window-get 'vscroll) (window-vscroll))
-  nil)
-
-(defun pdf-util-set-window-pixel-hscroll (hscroll)
-  "Like `image-set-window-hscroll' but pixel-wise."
-  (setq hscroll (max 0 (round (/ hscroll (float (frame-char-width))))))
-  (set-window-hscroll nil hscroll)
-  (setf (image-mode-window-get 'hscroll) (window-vscroll))
-  nil)
+              (/ (min (- image-height win-height)
+                      (if eager-p
+                          edges-top
+                        (- edges-bot win-height)))
+                 (float (frame-char-height)))))))))
 
 (defun pdf-util-display-edges (edges &optional eager-p)
   "Scroll window such that image EDGES are visible.
@@ -354,9 +354,9 @@ which case scroll as much as possible."
   (let ((vscroll (pdf-util-required-vscroll edges eager-p))
         (hscroll (pdf-util-required-hscroll edges eager-p)))
     (when vscroll
-      (pdf-util-set-window-pixel-vscroll vscroll))
+      (image-set-window-vscroll vscroll))
     (when hscroll
-      (pdf-util-set-window-pixel-hscroll hscroll))))
+      (image-set-window-hscroll hscroll))))
 
 
 
@@ -441,7 +441,7 @@ Singal an error, if color is invalid."
             ,@tooltip-frame-parameters))
          (tooltip-hide-delay (or timeout 3)))
     (when vscroll
-      (pdf-util-set-window-pixel-vscroll vscroll))
+      (image-set-window-vscroll vscroll))
     (setq dy (max 0 (- dy
                        (cdr (pdf-view-image-offset))
                        (window-vscroll nil t))))
@@ -802,6 +802,46 @@ Return the converted PNG image as a string.  See also
        (vector id (intern (format "%smouse-%d" kind b)))
        'pdf-util-image-map-mouse-event-proxy))))
 
+(defmacro pdf-util-doevents (event-resolution condition &rest body)
+  "Read EVENTs tracking mouse while CONDITION and execute BODY.
+
+Process at most 1/RESOLUTION events per second.  If UNREAD-p is
+non-nil, unread the final non-processed event.
+
+\(FN (EVENT RESOLUTION &optional UNREAD-p) CONDITION &rest BODY\)"
+  (declare (indent 2) (debug ((symbolp form &optional form) form body)))
+  (let ((event (car event-resolution))
+        (resolution (cadr event-resolution))
+        (unread-p (car (cddr event-resolution)))
+        (*seconds (make-symbol "seconds"))
+        (*timestamp (make-symbol "timestamp"))
+        (*clock (make-symbol "clock"))
+        (*unread-p (make-symbol "unread-p")))
+    `(track-mouse
+       (let* ((,*unread-p ,unread-p)
+              (,*seconds 0)
+              (,*timestamp (float-time))
+              (,*clock (lambda (&optional secs)
+                         (when secs
+                           (setq ,*seconds secs
+                                 ,*timestamp (float-time)))
+                         (- (+ ,*timestamp ,*seconds)
+                            (float-time))))
+              (,event (read-event)))
+         (while ,condition
+           (when (<= (funcall ,*clock) 0)
+             (progn ,@body)
+             (setq ,event nil)
+             (funcall ,*clock ,resolution))
+           (setq ,event
+                 (or (read-event nil nil
+                                 (and ,event
+                                      (max 0 (funcall ,*clock))))
+                     ,event)))
+         (when (and ,*unread-p ,event)
+           (setq unread-command-events
+                 (list ,event)))))))
+  
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here

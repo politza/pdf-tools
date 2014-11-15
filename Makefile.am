@@ -43,7 +43,7 @@ $(ELP_TAR_FILE): $(LISP_FILES)
 		tar cf ../$(ELP_TAR_FILE) $(ELP_NAME) 
 	rm -rf -- $(ELP_TMP_DIR)
 
-install-package: $(ELP_TAR_FILE)
+install-package: all $(ELP_TAR_FILE)
 	if ! which -- "$(EMACS)"; then \
 		echo "No emacs executable found, you have to set EMACS"; \
 		false; \

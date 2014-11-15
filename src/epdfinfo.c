@@ -1250,12 +1250,6 @@ attachment_print (PopplerAttachment *att, gboolean do_save)
  * Server command implementations
  * ================================================================== */
 
-/* Not implemented yet. */
-/* gboolean interrupted;           /\* TRUE, if the current command was interrupted. *\/
- * gboolean interruptable;         /\* TRUE, is the current command is interruptable. *\/
- * 
- * #define INTERRUPTED_P() (interrupted) */
-
 /* Name: features
    Args: None
    Returns: A list of compile-time features.
@@ -2464,7 +2458,6 @@ const command_arg_type_t cmd_renderpage_spec[] =
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
     ARG_NATNUM,                 /* width */
-    ARG_FLAG                    /* ppm, else png */
   };
 
 static void
@@ -2473,7 +2466,6 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
   int width = args[2].value.natnum;
-  int ppm = args[3].value.flag;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
   cairo_surface_t *surface = NULL;
   
@@ -2491,7 +2483,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
       goto theend;
     }
 
-  image_write_print_response (surface, ppm ? PPM : PNG);
+  image_write_print_response (surface, PNG);
  theend:
   if (surface)
     cairo_surface_destroy (surface);
@@ -2504,7 +2496,8 @@ const command_arg_type_t cmd_renderpage_selection_spec[] =
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
     ARG_NATNUM,                 /* width */
-    ARG_FLAG,                   /* ppm, else png */
+    ARG_FLAG,                   /* Whether edges are supposed to be
+                                   constrained to a single line */
     ARG_REST                    /* (foreground background edges*)* */
   };
 
@@ -2514,7 +2507,7 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
   int width = args[2].value.natnum;
-  int ppm = args[3].value.flag;
+  int single_line = args[3].value.flag;
   int nrest_args = args[4].value.rest.nargs;
   char **rest_args = args[4].value.rest.args;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
@@ -2562,22 +2555,29 @@ cmd_renderpage_selection (const epdfinfo_t *ctx, const command_arg_t *args)
                                        ARG_EDGES, NULL))
         {
           PopplerRectangle *r = &rest_arg.value.rectangle;
-          const gdouble x_adjust = 0.002;
-          const gdouble y_adjust = 0.002;
+
+          r->x1 *= pt_width;
+          r->x2 *= pt_width;
+          r->y1 *= pt_height;
+          r->y2 *= pt_height;
           
-          /* Adjust the rectangle a bit, making it smaller. Otherwise
-             poppler frequently renders neighboring lines.*/
-          r->x1 = (r->x1 + x_adjust) * pt_width;
-          r->x2 = (r->x2 - x_adjust) * pt_width;
-          r->y1 = (r->y1 + y_adjust) * pt_height;
-          r->y2 = (r->y2 - y_adjust) * pt_height;
+          if (single_line)
+            {
+              gdouble m = r->y1 + (r->y2 - r->y1) / 2;
+          
+              /* Make the rectangle flat, otherwise poppler frequently
+                 renders neighboring lines.*/
+              r->y1 = m;
+              r->y2 = m;
+            }
+
           poppler_page_render_selection (page, cr, &rest_arg.value.rectangle, NULL,
                                          POPPLER_SELECTION_GLYPH, &fg, &bg);
           ++i;
         }
     }
   
-  image_write_print_response (surface, ppm ? PPM : PNG);
+  image_write_print_response (surface, PNG);
 
  theend:
   if (error_msg)

@@ -47,7 +47,7 @@
   :group 'pdf-tools-faces)
 
 (defcustom pdf-links-read-link-convert-commands
-  '(;; "-font" "FreeMono"
+  '(;;"-font" "FreeMono"
     "-pointsize" "%P"
     "-undercolor" "%f"
     "-fill" "%b"
