@@ -407,7 +407,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                                        pdf-misc-dark-mode)))
   (pdf-view-display-image
    (pdf-view-create-image
-       (pdf-info-renderpage-selection
+       (pdf-info-renderpage-text-regions
         (or page (pdf-view-current-page))
         (or image-width (car (pdf-view-image-size)))
         nil nil `(,(car colors)

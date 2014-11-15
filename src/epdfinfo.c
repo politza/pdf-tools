@@ -772,7 +772,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
       {
         char *endptr;
         double n = strtod (arg, &endptr);
-        if (*endptr || (type != ARG_EDGE_OR_NEG && n < 0.0 || n > 1.0))
+        if (*endptr || (type != ARG_EDGE_OR_NEG && n < 0.0) || n > 1.0)
           {
             if (error_msg)
               *error_msg =
@@ -2058,8 +2058,7 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   annotation_t *annot;
   gchar *key;
   GList *annots;
-  gdouble tmp;
-  
+
   if (pn < 0 || pn > poppler_document_get_n_pages (doc->pdf))
     {
       printf_error_response ("No such page %d", pn);
@@ -2491,7 +2490,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
     g_object_unref (page);
 }
 
-const command_arg_type_t cmd_renderpage_regions_spec[] =
+const command_arg_type_t cmd_renderpage_text_regions_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
@@ -2502,7 +2501,7 @@ const command_arg_type_t cmd_renderpage_regions_spec[] =
   };
 
 static void
-cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
+cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
@@ -2516,7 +2515,6 @@ cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
   command_arg_t rest_arg;
   gchar *error_msg = NULL;
   double pt_width, pt_height;
-  int height;
   int i = 0;
   
   if (! page)
@@ -2576,6 +2574,124 @@ cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
                                          POPPLER_SELECTION_GLYPH, &fg, &bg);
           ++i;
         }
+      /* Alternative: Render with cairo. It avoids line overflow, but
+         does not look as good (no foreground/background
+         information). */
+      /* {
+       *   PopplerRectangle *r = &rest_arg.value.rectangle;
+       *   const gdouble alpha = 0.6;
+       *     
+       *   r->x1 *= width;
+       *   r->x2 *= width;
+       *   r->y1 *= height;
+       *   r->y2 *= height;
+       *     
+       *   cairo_save (cr);
+       *   cairo_set_source_rgba (cr, bg.red, bg.green, bg.blue, alpha);
+       *   cairo_rectangle (cr, r->x1, r->y1, r->x2 - r->x1, r->y2 - r->y1);
+       *   cairo_fill_preserve (cr);
+       *   cairo_set_line_width (cr, 0.5);
+       *   cairo_set_source_rgb (cr, fg.red, fg.green, fg.blue);
+       *   cairo_stroke (cr);
+       *   cairo_restore (cr);
+       * 
+       *   ++i;
+       * } */
+    }
+  
+  image_write_print_response (surface, PNG);
+
+ theend:
+  if (error_msg)
+    g_free (error_msg);
+  if (cr)
+    cairo_destroy (cr);
+  if (surface)
+    cairo_surface_destroy (surface);
+  if (page)
+    g_object_unref (page);
+}
+
+const command_arg_type_t cmd_renderpage_regions_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_NATNUM,                 /* width */
+    ARG_REST                    /* (background alpha edges*)* */
+  };
+
+static void
+cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  document_t *doc = args[0].value.doc;
+  int pn = args[1].value.natnum;
+  int width = args[2].value.natnum;
+  int nrest_args = args[3].value.rest.nargs;
+  char **rest_args = args[3].value.rest.args;
+  PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
+  cairo_surface_t *surface = NULL;
+  cairo_t *cr = NULL;
+  command_arg_t rest_arg;
+  gchar *error_msg = NULL;
+  int height;
+  int i = 0;
+  
+  if (! page)
+    {
+      printf_error_response ("No such page %d", pn);
+      goto theend;
+    }
+
+  surface = image_render_page (doc->pdf, page, width);
+  height = cairo_image_surface_get_height (surface);
+  cr = cairo_create (surface);
+  
+  while (i < nrest_args)
+    {
+      PopplerColor bg;
+      gdouble alpha;
+
+      if (! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
+                                   &error_msg))
+        {
+          printf_error_response ("%s", error_msg);
+          goto theend;
+        }
+      bg = rest_arg.value.color;
+      ++i;
+
+      if (i >= nrest_args
+          || ! command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_EDGE,
+                                      &error_msg))
+        {
+          printf_error_response ("%s", error_msg);
+          goto theend;
+        }
+      alpha = rest_arg.value.edge;
+      ++i;
+
+      while (i < nrest_args
+             && command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
+                                       ARG_EDGES, NULL))
+      {
+        PopplerRectangle *r = &rest_arg.value.rectangle;
+          
+        r->x1 *= width;
+        r->x2 *= width;
+        r->y1 *= height;
+        r->y2 *= height;
+          
+        cairo_save (cr);
+        cairo_set_source_rgba (cr, bg.red, bg.green, bg.blue, alpha);
+        cairo_rectangle (cr, r->x1, r->y1, r->x2 - r->x1, r->y2 - r->y1);
+        cairo_fill_preserve (cr);
+        cairo_set_line_width (cr, 0.5);
+        cairo_set_source_rgb (cr, bg.red, bg.green, bg.blue);
+        cairo_stroke (cr);
+        cairo_restore (cr);
+      
+        ++i;
+      }
     }
   
   image_write_print_response (surface, PNG);
@@ -2750,8 +2866,13 @@ static const command_t commands [] =
     {"synctex-backward-search", cmd_synctex_backward_search, cmd_synctex_backward_search_spec,
      G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
     /* Rendering */
-    {"renderpage", cmd_renderpage, cmd_renderpage_spec, G_N_ELEMENTS (cmd_renderpage_spec)},
-    {"renderpage-regions", cmd_renderpage_regions, cmd_renderpage_regions_spec,
+    {"renderpage", cmd_renderpage, cmd_renderpage_spec,
+     G_N_ELEMENTS (cmd_renderpage_spec)},
+    {"renderpage-text-regions", cmd_renderpage_text_regions,
+     cmd_renderpage_text_regions_spec,
+     G_N_ELEMENTS (cmd_renderpage_text_regions_spec)},
+    {"renderpage-regions", cmd_renderpage_regions,
+     cmd_renderpage_regions_spec,
      G_N_ELEMENTS (cmd_renderpage_regions_spec)}
   };
 

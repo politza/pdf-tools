@@ -468,7 +468,7 @@ interrupted."
              (mapcar 'string-to-number (cdar response))))
       (delannot nil)
       ((save) (caar response))
-      ((renderpage renderpage-selection)
+      ((renderpage renderpage-text-regions renderpage-regions)
        (pdf-util-munch-file (caar response)))
       (t response))))
 
@@ -751,7 +751,8 @@ the tree and ACTION has the same format as in
   "Get text on PAGE according to edges X0, Y0, X1 and Y1.
 
 The selection may extend over multiple lines, which works similar
-to a Emacs region.
+to a Emacs region. SELECTION-STYLE may be one of glyph, word or
+line and determines the smallest unit of the selected region.
 
 Return the text contained in the selection."
 
@@ -1037,29 +1038,31 @@ Return the data of the corresponding PNG image."
    page
    width))
 
-(defun pdf-info-renderpage-selection (page width single-line-p
+(defun pdf-info-renderpage-text-regions (page width single-line-p
                                            &optional file-or-buffer
-                                           &rest selections)
-  "Render PAGE with width WIDTH using SELECTIONS.
+                                           &rest regions)
+  "Highlight text on PAGE with width WIDTH using REGIONS.
 
-SELECTIONS is a list determining foreground and background color
-and the regions to render. So each element should look like
-\(FG BG \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
+REGIONS is a list determining foreground and background color and
+the regions to render. So each element should look like \(FG BG
+\(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) . The
+rendering is text-aware.  
 
-If SINGLE-LINE-P is non-nil, the edges in SELECTIONS are supposed
-to limited to a single line in the document.  Setting this avoids
-rendering neighboring lines.
+If SINGLE-LINE-P is non-nil, the edges in REGIONS are each
+supposed to be limited to a single line in the document.  Setting
+this, if applicable, avoids rendering problems.
 
-For the other args see `pdf-info-renderpage'.
+For the other args see `pdf-info-renderpage'. See also
+`pdf-info-renderpage-regions'.
 
 Return the data of the corresponding PNG image."
   
   (when (consp file-or-buffer)
-    (push file-or-buffer selections)
+    (push file-or-buffer regions)
     (setq file-or-buffer nil))
   
   (apply 'pdf-info-query
-         'renderpage-selection
+         'renderpage-text-regions
          (pdf-info--normalize-file-or-buffer file-or-buffer)
          page
          width (if single-line-p 1 0)
@@ -1075,14 +1078,48 @@ Return the data of the corresponding PNG image."
                              (lambda (e)
                                (mapconcat 'number-to-string e " "))
                              edges)))))
-                 selections))))
-   
+                 regions))))
+
+(defun pdf-info-renderpage-regions (page width 
+                                         &optional file-or-buffer
+                                         &rest regions)
+  "Highlight regions on PAGE with width WIDTH using REGIONS.
+
+REGIONS is a list determining the background color, a alpha value
+and the regions to render. So each element should look like
+\(BG ALPHA \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
+
+For the other args see `pdf-info-renderpage'.
+
+Return the data of the corresponding PNG image."
+  
+  (when (consp file-or-buffer)
+    (push file-or-buffer regions)
+    (setq file-or-buffer nil))
+  
+  (apply 'pdf-info-query
+         'renderpage-regions
+         (pdf-info--normalize-file-or-buffer file-or-buffer)
+         page
+         width 
+         (apply 'append
+                (mapcar
+                 (lambda (s)
+                   (cl-destructuring-bind (bg alpha &rest edges)
+                       s
+                     (cons
+                      (pdf-util-hexcolor bg)
+                      (cons alpha
+                            (mapcar
+                             (lambda (e)
+                               (mapconcat 'number-to-string e " "))
+                             edges)))))
+                 regions))))
 
 (defun pdf-info-boundingbox (page &optional file-or-buffer)
   "Return a bounding-box for PAGE.
 
-Returns a list \(LEFT TOP RIGHT BOT\) of the corresponding
-bounding-box."
+Returns a list \(LEFT TOP RIGHT BOT\)."
   
   (pdf-info-query
    'boundingbox
@@ -1092,8 +1129,7 @@ bounding-box."
 (define-minor-mode pdf-info-auto-revert-minor-mode
   "Close the document, after the buffer is reverted.
 
-This ensures that the information retrieved is not outdated, but
-will abandon all changes made to annotations."
+This ensures that the information retrieved is not outdated."
 
   nil nil t
   (pdf-util-assert-pdf-buffer)

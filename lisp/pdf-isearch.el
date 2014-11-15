@@ -623,12 +623,11 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                        (pdf-view-create-image data))))))))
         (cl-destructuring-bind (fg1 bg1 fg2 bg2)
             (pdf-isearch-current-colors)
-          (pdf-info-renderpage-selection
+          (pdf-info-renderpage-text-regions
            page width t nil
            `(,fg1 ,bg1 ,(pdf-util-scale-pixel-to-relative current))
            `(,fg2 ,bg2 ,@(pdf-util-scale-pixel-to-relative
                           (remq current matches)))))))))
-
 
 ;; The following isearch-search function is debugable.
 ;; 

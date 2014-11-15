@@ -70,9 +70,8 @@ is non-nil.  Be shure, not to modify the return value.\n" fn))
   (unless pdf-cache--cache
     (setq pdf-cache--cache
           (make-hash-table :test 'equal))
-    (add-hook 'after-revert-hook 'pdf-cache-clear-cache nil t)
-    (add-hook 'after-save-hook 'pdf-cache-clear-cache nil t))
-  ;; FIXME: Create a copy of sequences ?
+    (add-hook 'after-revert-hook 'pdf-cache-clear nil t)
+    (add-hook 'after-save-hook 'pdf-cache-clear nil t))
   (or (and (not refresh-p)
            (gethash args pdf-cache--cache))
       (puthash args (apply (car args) (cdr args))
@@ -131,7 +130,7 @@ hash-value is `eql' to HASH."
 (defun pdf-cache-lookup-image (page min-width &optional max-width hash)
   "Return PAGE's PNG data as a string.
 
-Don't modify the cache.  See also `pdf-cache-get-image'."
+Does not modify the cache.  See also `pdf-cache-get-image'."
   (let ((image (car (cl-member
                      (list page min-width max-width hash)
                      pdf-cache--image-cache
@@ -151,8 +150,8 @@ Remember that image was recently used.
 Returns nil, if no matching image was found."
   (let ((cache (cons nil pdf-cache--image-cache))
         image)
-    ;; Find it in the cache and remove it.  Therefore we need to find
-    ;; the element before it.
+    ;; Find it in the cache and remove it.  We need to find the
+    ;; element in front of it.
     (while (and (cdr cache)
                 (not (pdf-cache--image-match
                       (car (cdr cache))
@@ -205,17 +204,17 @@ If such an image is not available in the cache, call
         (pdf-cache-put-image page min-width data)
         data)))
 
-(defun pdf-cache-renderpage-selection (page width single-line-p
+(defun pdf-cache-renderpage-text-regions (page width single-line-p
                                             &rest selection)
-  "Render PAGE according to WIDTH and SELECTION.
+  "Render PAGE according to WIDTH, SINGLE-LINE-P and SELECTION.
 
-See also `pdf-info-renderpage-selection' and
+See also `pdf-info-renderpage-text-regions' and
 `pdf-cache-renderpage'."
   (let ((hash (sxhash
-               (format "%S" (cons 'renderpage-selection
+               (format "%S" (cons 'renderpage-text-regions
                                   (cons single-line-p selection))))))
     (or (pdf-cache-get-image page width nil hash)
-        (let ((data (apply 'pdf-info-renderpage-selection
+        (let ((data (apply 'pdf-info-renderpage-text-regions
                            page width single-line-p nil selection)))
           (pdf-cache-put-image page width data hash)
           data))))
