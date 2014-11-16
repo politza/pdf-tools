@@ -114,7 +114,6 @@ PDF buffers."
   :group 'pdf-tools
   :type 'hook)
 
-
 (defun pdf-tools-customize ()
   "Customize Pdf Tools."
   (interactive)
@@ -127,7 +126,7 @@ PDF buffers."
                         (custom-unlispify-tag-name 'pdf-tools-faces))))
     (when (buffer-live-p (get-buffer buffer))
       (with-current-buffer (get-buffer buffer)
-        (rename-uniquely )))
+        (rename-uniquely)))
     (customize-group 'pdf-tools-faces)
     (with-current-buffer buffer
       (set (make-local-variable 'custom-face-default-form) 'all))))
@@ -138,9 +137,23 @@ PDF buffers."
 ;; * ================================================================== *
 
 
+(defun pdf-tools-pdf-buffer-p (&optional buffer)
+  "Return non-nil if BUFFER contains a PDF document."
+  (save-current-buffer
+    (when buffer (set-buffer buffer))
+    (save-excursion
+      (goto-char 1)
+      (looking-at "%PDF"))))
+
+(defun pdf-tools-assert-pdf-buffer (&optional buffer)
+  (unless (pdf-tools-pdf-buffer-p buffer)
+    (error "Buffer does not contain a PDF document")))
+  
 (defun pdf-tools-set-modes-enabled (enabled-p &optional modes)
   (dolist (m (or modes pdf-tools-enabled-modes))
-    (funcall m (if enabled-p 1 -1))))
+    (unless (or (and m enabled-p)
+                (and (not m) (not enabled-p)))
+      (funcall m (if enabled-p 1 -1)))))
 
 ;;;###autoload
 (defun pdf-tools-enable (&optional modes)
@@ -148,6 +161,7 @@ PDF buffers."
 
 MODES defaults to `pdf-tools-enabled-modes'."
   (interactive)
+  (pdf-tools-assert-pdf-buffer)
   (pdf-tools-set-modes-enabled t modes)
   (run-hooks 'pdf-tools-enabled-hook))
 
@@ -165,12 +179,12 @@ MODES defaults to `pdf-tools-enabled-modes'.
 
 Does nothing, if current buffer is not in DocViewPDF Mode."
   (interactive)
-  (when (pdf-util-pdf-buffer-p)
+  (when (pdf-tools-pdf-buffer-p)
     (pdf-tools-enable modes)))
 
 ;;;###autoload
 (defun pdf-tools-install ()
-  "Install PdfTools in all current and future PDF buffers.
+  "Install PDF-Tools in all current and future PDF buffers.
 
 See `pdf-tools-enabled-modes'."
   (interactive)
@@ -181,7 +195,7 @@ See `pdf-tools-enabled-modes'."
   (add-hook 'doc-view-mode-hook 'pdf-tools-enable-maybe))
 
 (defun pdf-tools-uninstall ()
-  "Uninstall PdfTools in all current and future PDF buffers."
+  "Uninstall PDF-Tools in all current and future PDF buffers."
   (interactive)
   (dolist (buf (buffer-list))
     (with-current-buffer buf

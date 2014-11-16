@@ -631,67 +631,67 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 
 ;; The following isearch-search function is debugable.
 ;; 
-(defun isearch-search ()
-  ;; Do the search with the current search string.
-  (if isearch-message-function
-      (funcall isearch-message-function nil t)
-    (isearch-message nil t))
-  (if (and (eq isearch-case-fold-search t) search-upper-case)
-      (setq isearch-case-fold-search
-            (isearch-no-upper-case-p isearch-string isearch-regexp)))
-  (condition-case lossage
-      (let ((inhibit-point-motion-hooks
-             ;; FIXME: equality comparisons on functions is asking for trouble.
-             (and (eq isearch-filter-predicate 'isearch-filter-visible)
-                  search-invisible))
-            (inhibit-quit nil)
-            (case-fold-search isearch-case-fold-search)
-            (retry t))
-        (setq isearch-error nil)
-        (while retry
-          (setq isearch-success
-                (isearch-search-string isearch-string nil t))
-          ;; Clear RETRY unless the search predicate says
-          ;; to skip this search hit.
-          (if (or (not isearch-success)
-                  (bobp) (eobp)
-                  (= (match-beginning 0) (match-end 0))
-                  (funcall isearch-filter-predicate
-                           (match-beginning 0) (match-end 0)))
-              (setq retry nil)))
-        (setq isearch-just-started nil)
-        (if isearch-success
-            (setq isearch-other-end
-                  (if isearch-forward (match-beginning 0) (match-end 0)))))
+;; (defun isearch-search ()
+;;   ;; Do the search with the current search string.
+;;   (if isearch-message-function
+;;       (funcall isearch-message-function nil t)
+;;     (isearch-message nil t))
+;;   (if (and (eq isearch-case-fold-search t) search-upper-case)
+;;       (setq isearch-case-fold-search
+;;             (isearch-no-upper-case-p isearch-string isearch-regexp)))
+;;   (condition-case lossage
+;;       (let ((inhibit-point-motion-hooks
+;;              ;; FIXME: equality comparisons on functions is asking for trouble.
+;;              (and (eq isearch-filter-predicate 'isearch-filter-visible)
+;;                   search-invisible))
+;;             (inhibit-quit nil)
+;;             (case-fold-search isearch-case-fold-search)
+;;             (retry t))
+;;         (setq isearch-error nil)
+;;         (while retry
+;;           (setq isearch-success
+;;                 (isearch-search-string isearch-string nil t))
+;;           ;; Clear RETRY unless the search predicate says
+;;           ;; to skip this search hit.
+;;           (if (or (not isearch-success)
+;;                   (bobp) (eobp)
+;;                   (= (match-beginning 0) (match-end 0))
+;;                   (funcall isearch-filter-predicate
+;;                            (match-beginning 0) (match-end 0)))
+;;               (setq retry nil)))
+;;         (setq isearch-just-started nil)
+;;         (if isearch-success
+;;             (setq isearch-other-end
+;;                   (if isearch-forward (match-beginning 0) (match-end 0)))))
 
-    (quit (isearch-unread ?\C-g)
-          (setq isearch-success nil))
+;;     (quit (isearch-unread ?\C-g)
+;;           (setq isearch-success nil))
 
-    (invalid-regexp
-     (setq isearch-error (car (cdr lossage)))
-     (if (string-match
-          "\\`Premature \\|\\`Unmatched \\|\\`Invalid "
-          isearch-error)
-         (setq isearch-error "incomplete input")))
+;;     (invalid-regexp
+;;      (setq isearch-error (car (cdr lossage)))
+;;      (if (string-match
+;;           "\\`Premature \\|\\`Unmatched \\|\\`Invalid "
+;;           isearch-error)
+;;          (setq isearch-error "incomplete input")))
 
-    (search-failed
-     (setq isearch-success nil)
-     (setq isearch-error (nth 2 lossage)))
+;;     (search-failed
+;;      (setq isearch-success nil)
+;;      (setq isearch-error (nth 2 lossage)))
 
-    ;; (error
-    ;;  ;; stack overflow in regexp search.
-    ;;  (setq isearch-error (format "%s" lossage)))
-    )
+;;     ;; (error
+;;     ;;  ;; stack overflow in regexp search.
+;;     ;;  (setq isearch-error (format "%s" lossage)))
+;;     )
 
-  (if isearch-success
-      nil
-    ;; Ding if failed this time after succeeding last time.
-    (and (isearch--state-success (car isearch-cmds))
-         (ding))
-    (if (functionp (isearch--state-pop-fun (car isearch-cmds)))
-        (funcall (isearch--state-pop-fun (car isearch-cmds))
-                 (car isearch-cmds)))
-    (goto-char (isearch--state-point (car isearch-cmds)))))
+;;   (if isearch-success
+;;       nil
+;;     ;; Ding if failed this time after succeeding last time.
+;;     (and (isearch--state-success (car isearch-cmds))
+;;          (ding))
+;;     (if (functionp (isearch--state-pop-fun (car isearch-cmds)))
+;;         (funcall (isearch--state-pop-fun (car isearch-cmds))
+;;                  (car isearch-cmds)))
+;;     (goto-char (isearch--state-point (car isearch-cmds)))))
 
 
 (provide 'pdf-isearch)

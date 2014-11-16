@@ -1,7 +1,20 @@
 -*- org -*-
 
+* epdfinfo
+** Merge duplicate code
 * Isearch
 ** Allow for entering multibyte characters with some input-methods.
    The PDF buffer is in unibyte mode prohibiting the user from
    inserting multibyte characters in the minibuffer with some
    input-methods, while editing the search string.
+** Implement alternative rendering method
+   The advantage of the method is more accurate highlighting.  The
+   default method sometimes highlights to much text, but it looks
+   prettier.
+   + Use renderpage-regions instead of renderpage-text-regions
+   + Define appropriate faces
+   + Provide customizable alpha values
+   + Define a minor-mode for it
+   + Use minor-mode to decide rendering method
+* PDF Forms
+  Recent poppler versions have some support for editing forms.

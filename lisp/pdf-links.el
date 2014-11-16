@@ -144,9 +144,7 @@ links via \\[pdf-links-isearch-link].
          (lambda nil
            (interactive "@")
            (pdf-links-action-perform (cdr l))))
-        (local-set-key
-         (vector id t)
-         'pdf-util-image-map-mouse-event-proxy)))
+        (pdf-util-image-map-divert-mouse-clicks id)))
     (nreverse hotspots)))
 
 (defun pdf-links-action-to-string (action)
@@ -235,6 +233,8 @@ scroll the current page."
              (pdf-view-goto-page page))
            (when (and top
                       (pdf-util-page-displayed-p))
+             ;; Showing the tooltip is somewhat slow.
+             (sit-for 0)
              (pdf-util-tooltip-arrow top)))))
       (uri
        (funcall pdf-links-browse-uri-function (nth 2 action)))

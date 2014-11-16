@@ -99,6 +99,18 @@
 #define internal_error(fmt, args...)                            \
   error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 
+#define error_if_not(expr, fmt, args...)                \
+  do {                                                  \
+    if (! (expr))                                       \
+      {                                                 \
+        const char *_fmt = (fmt);                       \
+        if (_fmt)                                       \
+          printf_error_response (_fmt, ## args);        \
+        goto error;                                     \
+      }                                                 \
+  } while (0)
+
+
 enum { NONE, COLON, NEWLINE};
 
 enum image_type { PPM, PNG };

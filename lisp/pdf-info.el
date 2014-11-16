@@ -560,21 +560,14 @@ or a PDF file."
 
 (defun pdf-info-valid-page-spec-p (pages)
   "The type predicate for a valid page-spec."
-  (not (not (ignore-errors (pdf-info--normalize-pages pages)))))
+  (not (not (ignore-errors (pdf-info-normalize-pages pages)))))
 
-(defun pdf-info--normalize-pages (pages)
-  "Normalize PAGES into a form \(FIRST . LAST\).
+(defun pdf-info-normalize-pages (pages)
+  "Normalize PAGES for sending to the server.
 
-PAGES may be one of
-
-- a single page number,
-
-- a cons \(FIRST . LAST\),
-
-- \(FIRST . t\), which represents all pages from FIRST to the end
-  of the document or
-
--  nil, which stands for all pages."
+PAGES may be a single page number, a cons \(FIRST . LAST\), a
+cons \(FIRST . t\), which represents all pages from FIRST to the
+end of the document or nil, which stands for all pages."
   (cond
    ((null pages)
     (cons 0 0))
@@ -677,7 +670,7 @@ document."
 (defun pdf-info-search (string &optional file-or-buffer pages)
   "Search for STRING in PAGES of docüment FILE-OR-BUFFER.
 
-See `pdf-info--normalize-pages' for valid PAGES formats.
+See `pdf-info-normalize-pages' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
@@ -686,7 +679,7 @@ coordinates of the match as a list of four values \(LEFT TOP
 RIGHT BOTTOM\). TEXT is the matched text and may be empty, if
 extracting text is not available in the server."
 
-  (let ((pages (pdf-info--normalize-pages pages)))
+  (let ((pages (pdf-info-normalize-pages pages)))
     (pdf-info-query
      'search
      (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -698,7 +691,7 @@ extracting text is not available in the server."
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
 
-See `pdf-info--normalize-pages' for valid PAGES formats.
+See `pdf-info-normalize-pages' for valid PAGES formats.
 
 This function returns a list \(\(EDGES . ACTION\) ... \), where
 EDGES has the same form as in `pdf-info-search'.  ACTION
@@ -812,7 +805,7 @@ The size is in pixel."
 (defun pdf-info-getannots (&optional pages file-or-buffer)
   "Return the annotations on PAGE.
 
-See `pdf-info--normalize-pages' for valid PAGES formats.
+See `pdf-info-normalize-pages' for valid PAGES formats.
 
 This function returns the annotations for PAGES as a list of
 alists.  Each element of this list describes one annotation and
@@ -843,7 +836,7 @@ contains the following keys.
 text-icon  - A string describing the purpose of this annotation.
 text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
   
-  (let ((pages (pdf-info--normalize-pages pages)))
+  (let ((pages (pdf-info-normalize-pages pages)))
     (pdf-info-query
      'getannots
      (pdf-info--normalize-file-or-buffer file-or-buffer)

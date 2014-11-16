@@ -448,7 +448,7 @@ Singal an error, if color is invalid."
     (when (overlay-get (pdf-view-current-overlay) 'before-string)
       (let* ((e (window-inside-pixel-edges))
              (xw (pdf-util-with-edges (e) e-width)))
-        (cl-incf dx (/ (- xw (car (pdf-view-image-size))) 2))))
+        (cl-incf dx (/ (- xw (car (pdf-view-image-size t))) 2))))
     (pdf-util-tooltip-in-window
      (propertize
       " " 'display (propertize
@@ -802,7 +802,7 @@ Return the converted PNG image as a string.  See also
        (vector id (intern (format "%smouse-%d" kind b)))
        'pdf-util-image-map-mouse-event-proxy))))
 
-(defmacro pdf-util-doevents (event-resolution condition &rest body)
+(defmacro pdf-util-do-events (event-resolution condition &rest body)
   "Read EVENTs tracking mouse while CONDITION and execute BODY.
 
 Process at most 1/RESOLUTION events per second.  If UNREAD-p is

@@ -383,7 +383,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                                        pdf-misc-dark-mode))
          (width (car (pdf-view-image-size)))
          (page (pdf-view-current-page)))
-    (pdf-util-doevents (event 0.1)
+    (pdf-util-do-events (event 0.1)
         (mouse-movement-p event)
       (let* ((pos (event-start event))
              (end (posn-object-x-y pos)))

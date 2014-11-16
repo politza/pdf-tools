@@ -63,30 +63,39 @@ is non-nil.  Be shure, not to modify the return value.\n" fn))
         `(defun ,defn (,@args ,@refresh-arg) ,doc
                 (pdf-cache--retrieve
                  refresh-p
-                 ,@(cons (list 'quote fn)
-                         (remove '&optional args))))))))
+                 ,@(cons (list 'quote command)
+                         (cons (list 'quote fn)
+                               (remove '&optional args)))))))))
 
-(defun pdf-cache--retrieve (refresh-p &rest args)
+(defun pdf-cache--retrieve (refresh-p command fn &rest args)
   (unless pdf-cache--cache
     (setq pdf-cache--cache
           (make-hash-table :test 'equal))
     (add-hook 'after-revert-hook 'pdf-cache-clear nil t)
     (add-hook 'after-save-hook 'pdf-cache-clear nil t))
-  (or (and (not refresh-p)
-           (gethash args pdf-cache--cache))
-      (puthash args (apply (car args) (cdr args))
-               pdf-cache--cache)))
+  (let ((key (cons command args)))
+    (or (and (not refresh-p)
+             (gethash key pdf-cache--cache))
+        (puthash key (apply fn args) pdf-cache--cache))))
 
-(defun pdf-cache-clear (&optional buffer)
-  (save-current-buffer
-    (when buffer (set-buffer buffer))
-    (setq pdf-cache--cache nil)))
+(defun pdf-cache-clear ()
+  (interactive)
+  (setq pdf-cache--cache nil))
+
+(defun pdf-cache-remove-if (fn)
+  (when pdf-cache--cache
+    (maphash
+     (lambda (key value)
+       (when (funcall fn key value)
+         (remhash key pdf-cache--cache)))
+     pdf-cache--cache)))
 
 (define-cacheable-epdfinfo-command number-of-pages)
 (define-cacheable-epdfinfo-command pagelinks)
 (define-cacheable-epdfinfo-command boundingbox)
 (define-cacheable-epdfinfo-command pagesize)
 (define-cacheable-epdfinfo-command getselection)
+(define-cacheable-epdfinfo-command writable-annotations-p)
 
 
 ;; * ================================================================== *
@@ -190,6 +199,23 @@ This function always returns nil."
 (defun pdf-cache-clear-images ()
   "Clear the image cache."
   (setq pdf-cache--image-cache nil))
+
+(defun pdf-cache-remove-image-if (fn)
+  "Return image according to FN.
+
+FN should be function accepting 4 Arguments \(PAGE WIDTH DATA
+HASH\).  It should return non-nil, if the image should be removed
+from the cache."
+  (setq pdf-cache--image-cache
+        (cl-remove-if
+         (lambda (image)
+           (funcall
+            fn
+            (pdf-cache--image/page image)
+            (pdf-cache--image/width image)
+            (pdf-cache--image/data image)
+            (pdf-cache--image/hash image)))
+         pdf-cache--image-cache)))
 
 (defun pdf-cache-renderpage (page min-width &optional max-width)
   "Render PAGE according to MIN-WIDTH and MAX-WIDTH.
