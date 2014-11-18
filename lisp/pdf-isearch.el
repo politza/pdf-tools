@@ -491,7 +491,7 @@ match."
   
 (defun pdf-isearch-focus-match-isearch (match)
   "Make the image area in MATCH visible in the selected window."
-  (pdf-util-display-edges match))
+  (pdf-util-scroll-to-edges match))
 
 (defun pdf-isearch-next-match-batch (last-page this-page last-match
                                                matches same-search-p
@@ -516,7 +516,7 @@ match."
 
 (defun pdf-isearch-focus-match-batch (match)
   "Make the image area in MATCH eagerly visible in the selected window."
-  (pdf-util-display-edges match t))
+  (pdf-util-scroll-to-edges match t))
 
 (defun pdf-isearch-closest-match (match-or-pos list-of-matches
                                                &optional forward-p)

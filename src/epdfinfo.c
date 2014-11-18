@@ -1058,7 +1058,7 @@ annoation_get_for_page (document_t *doc, gint pn)
       g_hash_table_insert (doc->annotations.keys, key, a);
       ++i;
     }
-  poppler_page_free_annot_mapping (annot_list);
+  g_list_free (annot_list);
   g_object_unref (page);
   return doc->annotations.pages[pn - 1];
 }
@@ -1888,6 +1888,7 @@ cmd_getannots(const epdfinfo_t *ctx, const command_arg_t *args)
     {
       GList *annots = annoation_get_for_page (args->value.doc, pn);
       PopplerPage *page = poppler_document_get_page (doc, pn - 1);
+
       if (! page)
         continue;
 
@@ -2023,42 +2024,44 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   int i;
   PopplerPage *page = NULL;
   double width, height;
-  PopplerAnnot *pannot;
+  PopplerAnnot *pa;
   PopplerAnnotMapping *amap;
-  annotation_t *annot;
+  annotation_t *a;
   gchar *key;
-  GList *annots;
-
+  GList *annotations;
+  gdouble tmp;
+  
   page = poppler_document_get_page (doc->pdf, pn - 1);
   error_if_not (page, "Unable to get page %d", pn);
   poppler_page_get_size (page, &width, &height);
   r.x1 = r.x1 * width;
   r.x2 = r.x2 * width;
-  r.y1 = height - (r.y2 * height);
+  tmp = height - (r.y2 * height);
   r.y2 = height - (r.y1 * height);
+  r.y1 = tmp;
 
-  pannot = poppler_annot_text_new (doc->pdf, &r);
+  pa = poppler_annot_text_new (doc->pdf, &r);
   amap = poppler_annot_mapping_new ();
   amap->area = r;
-  amap->annot = pannot;
-  annots = annoation_get_for_page (doc, pn);
+  amap->annot = pa;
+  annotations = annoation_get_for_page (doc, pn);
 
-  i = g_list_length (annots);
+  i = g_list_length (annotations);
   key = g_strdup_printf ("annot-%d-%d", pn, i);
   while (g_hash_table_lookup (doc->annotations.keys, key))
     {
       g_free (key);
       key = g_strdup_printf ("annot-%d-%d", pn, ++i);
     }
-  annot = g_malloc (sizeof (annotation_t));
-  annot->amap = amap;
-  annot->key = key;
+  a = g_malloc (sizeof (annotation_t));
+  a->amap = amap;
+  a->key = key;
   doc->annotations.pages[pn - 1] =
-    g_list_prepend (annots, annot);
-  g_hash_table_insert (doc->annotations.keys, key, annot);
-  poppler_page_add_annot (page, pannot);
+    g_list_prepend (annotations, a);
+  g_hash_table_insert (doc->annotations.keys, key, a);
+  poppler_page_add_annot (page, pa);
   OK_BEGIN ();
-  annotation_print (annot, page);
+  annotation_print (a, page);
   OK_END ();
   
  error:
@@ -2154,7 +2157,7 @@ const command_arg_type_t cmd_editannot_spec[] =
     ARG_EDGE_OR_NEG,            /* x2 or keep width, if negative */
     ARG_EDGE_OR_NEG,            /* y2 or keep height, if negative */
 
-    ARG_STRING,                 /* color */
+    ARG_COLOR,                  /* color */
     ARG_STRING,                 /* contents */
     ARG_STRING,                 /* label (markup only) */
     ARG_NATNUM,                 /* isopen (text only) */

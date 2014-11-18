@@ -25,7 +25,7 @@
 
 (require 'pdf-info)
 (require 'pdf-util)
-
+(require 'pdf-annot)
 
 
 ;; * ================================================================== *
@@ -34,7 +34,7 @@
 
 (defvar-local pdf-cache--cache nil)
 
-(defmacro define-cacheable-epdfinfo-command (command)
+(defmacro define-cacheable-epdfinfo-command (command page-argument)
   "Define a cached version of COMMAND.
 
 COMMAND should be unquoted and needs to have a corresponding
@@ -42,9 +42,14 @@ COMMAND should be unquoted and needs to have a corresponding
 signature, except for the `file-or-buffer' argument, which will
 always be nil \(i.e. the current buffer\).
 
-This function will cache the results corresponding to the arguments,
-as compared with equal.  The values remain in memory until the
-buffer is killed or reverted."
+PAGE-ARGUMENT should be the number of the commands single-page
+argument.  It may also be nil, meaning that command is page
+independent or t, meaning that command may apply to multiple
+pages.  This is used for keeping the cache up-to-date.
+
+This function will cache the results corresponding to the
+arguments, as compared with equal.  The values remain in memory
+at most until the buffer is killed or reverted."
 
   (let ((fn (intern (format "pdf-info-%s" command)))
         (defn (intern (format "pdf-cache-%s" command))))
@@ -55,47 +60,61 @@ buffer is killed or reverted."
         (error "&rest arguments are not supported by this macro"))
       (when (eq (car (last args)) '&optional)
         (setq args (butlast args)))
-      (let ((doc (format "Cached version of `%s', which see.  Recache value, if REFRESH-P
-is non-nil.  Be shure, not to modify the return value.\n" fn))
-            (refresh-arg (if (memq '&optional args)
-                             (list 'refresh-p)
-                           (list '&optional 'refresh-p))))
-        `(defun ,defn (,@args ,@refresh-arg) ,doc
-                (pdf-cache--retrieve
-                 refresh-p
-                 ,@(cons (list 'quote command)
-                         (cons (list 'quote fn)
-                               (remove '&optional args)))))))))
+      (unless (or (null page-argument)
+                  (eq page-argument t)
+                  (and (integerp page-argument)
+                       (>= page-argument 0)
+                       (< page-argument
+                          (length (remq '&optional args)))))
+        (error "Invalid page-argument argument."))
+      `(defun ,defn (,@args)
+         ,(format "Cached version of `%s', which see.
+Make shure, not to modify it's return value.\n" fn)
+         (pdf-cache--retrieve
+          ,page-argument
+          ,@(cons (list 'quote command)
+                  (cons (list 'quote fn)
+                        (remove '&optional args))))))))
 
-(defun pdf-cache--retrieve (refresh-p command fn &rest args)
+(defun pdf-cache--retrieve (page-argument command fn &rest args)
   (unless pdf-cache--cache
-    (setq pdf-cache--cache
-          (make-hash-table :test 'equal))
+    (setq pdf-cache--cache (make-hash-table))
     (add-hook 'after-revert-hook 'pdf-cache-clear nil t)
-    (add-hook 'after-save-hook 'pdf-cache-clear nil t))
-  (let ((key (cons command args)))
-    (or (and (not refresh-p)
-             (gethash key pdf-cache--cache))
-        (puthash key (apply fn args) pdf-cache--cache))))
+    ;; (add-hook 'after-save-hook 'pdf-cache-clear nil t)
+    (add-hook 'pdf-annot-modified-functions
+              'pdf-cache--clear-annotations-pages))  
+  (let* ((page (if (numberp page-argument)
+                   (or (nth page-argument args) t)
+                 page-argument))
+         (alist (gethash page pdf-cache--cache))
+         (key (cons command args)))
+    (or (cdr (assoc key alist))
+        (let ((value (apply fn args)))
+          (puthash page (cons (cons key value)
+                              alist)
+                   pdf-cache--cache)
+          value))))
 
 (defun pdf-cache-clear ()
   (interactive)
-  (setq pdf-cache--cache nil))
+  (clrhash pdf-cache--cache))
 
-(defun pdf-cache-remove-if (fn)
-  (when pdf-cache--cache
-    (maphash
-     (lambda (key value)
-       (when (funcall fn key value)
-         (remhash key pdf-cache--cache)))
-     pdf-cache--cache)))
+(defun pdf-cache-clear-pages (pages)
+  (dolist (page (cons t pages))
+    (remhash page pdf-cache--cache)))
 
-(define-cacheable-epdfinfo-command number-of-pages)
-(define-cacheable-epdfinfo-command pagelinks)
-(define-cacheable-epdfinfo-command boundingbox)
-(define-cacheable-epdfinfo-command pagesize)
-(define-cacheable-epdfinfo-command getselection)
-(define-cacheable-epdfinfo-command writable-annotations-p)
+(defun pdf-cache--clear-annotations-pages (&rest annotation-lists)
+  (pdf-cache-clear-pages
+   (delq nil (mapcar (lambda (a)
+                       (pdf-annot-get a 'page))
+                     (apply 'append annotation-lists)))))
+
+(define-cacheable-epdfinfo-command number-of-pages nil)
+(define-cacheable-epdfinfo-command pagelinks 0)
+(define-cacheable-epdfinfo-command boundingbox 0)
+(define-cacheable-epdfinfo-command pagesize 0)
+(define-cacheable-epdfinfo-command textlayout 0)
+(define-cacheable-epdfinfo-command writable-annotations-p nil)
 
 
 ;; * ================================================================== *
@@ -104,7 +123,7 @@ is non-nil.  Be shure, not to modify the return value.\n" fn))
 
 (defcustom pdf-cache-image-limit 64
   "Maximum number of cached PNG images per buffer."
-  :type 'number
+  :type 'integer
   :group 'pdf-cache
   :group 'pdf-view)
 
@@ -137,7 +156,7 @@ hash-value is `eql' to HASH."
             hash)))
 
 (defun pdf-cache-lookup-image (page min-width &optional max-width hash)
-  "Return PAGE's PNG data as a string.
+  "Return PAGE's cached PNG data as a string or nil.
 
 Does not modify the cache.  See also `pdf-cache-get-image'."
   (let ((image (car (cl-member
@@ -182,10 +201,12 @@ page PAGE in the current buffer.  See `pdf-cache-get-image' for
 the HASH argument.
 
 This function always returns nil."
+  (unless pdf-cache--image-cache
+    (add-hook 'after-revert-hook 'pdf-cache-clear-images nil t)
+    (add-hook 'pdf-annot-modified-functions
+              'pdf-cache--clear-images-from-annotations nil t))
   (push (pdf-cache--make-image page width data hash)
         pdf-cache--image-cache)
-  (add-hook 'after-revert-hook 'pdf-cache-clear-images nil t)
-  (add-hook 'after-save-hook 'pdf-cache-clear-images nil t)
   ;; Forget old image(s).
   (when (> (length pdf-cache--image-cache)
            pdf-cache-image-limit)
@@ -201,7 +222,7 @@ This function always returns nil."
   (setq pdf-cache--image-cache nil))
 
 (defun pdf-cache-remove-image-if (fn)
-  "Return image according to FN.
+  "Remove images from the cache according to FN.
 
 FN should be function accepting 4 Arguments \(PAGE WIDTH DATA
 HASH\).  It should return non-nil, if the image should be removed
@@ -216,6 +237,14 @@ from the cache."
             (pdf-cache--image/data image)
             (pdf-cache--image/hash image)))
          pdf-cache--image-cache)))
+
+(defun pdf-cache--clear-images-from-annotations (&rest annotation-lists)
+  (let ((pages (delq nil (mapcar (lambda (a)
+                                   (pdf-annot-get a 'page))
+                                 (apply 'append annotation-lists)))))
+    (pdf-cache-remove-image-if
+     (lambda (page &rest _)
+       (memq page pages)))))
 
 (defun pdf-cache-renderpage (page min-width &optional max-width)
   "Render PAGE according to MIN-WIDTH and MAX-WIDTH.

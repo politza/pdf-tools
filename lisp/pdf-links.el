@@ -118,7 +118,7 @@ links via \\[pdf-links-isearch-link].
     (pdf-view-add-hotspot-function 'pdf-links-hotspots-function 0))
    (t
     (pdf-view-remove-hotspot-function 'pdf-links-hotspots-function)))
-  (pdf-view-redisplay-all-windows))
+  (pdf-view-redisplay t))
 
 (defun pdf-links-hotspots-function (page size)
   "Create hotspots for links on PAGE using SIZE."

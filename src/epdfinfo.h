@@ -103,9 +103,7 @@
   do {                                                  \
     if (! (expr))                                       \
       {                                                 \
-        const char *_fmt = (fmt);                       \
-        if (_fmt)                                       \
-          printf_error_response (_fmt, ## args);        \
+        printf_error_response ((fmt), ## args);         \
         goto error;                                     \
       }                                                 \
   } while (0)

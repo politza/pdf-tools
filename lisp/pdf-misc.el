@@ -72,8 +72,6 @@
     (define-key kmap [remap mark-whole-buffer] 'pdf-misc-mark-whole-page)
     (define-key kmap (kbd "C-c C-d") 'pdf-misc-dark-mode)
     (define-key kmap (kbd "I") 'pdf-misc-display-metadata)
-    (define-key kmap (kbd "s w") 'pdf-misc-crop-to-window)
-    (define-key kmap (kbd "s p") 'pdf-misc-crop-to-page)
     (dolist (key (where-is-internal 'occur))
       (define-key kmap key 'pdf-occur))
     kmap)
@@ -85,6 +83,7 @@
 
 \\{pdf-misc-minor-mode-map}"
   nil nil nil
+  (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-misc-minor-mode
     (add-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region nil t)
@@ -95,7 +94,9 @@
     (pdf-misc-deactivate-region)
     (remove-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region t)
     (remove-hook 'pdf-view-after-change-page-hook 'pdf-misc-deactivate-region t)
-    (pdf-view-remove-hotspot-function 'pdf-misc-text-regions-hotspots-function))))
+    (pdf-view-remove-hotspot-function 'pdf-misc-text-regions-hotspots-function)
+    (local-set-key [pdf-misc-text-region] nil)))
+  (pdf-view-redisplay t))
 
 
 (defvar pdf-misc-multipage-minor-mode-map
@@ -366,7 +367,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
   (when pdf-misc-active-region
     (setq pdf-misc-active-region nil)
     (deactivate-mark)
-    (pdf-view-redisplay)))
+    (pdf-view-redisplay t)))
 
 (defun pdf-misc-mouse-set-region (ev)
   "Selects a region of text using the mouse."
@@ -383,7 +384,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                                        pdf-misc-dark-mode))
          (width (car (pdf-view-image-size)))
          (page (pdf-view-current-page)))
-    (pdf-util-do-events (event 0.1)
+    (pdf-util-do-events (event 0.1 t)
         (mouse-movement-p event)
       (let* ((pos (event-start event))
              (end (posn-object-x-y pos)))
@@ -395,10 +396,11 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                       (max (car beg) (car end))
                       (max (cdr beg) (cdr end))))
           (pdf-misc-display-active-region page width colors)
-          (pdf-util-display-edges pdf-misc-active-region))))
+          (pdf-util-scroll-to-edges pdf-misc-active-region))))
     (when pdf-misc-active-region
       (let ((transient-mark-mode t))
-        (push-mark)))))
+        (push-mark))
+      (setq unread-command-events nil))))
 
 (defun pdf-misc-display-active-region (&optional page image-width colors)
   (pdf-misc-assert-active-region)
@@ -419,17 +421,17 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
   "Copy the region to the `kill-ring'."
   (interactive)
   (pdf-util-assert-pdf-window)
-  (if (null pdf-misc-active-region)
-      (error "The region is not active")
-    (let* ((txt (apply 'pdf-misc-selection-string
-                       pdf-misc-active-region)))
-      (pdf-misc-deactivate-region)
-      (kill-new txt))))
+  (pdf-misc-assert-active-region)
+  (let* ((txt (apply 'pdf-misc-selection-string
+                     pdf-misc-active-region)))
+    (pdf-misc-deactivate-region)
+    (kill-new txt)))
 
 (defun pdf-misc-mark-whole-page ()
   "Copy the whole page to the `kill-ring'."
   (interactive)
   (pdf-util-assert-pdf-window)
+  (pdf-misc-deactivate-region)
   (let ((size (pdf-view-image-size)))
     (setq pdf-misc-active-region
           (list 0 0 (car size) (cdr size))))
@@ -457,7 +459,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                          . (,(nth 2 e) . ,(nth 3 e))))
                 pdf-misc-text-region
                 (pointer text))))
-          (pdf-cache-getselection page 0 0 1 1)))
+          (pdf-cache-textlayout page)))
 
 
 ;; * ================================================================== *

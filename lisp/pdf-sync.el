@@ -45,11 +45,16 @@ The hook is run in the TeX buffer."
   :type 'hook)
 
 (defcustom pdf-sync-display-pdf-hook nil
-  "Hook ran after displaying ther PDF buffer.
+  "Hook ran after displaying the PDF buffer.
 
-The hook is run in the PDF's buffer and it's window selected."
+The hook is run in the PDF's buffer."
   :group 'pdf-sync
   :type 'hook)
+
+(defcustom pdf-sync-display-pdf-action nil
+  "Display action used when displaying PDF buffers."
+  :group 'pdf-sync
+  :type 'display-buffer--action-custom-type)
 
 (defvar pdf-sync-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
@@ -136,14 +141,16 @@ Returns a list \(SOURCE LINE COLUMN\)."
   (interactive)
   (cl-destructuring-bind (pdf page _x1 y1 _x2 _y2)
       (pdf-sync-correlate-pdf line column)
-    (with-selected-window (display-buffer
-                           (or (find-buffer-visiting pdf)
-                               (find-file-noselect pdf)))
-      (pdf-view-goto-page page)
-      (when (pdf-util-page-displayed-p)
+    (let ((buffer (or (find-buffer-visiting pdf)
+                      (find-file-noselect pdf))))
+      (with-selected-window (display-buffer
+                             buffer pdf-sync-display-pdf-action)
+        (pdf-util-assert-pdf-window)
+        (pdf-view-goto-page page)
         (let ((top (* y1 (cdr (pdf-util-image-size)))))
           (pdf-util-tooltip-arrow (round top))))
-      (run-hooks 'pdf-sync-display-pdf-hook))))
+      (with-current-buffer buffer
+        (run-hooks 'pdf-sync-display-pdf-hook)))))
 
 (defun pdf-sync-correlate-pdf (&optional line column)
   "Find the PDF location corresponding to LINE, COLUMN.

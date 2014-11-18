@@ -106,8 +106,7 @@ ask -- ask whether to restart or not."
 ;; * ================================================================== *
 
 (defvar pdf-info-asynchronous nil)
-(defvar pdf-info-interruptable nil)
-  
+
 (defconst pdf-info-pdf-date-regexp
   ;; Adobe PDF32000.book, 7.9.4 Dates
   (eval-when-compile
@@ -248,15 +247,12 @@ error."
             (cl-destructuring-bind (status &rest result)
                 (pdf-info-query--parse-response cmd response)
               (pdf-info-query--log response)
-              (let (pdf-info-asynchronous
-                    pdf-info-interruptable)
+              (let (pdf-info-asynchronous)
                 (funcall closure status result)))))
          response status done
          (closure (or pdf-info-asynchronous
                       (lambda (s r)
                         (setq status s response r done t)))))
-    (when pdf-info-interruptable
-      (setq query (concat "!" query)))
     (pdf-info-query--log query t)
     (tq-enqueue
      pdf-info--queue query "^\\.\n" closure callback)
@@ -570,7 +566,7 @@ cons \(FIRST . t\), which represents all pages from FIRST to the
 end of the document or nil, which stands for all pages."
   (cond
    ((null pages)
-    (cons 0 0))
+    (cons 1 0))
    ((natnump pages)
     (cons pages pages))
    ((natnump (car pages))
@@ -779,6 +775,10 @@ the aforementioned function when called with the same arguments."
      (line 2)
      (t 0))))
 
+(defun pdf-info-textlayout (page &optional file-or-buffer)
+  "Return list of edges describing PAGE's text-layout."
+  (pdf-info-getselection page 0 0 1 1 'glyph file-or-buffer))
+
 (defun pdf-info-pagesize (&optional page file-or-buffer)
   "Return the size of PAGE as a cons \(WIDTH . HEIGHT\)
 
@@ -918,7 +918,8 @@ modifiable properties."
                      (cdr (assq 'edges modifications))
                    (list nil nil nil nil))
                  (list
-                  (cdr (assq 'color modifications))
+                  (let ((color (cdr (assq 'color modifications))))
+                    (and color (pdf-util-hexcolor color)))
                   (cdr (assq 'contents modifications))
                   (cdr (assq 'label modifications))
                   (cdr (assq 'isopen modifications))

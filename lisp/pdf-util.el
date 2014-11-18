@@ -345,7 +345,7 @@ needed."
                         (- edges-bot win-height)))
                  (float (frame-char-height)))))))))
 
-(defun pdf-util-display-edges (edges &optional eager-p)
+(defun pdf-util-scroll-to-edges (edges &optional eager-p)
   "Scroll window such that image EDGES are visible.
 
 Scroll as little as necessary.  Unless EAGER-P is non-nil, in
@@ -774,7 +774,6 @@ Return the converted PNG image as a string.  See also
         (* inters-width inters-height)))))
 
 (defun pdf-util-read-image-position (prompt)
-  (pdf-util-assert-pdf-window)
   (save-selected-window
     (let ((ev (read-event
                (propertize prompt 'face 'minibuffer-prompt)))
@@ -787,7 +786,7 @@ Return the converted PNG image as a string.  See also
                          buffer)
                      (eq 'image (car-safe (posn-object posn))))
           (error "Invalid image position"))
-        (posn-object-x-y posn)))))
+        posn))))
 
 (defun pdf-util-image-map-mouse-event-proxy (event)
   "Set POS-OR-AREA in EVENT to 1 and unread it."
@@ -802,45 +801,46 @@ Return the converted PNG image as a string.  See also
        (vector id (intern (format "%smouse-%d" kind b)))
        'pdf-util-image-map-mouse-event-proxy))))
 
-(defmacro pdf-util-do-events (event-resolution condition &rest body)
-  "Read EVENTs tracking mouse while CONDITION and execute BODY.
+(defmacro pdf-util-do-events (event-resolution-unread-p condition &rest body)
+  "Read EVENTs tracking mouse while CONDITION executing BODY.
 
 Process at most 1/RESOLUTION events per second.  If UNREAD-p is
 non-nil, unread the final non-processed event.
 
 \(FN (EVENT RESOLUTION &optional UNREAD-p) CONDITION &rest BODY\)"
   (declare (indent 2) (debug ((symbolp form &optional form) form body)))
-  (let ((event (car event-resolution))
-        (resolution (cadr event-resolution))
-        (unread-p (car (cddr event-resolution)))
-        (*seconds (make-symbol "seconds"))
-        (*timestamp (make-symbol "timestamp"))
-        (*clock (make-symbol "clock"))
-        (*unread-p (make-symbol "unread-p")))
-    `(track-mouse
-       (let* ((,*unread-p ,unread-p)
-              (,*seconds 0)
-              (,*timestamp (float-time))
-              (,*clock (lambda (&optional secs)
-                         (when secs
-                           (setq ,*seconds secs
-                                 ,*timestamp (float-time)))
-                         (- (+ ,*timestamp ,*seconds)
-                            (float-time))))
-              (,event (read-event)))
-         (while ,condition
-           (when (<= (funcall ,*clock) 0)
-             (progn ,@body)
-             (setq ,event nil)
-             (funcall ,*clock ,resolution))
-           (setq ,event
-                 (or (read-event nil nil
-                                 (and ,event
-                                      (max 0 (funcall ,*clock))))
-                     ,event)))
-         (when (and ,*unread-p ,event)
-           (setq unread-command-events
-                 (list ,event)))))))
+  (cl-destructuring-bind (event resolution &optional unread-p)
+      event-resolution-unread-p
+    (let ((*seconds (make-symbol "seconds"))
+          (*timestamp (make-symbol "timestamp"))
+          (*clock (make-symbol "clock"))
+          (*unread-p (make-symbol "unread-p"))
+          (*resolution (make-symbol "resolution")))
+      `(track-mouse
+         (let* ((,*unread-p ,unread-p)
+                (,*resolution ,resolution)
+                (,*seconds 0)
+                (,*timestamp (float-time))
+                (,*clock (lambda (&optional secs)
+                           (when secs
+                             (setq ,*seconds secs
+                                   ,*timestamp (float-time)))
+                           (- (+ ,*timestamp ,*seconds)
+                              (float-time))))
+                (,event (read-event)))
+           (while ,condition
+             (when (<= (funcall ,*clock) 0)
+               (progn ,@body)
+               (setq ,event nil)
+               (funcall ,*clock ,*resolution))
+             (setq ,event
+                   (or (read-event nil nil
+                                   (and ,event
+                                        (max 0 (funcall ,*clock))))
+                       ,event)))
+           (when (and ,*unread-p ,event)
+             (setq unread-command-events
+                   (list ,event))))))))
   
 (provide 'pdf-util)
 

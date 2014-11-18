@@ -49,11 +49,11 @@ other value behaves like `fit-width'."
                  (const fit-page)))
 
 (defcustom pdf-view-resize-factor 1.25
-  "Amount of resizing of one resize command."
+  "Fractional amount of resizing of one resize command."
   :group 'pdf-view
   :type 'number)
   
-(defcustom pdf-view-continuous nil
+(defcustom pdf-view-continuous t
   "In Continuous mode reaching the page edge advances to next/previous page.
 
 When non-nil, scrolling a line upward at the bottom edge of the page
@@ -261,19 +261,19 @@ a local copy of a remote file."
   (setq pdf-view-display-size 'fit-page)
   (image-set-window-vscroll 0)
   (image-set-window-hscroll 0)
-  (pdf-view-redisplay-all-windows))
+  (pdf-view-redisplay t))
 
 (defun pdf-view-fit-height-to-window ()
   (interactive)
   (setq pdf-view-display-size 'fit-height)
   (image-set-window-vscroll 0)
-  (pdf-view-redisplay-all-windows))
+  (pdf-view-redisplay t))
 
 (defun pdf-view-fit-width-to-window ()
   (interactive)
   (setq pdf-view-display-size 'fit-width)
   (image-set-window-hscroll 0)
-  (pdf-view-redisplay-all-windows))
+  (pdf-view-redisplay t))
 
 (defun pdf-view-enlarge (factor)
   (interactive
@@ -285,7 +285,7 @@ a local copy of a remote file."
                    (float (car pagesize)))))
     (setq pdf-view-display-size
           (* factor scale))
-    (pdf-view-redisplay-all-windows)))
+    (pdf-view-redisplay t)))
 
 (defun pdf-view-shrink (factor)
   (interactive
@@ -295,7 +295,7 @@ a local copy of a remote file."
 (defun pdf-view-scale-reset ()
   (interactive)
   (setq pdf-view-display-size 1.0)
-  (pdf-view-redisplay-all-windows))   
+  (pdf-view-redisplay t))   
 
 
 
@@ -650,14 +650,20 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
           (if vscroll (set-window-vscroll win vscroll)))))))
 
 (defun pdf-view-redisplay (&optional window)
-  (unless pdf-view-inhibit-redisplay
-    (pdf-view-display-page
-     (pdf-view-current-page window)
-     window)))
+  "Redisplay page in WINDOW.
 
-(defun pdf-view-redisplay-all-windows ()
-  (dolist (window (get-buffer-window-list nil nil t))
-    (pdf-view-redisplay window)))
+If WINDOW is t, redisplay pages in all windows."
+  (unless pdf-view-inhibit-redisplay
+    (let ((windows
+           (cond ((eq t window)
+                  (get-buffer-window-list nil nil t))
+                 ((null window)
+                  (list (selected-window)))
+                 (t (list window)))))
+      (dolist (win windows)
+        (pdf-view-display-page
+         (pdf-view-current-page win)
+         win)))))
 
 (defun pdf-view-maybe-redisplay-resized-windows ()
   (unless (numberp pdf-view-display-size)
@@ -730,8 +736,8 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
          (setq scale height-scale))
         (t
          (setq scale width-scale))))
-    (cons (floor (* (car pagesize) scale))
-          (floor (* (cdr pagesize) scale)))))
+    (cons (floor (max 1 (* (car pagesize) scale)))
+          (floor (max 1 (* (cdr pagesize) scale))))))
 
 
 ;; * ================================================================== *
