@@ -14,12 +14,16 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <config.h>
-#include <Annot.h>
 #include <PDFDocEncoding.h>
+#ifdef HAVE_POPPLER_ANNOT_WRITE
+#include <Annot.h>
+#endif
+
 extern "C"
 {
+#ifdef HAVE_POPPLER_ANNOT_WRITE
 #include <glib-object.h>
-
+  
 GType poppler_annot_get_type (void) G_GNUC_CONST;
 GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
 
@@ -49,10 +53,14 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
     double y2;
   };
 
-  char *_poppler_goo_string_to_utf8(GooString *s)
+#endif
+  char *_xpoppler_goo_string_to_utf8(GooString *s)
   {
     char *result;
 
+    if (! s)
+      return NULL;
+    
     if (s->hasUnicodeMarker()) {
       result = g_convert (s->getCString () + 2,
                           s->getLength () - 2,
@@ -76,17 +84,25 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
 
     return result;
   }
-#if !defined HAVE_POPPLER_ANNOT_SET_RECT && defined HAVE_POPPLER_ANNOT_WRITE
-  // Set the rectangle of an annotation.  Not available in poppler-glib .
-  void poppler_annot_set_rectangle (PopplerAnnot *annot, PopplerRectangle *rectangle)
+#if HAVE_POPPLER_ANNOT_WRITE
+  // Set the rectangle of an annotation.  It was added in v0.26, but
+  // in a slightly more destructive way, i.e. it seems to destroy the
+  // original appearance of non-poppler annotations.
+  void xpoppler_annot_set_rectangle (PopplerAnnot *a, PopplerRectangle *rectangle)
   {
-    annot->annot->setRect (rectangle->x1, rectangle->y1,
-                           rectangle->x2, rectangle->y2);
+    GooString *state = a->annot->getAppearState ();
+    char *ustate = _xpoppler_goo_string_to_utf8 (state);
+    
+    a->annot->setRect (rectangle->x1, rectangle->y1,
+                       rectangle->x2, rectangle->y2);
+    a->annot->setAppearanceState (ustate);
+    g_free (ustate);
   }
-#endif  // HAVE_POPPLER_ANNOT_SET_RECT && defined HAVE_POPPLER_ANNOT_WRITE
+#endif  
   // This function is in the library, but the enforced date parsing is
-  // incomplete, because it ignores the timezone.
-  gchar *poppler_annot_markup_get_created (PopplerAnnotMarkup *poppler_annot)
+  // incomplete (at least in some versions), because it ignores the
+  // timezone.
+  gchar *xpoppler_annot_markup_get_created (PopplerAnnotMarkup *poppler_annot)
   {
     AnnotMarkup *annot;
     GooString *text;
@@ -97,6 +113,6 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
     annot = static_cast<AnnotMarkup *>(POPPLER_ANNOT (poppler_annot)->annot);
     text = annot->getDate ();
 
-    return text ? _poppler_goo_string_to_utf8 (text) : NULL;
+    return text ? _xpoppler_goo_string_to_utf8 (text) : NULL;
   }
 }

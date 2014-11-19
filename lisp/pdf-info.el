@@ -92,10 +92,6 @@ ask -- ask whether to restart or not."
                  (const :tag "Restart silently" t)
                  (const :tag "Always ask" ask)))
 
-(defconst pdf-info-text-annot-writable-properties
-  '(color contents label icon isopen edges)
-  "A list of writable annotation properties.")
-
 (defvar pdf-info-after-close-document-hook nil
   "A hook ran after a document was closed in the server.")
 
@@ -735,13 +731,14 @@ the tree and ACTION has the same format as in
    'outline
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
 
-(defun pdf-info-gettext (page x0 y0 x1 y1 &optional selection-style
+(defun pdf-info-gettext (page edges &optional selection-style
                               file-or-buffer)
-  "Get text on PAGE according to edges X0, Y0, X1 and Y1.
+  "Get text on PAGE according to EDGES.
 
-The selection may extend over multiple lines, which works similar
-to a Emacs region. SELECTION-STYLE may be one of glyph, word or
-line and determines the smallest unit of the selected region.
+EDGES should contain relative coordinates.  The selection may
+extend over multiple lines, which works similar to a Emacs
+region. SELECTION-STYLE may be one of glyph, word or line and
+determines the smallest unit of the selected region.
 
 Return the text contained in the selection."
 
@@ -749,26 +746,26 @@ Return the text contained in the selection."
    'gettext
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   (mapconcat 'number-to-string (list x0 y0 x1 y1) " ")
+   (mapconcat 'number-to-string edges " ")
    (cl-case selection-style
      (glyph 0)
      (word 1)
      (line 2)
      (t 0))))
 
-(defun pdf-info-getselection (page x0 y0 x1 y1 &optional selection-style
+(defun pdf-info-getselection (page edges &optional selection-style
                                    file-or-buffer)
-  "Return the edges of the selection on PAGE.
+  "Return the edges of the selection EDGES on PAGE.
 
 Arguments are the same as for `pdf-info-gettext'.  Return a list
-of edges corresponding to the text that would be a returned by
-the aforementioned function when called with the same arguments."
+of edges corresponding to the text that would be returned by the
+aforementioned function, when called with the same arguments."
 
   (pdf-info-query
    'getselection
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   (mapconcat 'number-to-string (list x0 y0 x1 y1) " ")
+   (mapconcat 'number-to-string edges " ")
    (cl-case selection-style
      (glyph 0)
      (word 1)
@@ -776,8 +773,9 @@ the aforementioned function when called with the same arguments."
      (t 0))))
 
 (defun pdf-info-textlayout (page &optional file-or-buffer)
-  "Return list of edges describing PAGE's text-layout."
-  (pdf-info-getselection page 0 0 1 1 'glyph file-or-buffer))
+  "Return a list of edges describing PAGE's text-layout."
+  (pdf-info-getselection
+   page '(0 0 1 1) 'glyph file-or-buffer))
 
 (defun pdf-info-pagesize (&optional page file-or-buffer)
   "Return the size of PAGE as a cons \(WIDTH . HEIGHT\)
@@ -857,8 +855,10 @@ function."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    id))
 
-(defun pdf-info-addannot (page x0 y0 x1 y1 &optional file-or-buffer)
-  "Add a new text annotation to PAGE with edges X0, Y0, X1 and Y1.
+(defun pdf-info-addannot (page edges &optional type file-or-buffer)
+  "Add a new annotation to PAGE with EDGES of TYPE.
+
+FIXME: TYPE may be one of `text', `markup-highlight', ... .
 
 See `pdf-info-getannots' for the kind of value of this function
 returns."
@@ -867,7 +867,8 @@ returns."
    'addannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   (mapconcat 'number-to-string (list x0 y0 x1 y1) " ")))
+   'text
+   (mapconcat 'number-to-string edges " ")))
 
 (defun pdf-info-delannot (id &optional file-or-buffer)
   "Delete the annotation with ID in FILE-OR-BUFFER.
@@ -886,55 +887,42 @@ does not exist."
 
 ID should be a symbol, which was previously returned in a
 `pdf-info-getannots' query.  Signal an error, if annotation ID
-does not exist."
-  (apply 'pdf-info-query
-   'editannot
-   (pdf-info--normalize-file-or-buffer file-or-buffer)
-   id
-   "100000"
-   (append edges
-           (list nil nil nil nil nil))))
+does not exist.
+
+EDGES should be a list \(LEFT TOP RIGHT BOT\).  RIGHT and/or BOT
+may also be negative, which means to keep the width
+resp. height."
+  (pdf-info-editannot id `((edges . ,edges)) file-or-buffer))   
 
 (defun pdf-info-editannot (id modifications &optional file-or-buffer)
-  "Send modifications to annotation ID to the server.
+  "Edit annotation ID, applying MODIFICATIONS.
 
 ID should be a symbol, which was previously returned in a
-`pdf-info-getannots' query.  Signal an error, if annotation ID
-does not exist.
+`pdf-info-getannots' query.  
 
 MODIFICATIONS is an alist of properties and their new values.
 
-The server must support modifying annotations for this to work.
-See `pdf-info-text-annot-writable-properties' for a list of
-modifiable properties."
+The server must support modifying annotations for this to work."
 
   (pdf-info-assert-writable-annotations)
-  (let ((properties (mapcar 'car modifications)))
-    (dolist (prop properties)
-      (unless (memq prop pdf-info-text-annot-writable-properties)
-        (error "This property is not writable: %s" prop)))
-    (let ((args (append
-                 (if (memq 'edges properties)
-                     (cdr (assq 'edges modifications))
-                   (list nil nil nil nil))
-                 (list
-                  (let ((color (cdr (assq 'color modifications))))
-                    (and color (pdf-util-hexcolor color)))
-                  (cdr (assq 'contents modifications))
-                  (cdr (assq 'label modifications))
-                  (cdr (assq 'isopen modifications))
-                  (cdr (assq 'icon modifications)))))
-          (setmask
-           (apply 'string
-                  (mapcar (lambda (p)
-                            (if (memq p properties)
-                                ?1 ?0))
-                          '(edges color contents label isopen icon)))))
-      (apply 'pdf-info-query
-             'editannot
-             (pdf-info--normalize-file-or-buffer file-or-buffer)
-             id
-             (cons setmask args)))))
+  (let ((edits
+         (mapcar
+          (lambda (elt)
+            (cl-case (car elt)
+              (color
+               (list (car elt)
+                     (pdf-util-hexcolor (cdr elt))))
+              (edges
+               (list (car elt)
+                     (mapconcat 'number-to-string (cdr elt) " ")))
+              (t
+               (list (car elt) (cdr elt)))))
+          modifications)))
+    (apply 'pdf-info-query
+           'editannot
+           (pdf-info--normalize-file-or-buffer file-or-buffer)
+           id
+           (apply 'append edits))))
 
 (defun pdf-info-save (&optional file-or-buffer)
   "Save FILE-OR-BUFFER.

@@ -384,7 +384,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
                                        pdf-misc-dark-mode))
          (width (car (pdf-view-image-size)))
          (page (pdf-view-current-page)))
-    (pdf-util-do-events (event 0.1 t)
+    (pdf-util-track-mouse-dragging (event 0.15)
         (mouse-movement-p event)
       (let* ((pos (event-start event))
              (end (posn-object-x-y pos)))
@@ -399,8 +399,7 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
           (pdf-util-scroll-to-edges pdf-misc-active-region))))
     (when pdf-misc-active-region
       (let ((transient-mark-mode t))
-        (push-mark))
-      (setq unread-command-events nil))))
+        (push-mark)))))
 
 (defun pdf-misc-display-active-region (&optional page image-width colors)
   (pdf-misc-assert-active-region)
@@ -422,8 +421,8 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
   (interactive)
   (pdf-util-assert-pdf-window)
   (pdf-misc-assert-active-region)
-  (let* ((txt (apply 'pdf-misc-selection-string
-                     pdf-misc-active-region)))
+  (let* ((txt (pdf-misc-selection-string
+               pdf-misc-active-region)))
     (pdf-misc-deactivate-region)
     (kill-new txt)))
 
@@ -439,17 +438,14 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
     (push-mark))
   (pdf-misc-display-active-region))
 
-(defun pdf-misc-selection-string (x0 y0 x1 y1 &optional page)
-  "Return the text of the selection X0 Y0 X1 Y1 on PAGE."
+(defun pdf-misc-selection-string (edges &optional page)
+  "Return the text of the region EDGES on PAGE.
+
+Coordinates in EDGES should be in image space."
   (pdf-util-assert-pdf-buffer)
-  (let* ((size (pdf-view-image-size))
-         (x0 (/ x0 (float (car size))))
-         (y0 (/ y0 (float (cdr size))))
-         (x1 (/ x1 (float (car size))))
-         (y1 (/ y1 (float (cdr size)))))
-    (pdf-info-gettext
-     (or page (pdf-view-current-page))
-     x0 y0 x1 y1)))
+  (pdf-info-gettext
+   (or page (pdf-view-current-page))
+   (pdf-util-scale-pixel-to-relative edges)))
 
 (defun pdf-misc-text-regions-hotspots-function (page size)
   "Return a list of hotspots for text regions on PAGE using SIZE."

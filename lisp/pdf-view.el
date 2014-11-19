@@ -136,6 +136,7 @@ be prefetched and their order."
 (defvar pdf-view-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map image-mode-map)
+    (define-key map (kbd "Q")         'kill-this-buffer)
     ;; Navigation in the document
     (define-key map (kbd "n")         'pdf-view-next-page-command)
     (define-key map (kbd "p")         'pdf-view-previous-page-command)
@@ -169,10 +170,7 @@ be prefetched and their order."
     (define-key map (kbd "s r")       'pdf-view-reset-slice)
     ;; Searching
     (define-key map (kbd "C-c C-c")   'doc-view-mode)
-    ;; Open a new buffer with doc's text contents
-    (define-key map (kbd "C-c C-t")   'pdf-view-open-text)
-    ;; Reconvert the current document.  Don't just use revert-buffer
-    ;; because that resets the scale factor, the page number, ...
+    ;; Reconvert
     (define-key map (kbd "g")         'pdf-view-revert-buffer)
     (define-key map (kbd "r")         'pdf-view-revert-buffer)
     map)
@@ -238,8 +236,7 @@ PNG images in Emacs buffers.
             'pdf-view-maybe-redisplay-resized-windows nil t)
   
   ;; Setup initial page and start display
-  (unless (pdf-view-current-page)
-    (pdf-view-goto-page 1))
+  (pdf-view-goto-page (or (pdf-view-current-page) 1))
 
   (run-mode-hooks 'pdf-view-mode-hook))
 
@@ -649,21 +646,21 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
           (if hscroll (set-window-hscroll win hscroll))
           (if vscroll (set-window-vscroll win vscroll)))))))
 
-(defun pdf-view-redisplay (&optional window)
+(defun pdf-view-redisplay (&optional window inhibit-hotspots-p)
   "Redisplay page in WINDOW.
 
 If WINDOW is t, redisplay pages in all windows."
   (unless pdf-view-inhibit-redisplay
-    (let ((windows
-           (cond ((eq t window)
-                  (get-buffer-window-list nil nil t))
-                 ((null window)
-                  (list (selected-window)))
-                 (t (list window)))))
-      (dolist (win windows)
+    (if (not (eq t window))
+        (pdf-view-display-page
+         (pdf-view-current-page window)
+         window
+         inhibit-hotspots-p)
+      (dolist (win (get-buffer-window-list nil nil t))
         (pdf-view-display-page
          (pdf-view-current-page win)
-         win)))))
+         win
+         inhibit-hotspots-p)))))
 
 (defun pdf-view-maybe-redisplay-resized-windows ()
   (unless (numberp pdf-view-display-size)

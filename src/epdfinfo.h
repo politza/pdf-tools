@@ -22,9 +22,7 @@
 #include <poppler.h>
 #include <png.h>
 
-#define INPUT_BUFFER_SIZE (4096 * 4)
-#define MAX_COMMAND_NARGS 1024
-
+/* Some library functions print warnings to stdout, inhibit it. */
 #define DISCARD_STDOUT(saved_fd)                \
   do {                                          \
     int fd;                                     \
@@ -42,6 +40,7 @@
     close(saved_fd);                            \
   } while (0)
 
+/* Writing responses */
 #define OK_BEGIN()                              \
   do {                                          \
     puts("OK");                                 \
@@ -59,12 +58,7 @@
     fflush (stdout);                            \
   } while (0)
 
-#define INT()                                   \
-  do {                                          \
-    puts ("INT\n.");                            \
-    fflush (stdout);                            \
-  } while (0)
-
+/* Dealing with image data. */
 #ifdef WORDS_BIGENDIAN
 #define ARGB_TO_RGB(rgb, argb)                  \
   do {                                          \
@@ -92,6 +86,8 @@
    && argb1[2] == argb2[2])
 #endif
 
+/* png_jmpbuf is supposed to be not available in older versions of
+   libpng. */
 #ifndef png_jmpbuf
 #  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)
 #endif
@@ -99,17 +95,26 @@
 #define internal_error(fmt, args...)                            \
   error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 
-#define error_if_not(expr, fmt, args...)                \
-  do {                                                  \
-    if (! (expr))                                       \
-      {                                                 \
-        printf_error_response ((fmt), ## args);         \
-        goto error;                                     \
-      }                                                 \
+#define perror_if_not(expr, fmt, args...)       \
+  do {                                          \
+    if (! (expr))                               \
+      {                                         \
+        printf_error_response ((fmt), ## args); \
+        goto error;                             \
+      }                                         \
   } while (0)
 
+#define cerror_if_not(expr, error_msg, fmt, args...)            \
+  do {                                                          \
+    if (! (expr))                                               \
+      {                                                         \
+        if (error_msg)                                          \
+          *(error_msg) = g_strdup_printf((fmt), ## args);       \
+        goto error;                                             \
+      }                                                         \
+  } while (0)
 
-enum { NONE, COLON, NEWLINE};
+enum suffix_char { NONE, COLON, NEWLINE};
 
 enum image_type { PPM, PNG };
 
@@ -133,37 +138,43 @@ typedef struct
   
 typedef enum 
 {
-    ARG_NULL = 0,
+    ARG_INVALID = 0,
     ARG_DOC,
-    ARG_FLAG,
+    ARG_BOOL,
     ARG_STRING,
     ARG_NONEMPTY_STRING,
     ARG_NATNUM,
-    ARG_EDGE_OR_NEG,
     ARG_EDGE,
+    ARG_EDGE_OR_NEGATIVE,
     ARG_EDGES,
     ARG_COLOR,
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
+    ARG_QUADRILATERAL,
+#endif
     ARG_REST
 } command_arg_type_t;
 
 typedef struct
 {
+  command_arg_type_t type;
   union
   {
     gboolean flag;
-    char *string;
+    const char *string;
     long natnum;
     document_t *doc;
     gdouble edge;
     PopplerColor color;
     PopplerRectangle rectangle;
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
+    PopplerQuadrilateral quadrilateral;
+#endif
     struct
     {
-      char **args;
+      char * const *args;
       int nargs;
     } rest;
   } value;
-  command_arg_type_t type;
 } command_arg_t;
 
 typedef struct
@@ -173,13 +184,15 @@ typedef struct
 
 typedef struct
 {
-  const char *name;             /* Name des Kommandos */
+  const char *name;
   void (* execute) (const epdfinfo_t *ctxt, const command_arg_t *args);
-  const command_arg_type_t *args_spec; /* Art der Argumente */
-  int nargs;                    /* Anzahl Argumente */
+  const command_arg_type_t *args_spec;
+  int nargs;
 } command_t;
 
-extern void poppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle*);
-extern gchar *poppler_annot_markup_get_created (PopplerAnnotMarkup*);
-
+/* Defined in poppler-hack.cc */
+#ifdef HAVE_POPPLER_ANNOT_WRITE
+extern void xpoppler_annot_set_rectangle (PopplerAnnot*, PopplerRectangle*);
+#endif
+extern gchar *xpoppler_annot_markup_get_created (PopplerAnnotMarkup*);
 #endif  /* _EPDF_H_ */

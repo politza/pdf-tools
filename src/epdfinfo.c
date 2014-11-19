@@ -52,19 +52,7 @@ free_command_args (command_arg_t *args, size_t n)
   int i;
   if (! args)
     return;
-  
-  for (i = 0; i < n; ++i)
-    {
-      switch (args[i].type)
-        {
-        case ARG_STRING:
-        case ARG_NONEMPTY_STRING:
-          g_free(args[i].value.string);
-          break;
-        default:
-          break;
-        }
-    }
+
   g_free (args);
 }
 
@@ -723,7 +711,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
       cerror_if_not (*arg, error_msg, "Non-empty string expected");
       /* fall through */
     case ARG_STRING:
-      cmd_arg->value.string = g_strdup (arg);
+      cmd_arg->value.string = arg;
       break;
     case ARG_NATNUM:
       {
@@ -1296,14 +1284,14 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
                           PopplerAnnot *annotation, char **error_msg)
 {
   int nargs = rest->value.rest.nargs;
-  char **args = rest->value.rest.args;
+  char * const *args = rest->value.rest.args;
   int i = 0;
   command_arg_t carg;
 
   const char* markup_error =
-    "Can modify `%s' property only for markup annotations.";
+    "Can modify `%s' property only for markup annotations";
   const char* text_error =
-    "Can modify `%s' property only for text annotations.";
+    "Can modify `%s' property only for text annotations";
 
   while (i < nargs)
     {
@@ -1359,7 +1347,7 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
       else
         {
           cerror_if_not (0, error_msg,
-                         "Unable to modify property `%s'.", key);
+                         "Unable to modify property `%s'", key);
         }
 
       if (! command_arg_parse_arg (ctx, args[i++], &carg, atype, error_msg))
@@ -1428,8 +1416,8 @@ const command_arg_type_t cmd_open_spec[] =
 static void
 cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
 {
-  char *filename = args[0].value.string;
-  char *passwd = args[1].value.string;
+  const char *filename = args[0].value.string;
+  const char *passwd = args[1].value.string;
   GError *gerror = NULL;
   document_t *doc;
   
@@ -1523,7 +1511,7 @@ cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
   gboolean ignore_case = args[1].value.flag;
   int first = args[2].value.natnum;
   int last = args[3].value.natnum;
-  char *string = args[4].value.string;
+  const char *string = args[4].value.string;
   GList *list, *item;
   double width, height;
   int pn;
@@ -2146,7 +2134,7 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   
   document_t *doc = args->value.doc;
   gint pn = args[1].value.natnum;
-  char *type_string = args[2].value.string;
+  const char *type_string = args[2].value.string;
   PopplerRectangle r = args[3].value.rectangle;
   int i;
   PopplerPage *page = NULL;
@@ -2247,9 +2235,9 @@ static void
 cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args->value.doc;
-  char *key = args[1].value.string;
+  const char *key = args[1].value.string;
   int nrest_args = args[2].value.rest.nargs;
-  char **rest_args = args[2].value.rest.args;
+  char * const *rest_args = args[2].value.rest.args;
   annotation_t *a = annotation_get_by_key (doc, key);
   PopplerAnnot *pa;
   PopplerPage *page = NULL;
@@ -2257,6 +2245,8 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
   gint index;
   char **error_msg = NULL;
   command_arg_t carg;
+  int set;
+  const char *unexpected_parse_error = "Internal error while parsing arg `%s'";
   
   perror_if_not (a, "No such annotation: %s", key);
   pa = a->amap->annot;
@@ -2272,17 +2262,23 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
 
       if (! strcmp (key, "flags"))
         {
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_NATNUM, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_NATNUM, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_set_flags (pa, carg.value.natnum);
         }
       else if (! strcmp (key, "color"))
         {
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_COLOR, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_COLOR, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_set_color (pa, &carg.value.color);
         }
       else if (! strcmp (key, "contents"))
         {
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_STRING, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_STRING, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_set_contents (pa, carg.value.string);
         }
       else if (! strcmp (key, "edges"))
@@ -2291,7 +2287,9 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
           gdouble width, height;
           PopplerRectangle r;
             
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_EDGES, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_EDGES, NULL),
+                         unexpected_parse_error, rest_args[i]);
           r = carg.value.rectangle;
           poppler_page_get_size (page, &width, &height);
           
@@ -2314,43 +2312,55 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
       else if (! strcmp (key, "label"))
         {
           PopplerAnnotMarkup *ma = POPPLER_ANNOT_MARKUP (pa);
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_STRING, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_STRING, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_markup_set_label (ma, carg.value.string);
         }
       else if (! strcmp (key, "opacity"))
         {
           PopplerAnnotMarkup *ma = POPPLER_ANNOT_MARKUP (pa);
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_EDGE, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_EDGE, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_markup_set_opacity (ma, carg.value.edge);
         }
       else if (! strcmp (key, "popup"))
         {
           PopplerAnnotMarkup *ma = POPPLER_ANNOT_MARKUP (pa);
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_EDGES, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_EDGES, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_markup_set_popup (ma, &carg.value.rectangle);
         }
       else if (! strcmp (key, "popup-is-open"))
         {
           PopplerAnnotMarkup *ma = POPPLER_ANNOT_MARKUP (pa);
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_BOOL, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_BOOL, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_markup_set_popup_is_open (ma, carg.value.flag);
         }
       else if (! strcmp (key, "icon"))
         {
           PopplerAnnotText *ta;
           ta = POPPLER_ANNOT_TEXT (pa);
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_NONEMPTY_STRING, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_NONEMPTY_STRING, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_text_set_icon (ta, carg.value.string);
         }
       else if (! strcmp (key, "is-open"))
         {
           PopplerAnnotText *ta = POPPLER_ANNOT_TEXT (pa);
-          command_arg_parse_arg  (ctx, rest_args[i], &carg, ARG_BOOL, NULL);
+          perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
+                                                 ARG_BOOL, NULL),
+                         unexpected_parse_error, rest_args[i]);
           poppler_annot_text_set_is_open (ta, carg.value.flag);
         }
       else
         {
-          internal_error ("annotation_edit_validate returned false value");
+          perror_if_not (0, "internal error: annotation property validation failed");
         }
     }
   
@@ -2559,7 +2569,7 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
   int width = args[2].value.natnum;
   int single_line = args[3].value.flag;
   int nrest_args = args[4].value.rest.nargs;
-  char **rest_args = args[4].value.rest.args;
+  char * const *rest_args = args[4].value.rest.args;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
   cairo_surface_t *surface = NULL;
   cairo_t *cr = NULL;
@@ -2643,7 +2653,7 @@ cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
   int pn = args[1].value.natnum;
   int width = args[2].value.natnum;
   int nrest_args = args[3].value.rest.nargs;
-  char **rest_args = args[3].value.rest.args;
+  char * const *rest_args = args[3].value.rest.args;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
   cairo_surface_t *surface = NULL;
   cairo_t *cr = NULL;

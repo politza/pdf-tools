@@ -738,6 +738,12 @@ Return the converted PNG image as a string.  See also
 
 ;; FIXME: Check code below and document.
 
+(defun pdf-utils-edges-empty-p (edges)
+  "Return non-nil, if EDGES area is empty." 
+  (pdf-util-with-edges (edges)
+    (or (<= edges-width 0)
+        (<= edges-height 0))))
+
 (defun pdf-utils-edges-inside-p (edges pos &optional epsilon)
   (pdf-utils-edges-contained-p
    edges
@@ -816,32 +822,47 @@ non-nil, unread the final non-processed event.
           (*clock (make-symbol "clock"))
           (*unread-p (make-symbol "unread-p"))
           (*resolution (make-symbol "resolution")))
-      `(track-mouse
-         (let* ((,*unread-p ,unread-p)
-                (,*resolution ,resolution)
-                (,*seconds 0)
-                (,*timestamp (float-time))
-                (,*clock (lambda (&optional secs)
-                           (when secs
-                             (setq ,*seconds secs
-                                   ,*timestamp (float-time)))
-                           (- (+ ,*timestamp ,*seconds)
-                              (float-time))))
-                (,event (read-event)))
-           (while ,condition
-             (when (<= (funcall ,*clock) 0)
-               (progn ,@body)
-               (setq ,event nil)
-               (funcall ,*clock ,*resolution))
-             (setq ,event
-                   (or (read-event nil nil
-                                   (and ,event
-                                        (max 0 (funcall ,*clock))))
-                       ,event)))
-           (when (and ,*unread-p ,event)
-             (setq unread-command-events
-                   (list ,event))))))))
-  
+      `(let* ((,*unread-p ,unread-p)
+              (,*resolution ,resolution)
+              (,*seconds 0)
+              (,*timestamp (float-time))
+              (,*clock (lambda (&optional secs)
+                         (when secs
+                           (setq ,*seconds secs
+                                 ,*timestamp (float-time)))
+                         (- (+ ,*timestamp ,*seconds)
+                            (float-time))))
+              (,event (read-event)))
+         (while ,condition
+           (when (<= (funcall ,*clock) 0)
+             (progn ,@body)
+             (setq ,event nil)
+             (funcall ,*clock ,*resolution))
+           (setq ,event
+                 (or (read-event nil nil
+                                 (and ,event
+                                      (max 0 (funcall ,*clock))))
+                     ,event)))
+         (when (and ,*unread-p ,event)
+           (setq unread-command-events
+                 (append unread-command-events
+                         (list ,event))))))))
+
+(defmacro pdf-util-track-mouse-dragging (event-resolution condition &rest body)
+  (declare (indent 2) (debug ((symbolp) form body)))
+  (let ((ran-once-p (make-symbol "ran-once-p")))
+    `(let (,ran-once-p)
+       (track-mouse
+         (pdf-util-do-events (,@event-resolution t)
+             ,condition
+           (setq ,ran-once-p t)
+           ,@body))
+       (when (and ,ran-once-p
+                  unread-command-events)
+         (setq unread-command-events
+               (butlast unread-command-events))))))
+     
+                                
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here

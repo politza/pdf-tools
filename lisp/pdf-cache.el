@@ -127,6 +127,9 @@ Make shure, not to modify it's return value.\n" fn)
   :group 'pdf-cache
   :group 'pdf-view)
 
+(defvar pdf-cache-image-inihibit nil
+  "Non-nil, if the image cache should be bypassed.")
+  
 (defvar-local pdf-cache--image-cache nil)
 
 (defmacro pdf-cache--make-image (page width data hash)
@@ -254,25 +257,30 @@ is at least MIN-WIDTH and, if non-nil, at most MAX-WIDTH.
 
 If such an image is not available in the cache, call
 `pdf-info-renderpage' to create one."
-  (or (pdf-cache-get-image page min-width max-width)
-      (let ((data (pdf-info-renderpage page min-width)))
-        (pdf-cache-put-image page min-width data)
-        data)))
+  (if pdf-cache-image-inihibit
+      (pdf-info-renderpage page min-width)
+    (or (pdf-cache-get-image page min-width max-width)
+        (let ((data (pdf-info-renderpage page min-width)))
+          (pdf-cache-put-image page min-width data)
+          data))))
 
 (defun pdf-cache-renderpage-text-regions (page width single-line-p
-                                            &rest selection)
+                                               &rest selection)
   "Render PAGE according to WIDTH, SINGLE-LINE-P and SELECTION.
 
 See also `pdf-info-renderpage-text-regions' and
 `pdf-cache-renderpage'."
-  (let ((hash (sxhash
-               (format "%S" (cons 'renderpage-text-regions
-                                  (cons single-line-p selection))))))
-    (or (pdf-cache-get-image page width nil hash)
-        (let ((data (apply 'pdf-info-renderpage-text-regions
-                           page width single-line-p nil selection)))
-          (pdf-cache-put-image page width data hash)
-          data))))
+  (if pdf-cache-image-inihibit
+      (apply 'pdf-info-renderpage-text-regions
+             page width single-line-p nil selection)
+    (let ((hash (sxhash
+                 (format "%S" (cons 'renderpage-text-regions
+                                    (cons single-line-p selection))))))
+      (or (pdf-cache-get-image page width nil hash)
+          (let ((data (apply 'pdf-info-renderpage-text-regions
+                             page width single-line-p nil selection)))
+            (pdf-cache-put-image page width data hash)
+            data)))))
 
 (provide 'pdf-cache)
 
