@@ -95,6 +95,9 @@
 #define internal_error(fmt, args...)                            \
   error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 
+#define error_if_not(expr)                      \
+  if (! (expr)) goto error;
+
 #define perror_if_not(expr, fmt, args...)       \
   do {                                          \
     if (! (expr))                               \

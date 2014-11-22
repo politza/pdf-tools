@@ -407,52 +407,14 @@ interrupted."
        (setq response (car response))
        (cons (round (string-to-number (car response)))
              (round (string-to-number (cadr response)))))
-      ((getannots getannot editannot addannot)
-       (funcall
-        (if (eq cmd 'getannots)
-            'identity
-          'car)
-        (mapcar
-         (lambda (a)
-           `((page . ,(string-to-number (pop a)))
-             (edges . ,(mapcar 'string-to-number
-                               (split-string (pop a) " " t)))
-             (type . ,(intern (pop a)))
-             (id . ,(intern (pop a)))
-             (flags . ,(string-to-number (pop a)))
-             (color . ,(pop-not-empty a))
-             (contents . ,(pop a))
-             (modified . ,(pdf-info-parse-pdf-date (pop-not-empty a)))
-             ,@(when a
-                 `((label . ,(pop-not-empty a))
-                   (subject . ,(pop-not-empty a))
-                   (opacity . ,(string-to-number (pop-not-empty a)))
-                   (popup-edges . ,(let ((p (pop-not-empty a)))
-                                     (when p
-                                       (mapcar 'string-to-number
-                                               (split-string p " " t)))))
-                   (popup-isopen . ,(equal (pop a) "1"))
-                   (created . ,(pdf-info-parse-pdf-date (pop-not-empty a)))))
-             ,@(when a
-                 `((icon . ,(pop-not-empty a))
-                   (state . ,(pop-not-empty a))
-                   (isopen . ,(equal (pop a) "1"))))))
-         response)))
-      ((getattachments getattachment-from-annot)
-       (funcall
-        (if (eq cmd 'getattachment-from-annot)
-            'car
-          'identity)
-        (mapcar (lambda (a)
-                  `((name . ,(pop-not-empty a))
-                    (description . ,(pop-not-empty a))
-                    (size . ,(let ((n (string-to-number (pop a))))
-                               (and (>= n 0) n)))
-                    (modified . ,(pop-not-empty a))
-                    (created . ,(pop-not-empty a))
-                    (checksum . ,(pop-not-empty a))
-                    (file . ,(pop-not-empty a))))
-                response)))
+      ((getannot editannot addannot)
+       (pdf-info-query--transform-annotation (car response)))
+      (getannots
+       (mapcar 'pdf-info-query--transform-annotation response))
+      (getattachments
+       (mapcar 'pdf-info-query--transform-attachment (car response)))
+      ((getattachment-from-annot)
+       (mapcar 'pdf-info-query--transform-attachment response))
       ((synctex-forward-search boundingbox)
        (mapcar 'string-to-number (car response)))
       (synctex-backward-search
@@ -463,6 +425,7 @@ interrupted."
       ((renderpage renderpage-text-regions renderpage-regions)
        (pdf-util-munch-file (caar response)))
       (t response))))
+
 
 (defun pdf-info-query--transform-action (action)
   "Transform ACTION response into a Lisp form."
@@ -482,6 +445,68 @@ interrupted."
                          (and (> (length (car action)) 0)
                               (string-to-number (pop action)))))
                   (t action))))))
+
+(defun pdf-info-query--transform-annotation (a)
+  (cl-labels ((not-empty (s)
+                (if (not (equal s "")) s)))
+    (let (a1 a2 a3)
+      (cl-destructuring-bind (page edges type id flags color contents modified &rest rest)
+          a
+        (setq a1 `((page . ,(string-to-number page))
+                   (edges . ,(mapcar 'string-to-number
+                                     (split-string edges " " t)))
+                   (type . ,(intern type))
+                   (id . ,(intern id))
+                   (flags . ,(string-to-number flags))
+                   (color . ,(not-empty color))
+                   (contents . ,contents)
+                   (modified . ,(pdf-info-parse-pdf-date modified))))
+        (when rest
+          (cl-destructuring-bind (label subject opacity popup-edges popup-isopen created
+                                        &rest rest)
+              rest
+            (setq a2
+                  `((label . ,(not-empty label))
+                    (subject . ,(not-empty subject))
+                    (opacity . ,(let ((o (not-empty opacity)))
+                                  (and o (string-to-number o))))
+                    (popup-edges . ,(let ((p (not-empty popup-edges)))
+                                      (when p
+                                        (mapcar 'string-to-number
+                                                (split-string p " " t)))))
+                    (popup-isopen . ,(equal popup-isopen "1"))
+                    (created . ,(pdf-info-parse-pdf-date (not-empty created)))))
+            (cond
+             ((eq (cdr (assoc 'type a1)) 'text)
+              (cl-destructuring-bind (icon state isopen)
+                  rest
+                (setq a3
+                      `((icon . ,(not-empty icon))
+                        (state . ,(not-empty state))
+                        (isopen . ,(equal isopen "1"))))))
+             ((memq (cdr (assoc 'type a1))
+                    '(squiggly highlight underline strikeout))
+              (setcdr (assoc 'edges a1)
+                      (mapcar (lambda (r)
+                                (mapcar 'string-to-number
+                                        (split-string r " " t)))
+                              rest)))))))
+      (append a1 a2 a3))))
+
+(defun pdf-info-query--transform-attachment (a)
+  (cl-labels ((not-empty (s)
+                (if (not (equal s "")) s)))
+    (cl-destructuring-bind (name description size modified
+                                 created checksum file)
+        a
+      `((name . ,(pop-not-empty name))
+        (description . ,(not-empty description))
+        (size . ,(let ((n (string-to-number size)))
+                   (and (>= n 0) n)))
+        (modified . ,(not-empty modified))
+        (created . ,(not-empty created))
+        (checksum . ,(not-empty checksum))
+        (file . ,(not-empty file))))))
 
 (defun pdf-info-query--log (string &optional query-p)
   "Log STRING as query/response, depending on QUERY-P.
@@ -503,8 +528,8 @@ This is a no-op, if `pdf-info-log' is nil."
             (if query-p
                 'font-lock-keyword-face
               'font-lock-function-name-face))
-           (if (> (length string) 170)
-               (concat (substring string 0 170)
+           (if (> (length string) 512)
+               (concat (substring string 0 512)
                        "...[truncated]\n")
              string)))
         (when (and (window-live-p window)

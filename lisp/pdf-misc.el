@@ -31,13 +31,6 @@
 ;; * Customizations
 ;; * ================================================================== *
 
-(defface pdf-misc-region
-  '((((background dark)) (:inherit region))
-    (((background light)) (:inherit region)))
-  "Face used to determine the colors of the region."
-  :group 'pdf-misc
-  :group 'pdf-tools-faces)
-
 (defcustom pdf-misc-multipage-horizontally nil
   "If non-nil, windows are sorted left to right first."
   :group 'pdf-misc)
@@ -47,56 +40,22 @@
 ;; * Local variables
 ;; * ================================================================== *
 
-(defvar-local pdf-misc-active-region nil
-  "The active region \(LEFT TOP RIGHT BOTTOM\) or nil.")
-
-
-
 
 ;; * ================================================================== *
 ;; * Modes
 ;; * ================================================================== *
 
 
-(defvar pdf-misc-text-region-keymap
-  (let ((km (make-sparse-keymap)))
-    (define-key km [t] 'pdf-util-image-map-mouse-event-proxy)
-    km)
-  "Keymap used over pdf-misc-text-region hotspots.")
 
+;;;###autoload
 (defvar pdf-misc-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap [down-mouse-1] 'pdf-misc-mouse-set-region)
-    (define-key kmap [remap kill-region] 'pdf-misc-kill-ring-save)
-    (define-key kmap [remap kill-ring-save] 'pdf-misc-kill-ring-save)
-    (define-key kmap [remap mark-whole-buffer] 'pdf-misc-mark-whole-page)
     (define-key kmap (kbd "C-c C-d") 'pdf-misc-dark-mode)
     (define-key kmap (kbd "I") 'pdf-misc-display-metadata)
     (dolist (key (where-is-internal 'occur))
       (define-key kmap key 'pdf-occur))
     kmap)
   "Keymap used in `pdf-misc-minor-mode'.")
-
-;;;###autoload
-(define-minor-mode pdf-misc-minor-mode
-  "Miscellanous smaller commands.
-
-\\{pdf-misc-minor-mode-map}"
-  nil nil nil
-  (pdf-util-assert-pdf-buffer)
-  (cond
-   (pdf-misc-minor-mode
-    (add-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region nil t)
-    (add-hook 'pdf-view-after-change-page-hook 'pdf-misc-deactivate-region nil t)
-    (pdf-view-add-hotspot-function 'pdf-misc-text-regions-hotspots-function -9)
-    (local-set-key [pdf-misc-text-region] pdf-misc-text-region-keymap))
-   (t
-    (pdf-misc-deactivate-region)
-    (remove-hook 'deactivate-mark-hook 'pdf-misc-deactivate-region t)
-    (remove-hook 'pdf-view-after-change-page-hook 'pdf-misc-deactivate-region t)
-    (pdf-view-remove-hotspot-function 'pdf-misc-text-regions-hotspots-function)
-    (local-set-key [pdf-misc-text-region] nil)))
-  (pdf-view-redisplay t))
 
 
 (defvar pdf-misc-multipage-minor-mode-map
@@ -352,112 +311,6 @@ This tells `pdf-isearch-minor-mode' to use dark colors."
       (pdf-isearch-message
        (if pdf-misc-dark-mode "dark mode" "light mode")))))
 
-
-;; * ================================================================== *
-;; * Region
-;; * ================================================================== *
-
-(defmacro pdf-misc-assert-active-region ()
-  `(unless pdf-misc-active-region
-     (error "The region is not active")))
-
-(defun pdf-misc-deactivate-region ()
-  "Deactivate the region."
-  (interactive)
-  (when pdf-misc-active-region
-    (setq pdf-misc-active-region nil)
-    (deactivate-mark)
-    (pdf-view-redisplay t)))
-
-(defun pdf-misc-mouse-set-region (ev)
-  "Selects a region of text using the mouse."
-  (interactive "@e")
-  (unless (and (eventp ev)
-               (mouse-event-p ev))
-    (signal 'wrong-type-argument (list 'mouse-event-p ev)))
-  (pdf-misc-deactivate-region)
-  (unless (posn-image (event-start ev))
-    (error "No page at this position"))
-  (let* ((window (selected-window))
-         (beg (posn-object-x-y (event-start ev)))
-         (colors (pdf-util-face-colors 'pdf-misc-region
-                                       pdf-misc-dark-mode))
-         (width (car (pdf-view-image-size)))
-         (page (pdf-view-current-page)))
-    (pdf-util-track-mouse-dragging (event 0.15)
-        (mouse-movement-p event)
-      (let* ((pos (event-start event))
-             (end (posn-object-x-y pos)))
-        (when (and (eq window (posn-window pos))
-                   (posn-image pos))
-          (setq pdf-misc-active-region
-                (list (min (car beg) (car end))
-                      (min (cdr beg) (cdr end))
-                      (max (car beg) (car end))
-                      (max (cdr beg) (cdr end))))
-          (pdf-misc-display-active-region page width colors)
-          (pdf-util-scroll-to-edges pdf-misc-active-region))))
-    (when pdf-misc-active-region
-      (let ((transient-mark-mode t))
-        (push-mark)))))
-
-(defun pdf-misc-display-active-region (&optional page image-width colors)
-  (pdf-misc-assert-active-region)
-  (unless colors
-    (setq colors (pdf-util-face-colors 'pdf-misc-region
-                                       pdf-misc-dark-mode)))
-  (pdf-view-display-image
-   (pdf-view-create-image
-       (pdf-info-renderpage-text-regions
-        (or page (pdf-view-current-page))
-        (or image-width (car (pdf-view-image-size)))
-        nil nil `(,(car colors)
-                  ,(cdr colors)
-                  ,(pdf-util-scale-pixel-to-relative
-                    pdf-misc-active-region))))))
-    
-(defun pdf-misc-kill-ring-save ()
-  "Copy the region to the `kill-ring'."
-  (interactive)
-  (pdf-util-assert-pdf-window)
-  (pdf-misc-assert-active-region)
-  (let* ((txt (pdf-misc-selection-string
-               pdf-misc-active-region)))
-    (pdf-misc-deactivate-region)
-    (kill-new txt)))
-
-(defun pdf-misc-mark-whole-page ()
-  "Copy the whole page to the `kill-ring'."
-  (interactive)
-  (pdf-util-assert-pdf-window)
-  (pdf-misc-deactivate-region)
-  (let ((size (pdf-view-image-size)))
-    (setq pdf-misc-active-region
-          (list 0 0 (car size) (cdr size))))
-  (let ((transient-mark-mode t))
-    (push-mark))
-  (pdf-misc-display-active-region))
-
-(defun pdf-misc-selection-string (edges &optional page)
-  "Return the text of the region EDGES on PAGE.
-
-Coordinates in EDGES should be in image space."
-  (pdf-util-assert-pdf-buffer)
-  (pdf-info-gettext
-   (or page (pdf-view-current-page))
-   (pdf-util-scale-pixel-to-relative edges)))
-
-(defun pdf-misc-text-regions-hotspots-function (page size)
-  "Return a list of hotspots for text regions on PAGE using SIZE."
-  (mapcar (lambda (region)
-            (let ((e (pdf-util-scale-edges region size)))
-              `((rect . ((,(nth 0 e) . ,(nth 1 e))
-                         . (,(nth 2 e) . ,(nth 3 e))))
-                pdf-misc-text-region
-                (pointer text))))
-          (pdf-cache-textlayout page)))
-
-
 ;; * ================================================================== *
 ;; * Multipage windows
 ;; * ================================================================== *

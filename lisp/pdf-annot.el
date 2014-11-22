@@ -393,7 +393,7 @@ Return nil, if no annotation was found."
                 (cdr offset)))
          (rpos (cons rx ry)))
     (cl-some (lambda (a)
-               (and (pdf-utils-edges-inside-p
+               (and (pdf-util-edges-inside-p
                      (pdf-annot-get a 'edges)
                      rpos)
                     a))

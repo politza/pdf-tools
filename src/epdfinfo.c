@@ -49,7 +49,6 @@
 static void
 free_command_args (command_arg_t *args, size_t n)
 {
-  int i;
   if (! args)
     return;
 
@@ -734,16 +733,18 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
 #ifdef HAVE_POPPLER_ANNOT_MARKUP
         if (type == ARG_QUADRILATERAL)
           {
-            PopplerQuadrilateral *q = &cmd_arg->value.quadrilateral;;
+            PopplerQuadrilateral q;
 
-            q->p1.x = r->x1;
-            q->p1.y = r->y1;
-            q->p2.x = r->x2;
-            q->p2.y = r->y1;
-            q->p3.x = r->x1;
-            q->p3.y = r->y2;
-            q->p4.x = r->x2;
-            q->p4.y = r->y2;
+            q.p1.x = r->x1;
+            q.p1.y = r->y1;
+            q.p2.x = r->x2;
+            q.p2.y = r->y1;
+            q.p3.x = r->x1;
+            q.p3.y = r->y2;
+            q.p4.x = r->x2;
+            q.p4.y = r->y2;
+
+            cmd_arg->value.quadrilateral = q;
           }
 #endif
       }
@@ -757,11 +758,12 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
                        error_msg, "Expected a relative edge: %s", arg);
         cmd_arg->value.edge = n;
       }
+      break;
     case ARG_COLOR:
       {
         guint r,g,b;
-        cerror_if_not (! (strlen (arg) != 7
-                          || 3 != sscanf (arg, "#%2x%2x%2x", &r, &g, &b)),
+        cerror_if_not ((strlen (arg) == 7
+                        && 3 == sscanf (arg, "#%2x%2x%2x", &r, &g, &b)),
                        error_msg, "Invalid color: %s", arg);
         cmd_arg->value.color.red = r << 8;
         cmd_arg->value.color.green = g << 8; 
@@ -1049,182 +1051,79 @@ annotation_get_by_key (document_t *doc, const gchar *key)
   return g_hash_table_lookup (doc->annotations.keys, key);
 }
 
-static void
-annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
+static cairo_region_t*
+annotation_markup_get_text_regions (PopplerPage *page, PopplerAnnotTextMarkup *a)
 {
-  double width, height;
-  PopplerAnnotMapping *m;
-  const gchar *key;
-  PopplerAnnot *a;
-  PopplerAnnotMarkup *ma;
-  PopplerAnnotText *ta;
-  PopplerRectangle r;
-  PopplerColor *color;
-  gchar *text;
-  gdouble opacity;
+  GArray *quads = poppler_annot_text_markup_get_quadrilaterals (a);
+  int i;
+  cairo_region_t *region = cairo_region_create ();
+  gdouble height;
 
-  if (! annot || ! page)
-    return;
+  poppler_page_get_size (page, NULL, &height);
   
-  m = annot->amap;
-  key = annot->key;
-  a = m->annot;
-  poppler_page_get_size (page, &width, &height);
-      
-  r.x1 = m->area.x1;
-  r.x2 = m->area.x2;
-  r.y1 = height - m->area.y2;
-  r.y2 = height - m->area.y1;
-
-  /* >>> Simple Annotation >>> */
-  /* Page */
-  printf ("%d:", poppler_page_get_index (page) + 1);
-  /* Area */
-  printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
-          , r.x2 / width, r.y2 / height); 
-      
-  /* Type */
-  printf ("%s:", xpoppler_annot_type_string (poppler_annot_get_annot_type (a)));
-  /* Internal Key */
-  print_response_string (key, COLON);
-
-  /* Flags */
-  printf ("%d:", poppler_annot_get_flags (a));
-
-  /* Color */
-  color = poppler_annot_get_color (a);
-  if (color)
+  for (i = 0; i < quads->len; ++i)
     {
-      /* Reduce 2 Byte to 1 Byte color space  */
-      printf ("#%.2x%.2x%.2x", (color->red >> 8)
-              , (color->green >> 8)
-              , (color->blue >> 8));
-      g_free (color);
+      PopplerQuadrilateral *q = &g_array_index (quads, PopplerQuadrilateral, i);
+      cairo_rectangle_int_t r;
+        
+      q->p1.y = height - q->p1.y;
+      q->p2.y = height - q->p2.y;
+      q->p3.y = height - q->p3.y;
+      q->p4.y = height - q->p4.y;
+
+      r.x = (int) (MIN (q->p1.x, MIN (q->p2.x, MIN (q->p3.x, q->p4.x))) + 0.5);
+      r.y = (int) (MIN (q->p1.y, MIN (q->p2.y, MIN (q->p3.y, q->p4.y))) + 0.5);
+      r.width = (int) (MAX (q->p1.x, MAX (q->p2.x, MAX (q->p3.x, q->p4.x))) + 0.5)
+                - r.x;
+      r.height = (int) (MAX (q->p1.y, MAX (q->p2.y, MAX (q->p3.y, q->p4.y))) + 0.5)
+                 - r.y;
+
+      cairo_region_union_rectangle (region, &r);
     }
-
-  putchar (':');
-
-  /* Text Contents */
-  text = poppler_annot_get_contents (a);
-  print_response_string (text, COLON);
-  g_free (text);
-
-  /* Modified Date */
-  text = poppler_annot_get_modified (a);
-  if (text)
-    print_response_string (text, NONE);
-  else
-    print_response_string (text, NONE);
-  g_free (text);
-
-  /* <<< Simple Annotation <<< */
-
-  /* >>> Markup Annotation >>> */
-  if (! POPPLER_IS_ANNOT_MARKUP (a))
-    {
-      putchar ('\n');
-      return;
-    }
-
-  putchar (':');
-  ma = POPPLER_ANNOT_MARKUP (a);
-  /* Label */
-  text = poppler_annot_markup_get_label (ma);
-  print_response_string (text, COLON);
-  g_free (text);
-
-  /* Subject */
-  text = poppler_annot_markup_get_subject (ma);
-  print_response_string (text, COLON);
-  g_free (text);
-
-  /* Opacity */
-  opacity = poppler_annot_markup_get_opacity (ma);
-  printf ("%f:", opacity);
-
-  /* Popup (Area + isOpen) */
-  if (poppler_annot_markup_has_popup (ma)
-      && poppler_annot_markup_get_popup_rectangle (ma, &r))
-    {
-      gdouble tmp = r.y1;
-      r.y1 = height - r.y2;
-      r.y2 = height - tmp;
-      printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
-              , r.x2 / width, r.y2 / height
-              , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
-          
-    }
-  else
-    printf ("::");
-
-  /* Creation Date */
-  text = xpoppler_annot_markup_get_created (ma);
-  if (text)
-    {
-      print_response_string (text, NONE);
-      g_free (text);
-    }
-
-  /* <<< Markup Annotation <<< */
-
-  /* >>> Markup Text Annotation >>> */
-  if (! POPPLER_IS_ANNOT_TEXT (a))
-    {
-      putchar ('\n');
-      return;
-    }
-  putchar (':');
-  ta = POPPLER_ANNOT_TEXT (a);
-  /* Text Icon */
-  text = poppler_annot_text_get_icon (ta);
-  print_response_string (text, COLON);
-  g_free (text);
-  /* Text State */
-  printf ("%s:%d\n",
-          xpoppler_annot_text_state_string (poppler_annot_text_get_state (ta)),
-          poppler_annot_text_get_is_open (ta));
-  /* <<< Markup Text Annotation <<< */
+  g_array_unref (quads);
+  return region;
 }
 
+/** 
+ * Append quadrilaterals equivalent to region to an array. 
+ * 
+ * @param page The page of the annotation.  This is used to get the
+ *             text regions and pagesize.
+ * @param region The region to add.
+ * @param garray[in,out] An array of PopplerQuadrilateral, where the
+ *              new quadrilaterals will be appended.
+ */
 static void
-attachment_print (PopplerAttachment *att, gboolean do_save)
+annotation_markup_append_text_region (PopplerPage *page, PopplerRectangle *region,
+                                      GArray *garray)
 {
-  time_t time;
-  
-  print_response_string (att->name, COLON);
-  print_response_string (att->description, COLON);
-  if (att->size + 1 != 0)
-    printf ("%" G_GSIZE_FORMAT ":", att->size);
-  else
-    printf ("-1:");
-  time = (time_t) att->mtime;
-  print_response_string (time > 0 ? strchomp (ctime (&time)) : "", COLON);
-  time = (time_t) att->ctime;
-  print_response_string (time > 0 ? strchomp (ctime (&time)) : "", COLON);
-  print_response_string (att->checksum ? att->checksum->str : "" , COLON);
-  if (do_save)
-    {
-      char *filename = mktempfile ();
-      GError *error = NULL;
-      if (filename)
-        {
-          if (! poppler_attachment_save (att, filename, &error))
-            {
-              fprintf (stderr, "Writing attachment failed: %s"
-                       , error ? error->message : "reason unknown");
-              if (error)
-                g_free (error);
-            }
-          else
-            {
-              print_response_string (filename, NONE);
-            }
-          free (filename);
-        }
-    }
-  putchar ('\n');
-}
+  gdouble height;
+  /* poppler_page_get_selection_region is deprecated w/o a
+     replacement.  (poppler_page_get_selected_region returns a union
+     of rectangles.) */
+  GList *regions =
+    poppler_page_get_selection_region (page, 1.0, POPPLER_SELECTION_GLYPH, region);
+  GList *item;
 
+  poppler_page_get_size (page, NULL, &height);
+  for (item = regions; item; item = item->next)
+    {
+      PopplerRectangle *r = item->data;
+      PopplerQuadrilateral q;
+      
+      q.p1.x = r->x1;
+      q.p1.y = height - r->y1;
+      q.p2.x = r->x2;
+      q.p2.y = height - r->y1;      
+      q.p4.x = r->x1;
+      q.p3.y = height - r->y2;
+      q.p3.x = r->x2;
+      q.p4.y = height - r->y2;
+
+      g_array_append_val (garray, q);
+    }
+  g_list_free (regions);
+}
 
 /** 
  * Create a new annotation.
@@ -1237,44 +1136,58 @@ attachment_print (PopplerAttachment *att, gboolean do_save)
  *         not available.
  */
 static PopplerAnnot*
-annotation_new (document_t *doc, const char *type, PopplerRectangle *r,
+annotation_new (const epdfinfo_t *ctx, document_t *doc, PopplerPage *page,
+                const char *type, PopplerRectangle *r,
                 const command_arg_t *rest, char **error_msg)
 {
 
   PopplerAnnot *a = NULL;
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-  char **args = rest->value.rest.args;
   int nargs = rest->value.rest.nargs;
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
+  char * const *args = rest->value.rest.args;
   int i;
   GArray *garray = NULL;
+  command_arg_t carg;
+  double width, height;
+  cairo_region_t *region = NULL;
 #endif
   
   if (! strcmp (type, "text"))
-    return poppler_annot_text_new (doc->pdf, r);
-
-#ifdef HAVE_POPPLER_ANNOT_MARKUP  
-  garray = g_array_new (FALSE, FALSE, sizeof (PopplerQuadrilateral));
-  for (i = 0; i < nargs; ++i)
     {
-      if (! command_arg_parse_arg (ctx, args[i], &carg,
-                                   ARG_QUADRILATERAL, error_msg))
-        goto error;
-      g_array_append_val (garray, carg.value.quadrilateral);
+      cerror_if_not (nargs == 0, error_msg, "%s", "Too many arguments");
+      return poppler_annot_text_new (doc->pdf, r);
     }
   
-  if (! strcmp (type, "text-markup-highlight"))
+#ifdef HAVE_POPPLER_ANNOT_MARKUP  
+  garray = g_array_new (FALSE, FALSE, sizeof (PopplerQuadrilateral));
+  poppler_page_get_size (page, &width, &height);
+  for (i = 0; i < nargs; ++i)
+    {
+      PopplerRectangle *rr = &carg.value.rectangle;
+
+      error_if_not (command_arg_parse_arg (ctx, args[i], &carg,
+                                           ARG_EDGES, error_msg));            
+      rr->x1 *= width; rr->x2 *= width;
+      rr->y1 *= height; rr->y2 *= height;
+      annotation_markup_append_text_region (page, rr, garray);
+    }
+  cerror_if_not (garray->len > 0, error_msg, "%s",
+                 "Unable to create empty markup annotation");
+  
+  if (! strcmp (type, "highlight"))
     a = poppler_annot_text_markup_new_highlight (doc->pdf, r, garray);
-  else if (! strcmp (type, "text-markup-squiggly"))
+  else if (! strcmp (type, "squiggly"))
     a = poppler_annot_text_markup_new_squiggly (doc->pdf, r, garray);
-  else if (! strcmp (type, "text-markup-strikeout"))
+  else if (! strcmp (type, "strikeout"))
     a = poppler_annot_text_markup_new_strikeout (doc->pdf, r, garray);
-  else if (! strcmp (type, "text-markup-underline"))
+  else if (! strcmp (type, "underline"))
     a = poppler_annot_text_markup_new_underline (doc->pdf, r, garray);
   else
     cerror_if_not (0, error_msg, "Unknown annotation type: %s", type);
     
  error:
-  if (garray) g_array_free (garray, TRUE);
+  if (garray) g_array_unref (garray);
+  if (region) cairo_region_destroy (region);
 #endif
   return a;
 }
@@ -1359,6 +1272,209 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
  error:
   return FALSE;
 }
+
+static void
+annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
+{
+  double width, height;
+  PopplerAnnotMapping *m;
+  const gchar *key;
+  PopplerAnnot *a;
+  PopplerAnnotMarkup *ma;
+  PopplerAnnotText *ta;
+  PopplerRectangle r;
+  PopplerColor *color;
+  gchar *text;
+  gdouble opacity;
+  cairo_region_t *region = NULL;
+  
+  if (! annot || ! page)
+    return;
+  
+  m = annot->amap;
+  key = annot->key;
+  a = m->annot;
+  poppler_page_get_size (page, &width, &height);
+      
+  r.x1 = m->area.x1;
+  r.x2 = m->area.x2;
+  r.y1 = height - m->area.y2;
+  r.y2 = height - m->area.y1;
+
+  if (POPPLER_IS_ANNOT_TEXT_MARKUP (a))
+    {
+      region = annotation_markup_get_text_regions (page, POPPLER_ANNOT_TEXT_MARKUP (a));
+      perror_if_not (region, "%s", "Unable to extract annotation's text regions");
+    }
+
+  /* >>> Any Annotation >>> */
+  /* Page */
+  printf ("%d:", poppler_page_get_index (page) + 1);
+  /* Area */
+  printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
+          , r.x2 / width, r.y2 / height); 
+      
+  /* Type */
+  printf ("%s:", xpoppler_annot_type_string (poppler_annot_get_annot_type (a)));
+  /* Internal Key */
+  print_response_string (key, COLON);
+
+  /* Flags */
+  printf ("%d:", poppler_annot_get_flags (a));
+
+  /* Color */
+  color = poppler_annot_get_color (a);
+  if (color)
+    {
+      /* Reduce 2 Byte to 1 Byte color space  */
+      printf ("#%.2x%.2x%.2x", (color->red >> 8)
+              , (color->green >> 8)
+              , (color->blue >> 8));
+      g_free (color);
+    }
+
+  putchar (':');
+
+  /* Text Contents */
+  text = poppler_annot_get_contents (a);
+  print_response_string (text, COLON);
+  g_free (text);
+
+  /* Modified Date */
+  text = poppler_annot_get_modified (a);
+  print_response_string (text, NONE);
+  g_free (text);
+
+  /* <<< Any Annotation <<< */
+
+  /* >>> Markup Annotation >>> */
+  if (! POPPLER_IS_ANNOT_MARKUP (a))
+    {
+      putchar ('\n');
+      return;
+    }
+
+  putchar (':');
+  ma = POPPLER_ANNOT_MARKUP (a);
+  /* Label */
+  text = poppler_annot_markup_get_label (ma);
+  print_response_string (text, COLON);
+  g_free (text);
+
+  /* Subject */
+  text = poppler_annot_markup_get_subject (ma);
+  print_response_string (text, COLON);
+  g_free (text);
+
+  /* Opacity */
+  opacity = poppler_annot_markup_get_opacity (ma);
+  printf ("%f:", opacity);
+
+  /* Popup (Area + isOpen) */
+  if (poppler_annot_markup_has_popup (ma)
+      && poppler_annot_markup_get_popup_rectangle (ma, &r))
+    {
+      gdouble tmp = r.y1;
+      r.y1 = height - r.y2;
+      r.y2 = height - tmp;
+      printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
+              , r.x2 / width, r.y2 / height
+              , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
+          
+    }
+  else
+    printf ("::");
+
+  /* Creation Date */
+  text = xpoppler_annot_markup_get_created (ma);
+  if (text)
+    {
+      print_response_string (text, NONE);
+      g_free (text);
+    }
+
+  /* <<< Markup Annotation <<< */
+
+  /* >>>  Text Annotation >>> */
+  if (POPPLER_IS_ANNOT_TEXT (a))
+    {
+      putchar (':');
+      ta = POPPLER_ANNOT_TEXT (a);
+      /* Text Icon */
+      text = poppler_annot_text_get_icon (ta);
+      print_response_string (text, COLON);
+      g_free (text);
+      /* Text State */
+      printf ("%s:%d",
+              xpoppler_annot_text_state_string (poppler_annot_text_get_state (ta)),
+              poppler_annot_text_get_is_open (ta));
+    }
+  /* <<< Text Annotation <<< */
+  else if (POPPLER_IS_ANNOT_TEXT_MARKUP (a))
+    {
+      /* >>> Markup Text Annotation >>> */
+      int i;
+      
+      putchar (':');
+      for (i = 0; i < cairo_region_num_rectangles (region); ++i)
+        {
+          cairo_rectangle_int_t r;
+
+          cairo_region_get_rectangle (region, i, &r);
+          printf ("%f %f %f %f",
+                  r.x / width,
+                  r.y / height,
+                  (r.x + r.width) / width,
+                  (r.y + r.height) / height);
+          if (i < cairo_region_num_rectangles (region) - 1)
+            putchar (':');
+        }
+      /* <<< Markup Text Annotation <<< */
+    }
+  putchar ('\n');
+ error:
+  if (region) cairo_region_destroy (region);
+}
+
+static void
+attachment_print (PopplerAttachment *att, gboolean do_save)
+{
+  time_t time;
+  
+  print_response_string (att->name, COLON);
+  print_response_string (att->description, COLON);
+  if (att->size + 1 != 0)
+    printf ("%" G_GSIZE_FORMAT ":", att->size);
+  else
+    printf ("-1:");
+  time = (time_t) att->mtime;
+  print_response_string (time > 0 ? strchomp (ctime (&time)) : "", COLON);
+  time = (time_t) att->ctime;
+  print_response_string (time > 0 ? strchomp (ctime (&time)) : "", COLON);
+  print_response_string (att->checksum ? att->checksum->str : "" , COLON);
+  if (do_save)
+    {
+      char *filename = mktempfile ();
+      GError *error = NULL;
+      if (filename)
+        {
+          if (! poppler_attachment_save (att, filename, &error))
+            {
+              fprintf (stderr, "Writing attachment failed: %s"
+                       , error ? error->message : "reason unknown");
+              if (error)
+                g_free (error);
+            }
+          else
+            {
+              print_response_string (filename, NONE);
+            }
+          free (filename);
+        }
+    }
+  putchar ('\n');
+}
+
 
 
 /* ================================================================== *
@@ -1762,10 +1878,10 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
 
       PopplerLinkMapping *link = item->data;
       PopplerRectangle *r = &link->area;
-      double y1_tmp = r->y1;
+      gdouble y1 = r->y1;
       /* LinkMappings have a different gravity. */
       r->y1 = height - r->y2;
-      r->y2 = height - y1_tmp;
+      r->y2 = height - y1;
         
       printf ("%f %f %f %f:",
               r->x1 / width, r->y1 / height,
@@ -1888,7 +2004,7 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
   r.y1 = r.y1 * height;
   r.y2 = r.y2 * height;
 
-  region = poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, &r);
+  region = poppler_page_get_selected_region (page, 1.0, selection_style, &r);
 
   OK_BEGIN ();
   for (i = 0; i < cairo_region_num_rectangles (region); ++i)
@@ -2125,7 +2241,7 @@ const command_arg_type_t cmd_addannot_spec[] =
     ARG_NATNUM,                 /* page number */
     ARG_STRING,                 /* type */
     ARG_EDGES,                  /* area */
-    ARG_REST,                   /* quadrilaterals */
+    ARG_REST,                   /* markup regions */
   };
 
 static void
@@ -2156,7 +2272,7 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   r.y2 = height - (r.y1 * height);
   r.y1 = tmp;
 
-  pa = annotation_new (doc, type_string, &r, &args[4], &error_msg);
+  pa = annotation_new (ctx, doc, page, type_string, &r, &args[4], &error_msg);
   perror_if_not (pa, "Creating annotation failed: %s",
                  error_msg ? error_msg : "Reason unknown");
   amap = poppler_annot_mapping_new ();
@@ -2243,14 +2359,13 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerPage *page = NULL;
   int i = 0;
   gint index;
-  char **error_msg = NULL;
+  char *error_msg = NULL;
   command_arg_t carg;
-  int set;
   const char *unexpected_parse_error = "Internal error while parsing arg `%s'";
   
   perror_if_not (a, "No such annotation: %s", key);
   pa = a->amap->annot;
-  perror_if_not (annotation_edit_validate (ctx, &args[2], pa, error_msg),
+  perror_if_not (annotation_edit_validate (ctx, &args[2], pa, &error_msg),
                  "%s", error_msg);
   index = poppler_annot_get_page_index (pa);
   page = poppler_document_get_page (doc->pdf, index);
@@ -2343,8 +2458,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
         }
       else if (! strcmp (key, "icon"))
         {
-          PopplerAnnotText *ta;
-          ta = POPPLER_ANNOT_TEXT (pa);
+          PopplerAnnotText *ta = POPPLER_ANNOT_TEXT (pa);
           perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
                                                  ARG_NONEMPTY_STRING, NULL),
                          unexpected_parse_error, rest_args[i]);

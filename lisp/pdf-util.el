@@ -738,19 +738,19 @@ Return the converted PNG image as a string.  See also
 
 ;; FIXME: Check code below and document.
 
-(defun pdf-utils-edges-empty-p (edges)
+(defun pdf-util-edges-empty-p (edges)
   "Return non-nil, if EDGES area is empty." 
   (pdf-util-with-edges (edges)
     (or (<= edges-width 0)
         (<= edges-height 0))))
 
-(defun pdf-utils-edges-inside-p (edges pos &optional epsilon)
-  (pdf-utils-edges-contained-p
+(defun pdf-util-edges-inside-p (edges pos &optional epsilon)
+  (pdf-util-edges-contained-p
    edges
    (list (car pos) (cdr pos) (car pos) (cdr pos))
    epsilon))
 
-(defun pdf-utils-edges-contained-p (edges contained &optional epsilon)
+(defun pdf-util-edges-contained-p (edges contained &optional epsilon)
   (unless epsilon (setq epsilon 0))
   (pdf-util-with-edges (edges contained)
     (and (<= (- edges-left epsilon)
@@ -762,7 +762,7 @@ Return the converted PNG image as a string.  See also
          (>= (+ edges-bot epsilon)
              contained-bot))))
 
-(defun pdf-utils-edges-intersection (e1 e2)
+(defun pdf-util-edges-intersection (e1 e2)
   (pdf-util-with-edges (edges1 e1 e2)
     (let ((left (max e1-left e2-left))
           (top (max e1-top e2-top))
@@ -772,8 +772,14 @@ Return the converted PNG image as a string.  See also
                  (<= top bot))
         (list left top right bot)))))
 
-(defun pdf-utils-edges-intersection-area (e1 e2)
-  (let ((inters (pdf-utils-edges-intersection e1 e2)))
+(defun pdf-util-edges-union (&rest edges)
+  (list (apply 'min (mapcar 'car edges))
+        (apply 'min (mapcar 'cadr edges))
+        (apply 'max (mapcar 'cl-caddr edges))
+        (apply 'max (mapcar 'cl-cadddr edges))))
+
+(defun pdf-util-edges-intersection-area (e1 e2)
+  (let ((inters (pdf-util-edges-intersection e1 e2)))
     (if (null inters)
         0
       (pdf-util-with-edges (inters)

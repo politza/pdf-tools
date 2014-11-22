@@ -344,15 +344,15 @@ See `pdf-links-action-perform' for the interface."
              (size (pdf-view-image-size))
              (links (sort (cl-remove-if
                            (lambda (e)
-                             (= 0 (pdf-utils-edges-intersection-area (car e) match)))
+                             (= 0 (pdf-util-edges-intersection-area (car e) match)))
                            (mapcar (lambda (l)
                                      (cons (pdf-util-scale-edges
                                             (car l) size)
                                            (cdr l)))
                                    (pdf-cache-pagelinks page)))
                           (lambda (e1 e2)
-                            (> (pdf-utils-edges-intersection-area (car e1) match)
-                               (pdf-utils-edges-intersection-area (car e2) match))))))
+                            (> (pdf-util-edges-intersection-area (car e1) match)
+                               (pdf-util-edges-intersection-area (car e2) match))))))
         (unless links
           (error "No link found at this position"))
         (pdf-links-action-perform (cdar links))))))
@@ -368,7 +368,7 @@ See `pdf-links-action-perform' for the interface."
                   (pdf-util-with-edges (l m)
                     (let ((area (min (* l-width l-height)
                                      (* m-width m-height))))
-                      (>  (/  (pdf-utils-edges-intersection-area m l)
+                      (>  (/  (pdf-util-edges-intersection-area m l)
                               (float area)) 0.5))))
                 links))
      matches)))
