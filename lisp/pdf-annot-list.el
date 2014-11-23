@@ -21,6 +21,20 @@
 ;;; Commentary:
 ;; 
 
+(defun pdf-annot-property-completions (property)
+  (cl-case property
+    (color (pdf-annot-color-completions))
+    (icon (copy-sequence pdf-annot-standard-text-icons))))
+
+(defun pdf-annot-color-completions ()
+  (let ((color-list (list-colors-duplicates))
+        colors)
+    (dolist (cl color-list)
+      (dolist (c (reverse cl))
+        (push (propertize c 'face `(:background ,c))
+              colors)))
+    (nreverse colors)))
+
 (defvar-local pdf-annot-list-document-buffer nil)
 
 (defvar pdf-annot-list-mode-map

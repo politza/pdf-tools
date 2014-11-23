@@ -84,20 +84,7 @@ dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :type 'boolean)
 
-(defcustom pdf-view-prefetch-delay 0.5
-  "Idle time in seconds before prefetching images starts."
-  :group 'pdf-view
-  :type 'number)
 
-(defcustom pdf-view-prefetch-pages-function
-  'pdf-view-prefetch-pages-function-default
-  "A function returning a list of pages to be prefetched.
-
-It is called with no arguments in the PDF window and should
-return a list of page-numbers, determining the pages that should
-be prefetched and their order."
-  :group 'pdf-view
-  :type 'function)
 
 (defface pdf-view-region
   '((((background dark)) (:inherit region))
@@ -105,6 +92,16 @@ be prefetched and their order."
   "Face used to determine the colors of the region."
   :group 'pdf-view
   :group 'pdf-tools-faces)
+
+(defcustom pdf-view-before-change-page-hook nil
+  "Hook run before changing to another page."
+  :group 'pdf-view
+  :type 'hook)
+
+(defcustom pdf-view-after-change-page-hook nil
+  "Hook run after changing to another page."
+  :group 'pdf-view
+  :type 'hook)
 
 
 ;; * ================================================================== *
@@ -122,12 +119,6 @@ Edge values are image coordinates.")
 (defvar-local pdf-view--next-page-timer nil
   "Timer used in `pdf-view-next-page-command'.")
 
-(defvar-local pdf-view--prefetch-pages nil
-  "Pages to be prefetched.")
-
-(defvar-local pdf-view--prefetch-timer nil
-  "Timer used for prefetching images.")
-
 (defvar-local pdf-view--hotspot-functions nil
   "Alist of hotspot functions.")
 
@@ -140,10 +131,18 @@ Edge values are image coordinates.")
 (defmacro pdf-view-current-slice (&optional window)
   `(image-mode-window-get 'slice ,window))
 
+(defmacro pdf-view-active-region-p nil
+  `(not (null pdf-view-active-region)))
+
 (defmacro pdf-view-assert-active-region ()
-  `(unless pdf-view-active-region
+  `(unless (pdf-view-active-region-p)
      (error "The region is not active")))
 
+(defmacro pdf-view-active-region ()
+  `(progn
+     (pdf-view-assert-active-region)
+     pdf-view-active-region))
+  
 
 ;; * ================================================================== *
 ;; * Major Mode
@@ -184,9 +183,8 @@ Edge values are image coordinates.")
     (define-key map (kbd "s m")       'pdf-view-set-slice-using-mouse)
     (define-key map (kbd "s b")       'pdf-view-set-slice-from-bounding-box)
     (define-key map (kbd "s r")       'pdf-view-reset-slice)
-    ;; Searching
-    (define-key map (kbd "C-c C-c")   'doc-view-mode)
     ;; Reconvert
+    (define-key map (kbd "C-c C-c")   'doc-view-mode)
     (define-key map (kbd "g")         'pdf-view-revert-buffer)
     (define-key map (kbd "r")         'pdf-view-revert-buffer)
     ;; Region
@@ -213,10 +211,12 @@ PNG images in Emacs buffers.
             (let ((file-name-handler-alist nil))
               (not (and buffer-file-name
                         (file-readable-p buffer-file-name)))))
-    (let ((tempfile (make-temp-file "pdf-view" nil ".pdf")))
-      ;; FIXME: Delete this file sometime. Better: Create in pdf-tools
-      ;; directory for all temporary files.
-      (set-file-modes tempfile #o0700)
+    (let ((tempfile (pdf-util-make-temp-file
+                     (concat (if buffer-file-name
+                                 (file-name-nondirectory
+                                  buffer-file-name)
+                               (buffer-name))
+                             "-"))))
       (write-region nil nil tempfile)
       (setq-local pdf-view--buffer-file-name tempfile)))
 
@@ -271,6 +271,53 @@ a local copy of a remote file."
   (or pdf-view--buffer-file-name
       (buffer-file-name)))
 
+(defun pdf-view-save-buffer ()
+  (interactive)
+  (when (buffer-modified-p)
+    (pdf-info-assert-writable-annotations)
+    (let (write-needed)
+      (dolist (a (pdf-annot-getannots))
+        (when (and (null (pdf-annot-get a 'id))
+                   (not (pdf-annot-deleted-p a)))
+          (setq write-needed t)
+          (let ((id
+                 (assq 'id (apply
+                            'pdf-info-addannot
+                            (pdf-annot-get a 'page)
+                            (pdf-annot-get a 'edges)))))
+            (push id (pdf-annot-properties a))))
+        (when (and (pdf-annot-deleted-p a)
+                   (pdf-annot-get a 'id))
+          (setq write-needed t)
+          (pdf-info-delannot (pdf-annot-get a 'id)))
+        (unless (pdf-annot-deleted-p a)
+          (let (modifications)
+            (dolist (property (pdf-annot-modified-properties a))
+              (push (cons property (pdf-annot-get a property))
+                    modifications))
+            (when modifications
+              (setq write-needed t)
+              (pdf-info-editannot (pdf-annot-get a 'id)
+                                  modifications)))))
+      (when write-needed
+        (let ((tmpfile (pdf-info-save))
+              (old-cache (doc-view-current-cache-dir)))
+          (rename-file tmpfile (buffer-file-name) t)
+          (unless (file-equal-p
+                   (buffer-file-name)
+                   doc-view-buffer-file-name)
+            (copy-file (buffer-file-name)
+                       doc-view-buffer-file-name t))
+          ;; Recompute the MD5 dirname.
+          (setq doc-view-current-cache-dir nil)
+          (let ((new-cache (doc-view-current-cache-dir)))
+            (rename-file old-cache new-cache t))))
+      (pdf-info-close)
+      (clear-visited-file-modtime)
+      (pdf-annot-revert-document)
+      (set-buffer-modified-p nil)))
+  t)
+
 
 ;; * ================================================================== *
 ;; * Scaling
@@ -315,25 +362,13 @@ a local copy of a remote file."
 (defun pdf-view-scale-reset ()
   (interactive)
   (setq pdf-view-display-size 1.0)
-  (pdf-view-redisplay t))   
+  (pdf-view-redisplay t))
 
 
 
 ;; * ================================================================== *
 ;; * Moving by pages and scrolling
 ;; * ================================================================== *
-
-
-
-(defcustom pdf-view-before-change-page-hook nil
-  "Hook run before changing to another page."
-  :group 'pdf-view
-  :type 'hook)
-
-(defcustom pdf-view-after-change-page-hook nil
-  "Hook run after changing to another page."
-  :group 'pdf-view
-  :type 'hook)
 
 (defun pdf-view-goto-page (page &optional window)
   (interactive
@@ -564,6 +599,7 @@ again."
 ;; * ================================================================== *
 
 (defvar pdf-view-inhibit-redisplay nil)
+(defvar pdf-view-inhibit-hotspots nil)
 
 (defun pdf-view-image-type ()
   "Return the image-type which should be used.
@@ -585,7 +621,7 @@ or png."
   (declare (indent 1) (debug t))
   `(create-image ,data (pdf-view-image-type) t ,@props))
 
-(defun pdf-view-create-page (page &optional window inhibit-hotspots-p)
+(defun pdf-view-create-page (page &optional window)
   "Create an image of PAGE for display on WINDOW."
   (let* ((size (pdf-view-desired-image-size page window))
          (data (pdf-cache-renderpage
@@ -593,7 +629,7 @@ or png."
                 (if (not (pdf-view-use-scaling-p))
                     (car size)
                   (* 2 (car size)))))
-         (hotspots (unless inhibit-hotspots-p
+         (hotspots (unless pdf-view-inhibit-hotspots
                      (pdf-view-apply-hotspot-functions
                       window page size))))
     (pdf-view-create-image data 
@@ -628,10 +664,10 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
      (t
       (cons 0 0)))))
 
-(defun pdf-view-display-page (page &optional window inhibit-hotspots-p)
+(defun pdf-view-display-page (page &optional window)
   "Display page PAGE in WINDOW."
   (pdf-view-display-image
-   (pdf-view-create-page page window inhibit-hotspots-p)
+   (pdf-view-create-page page window)
    window))
 
 (defun pdf-view-display-image (image &optional window inhibit-slice-p)
@@ -669,7 +705,7 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
           (if hscroll (set-window-hscroll win hscroll))
           (if vscroll (set-window-vscroll win vscroll)))))))
 
-(defun pdf-view-redisplay (&optional window inhibit-hotspots-p)
+(defun pdf-view-redisplay (&optional window)
   "Redisplay page in WINDOW.
 
 If WINDOW is t, redisplay pages in all windows."
@@ -678,13 +714,18 @@ If WINDOW is t, redisplay pages in all windows."
     (if (not (eq t window))
         (pdf-view-display-page
          (pdf-view-current-page window)
-         window
-         inhibit-hotspots-p)
+         window)
       (dolist (win (get-buffer-window-list nil nil t))
         (pdf-view-display-page
          (pdf-view-current-page win)
-         win
-         inhibit-hotspots-p)))))
+         win)))))
+
+(defun pdf-view-redisplay-pages (&rest pages)
+  (pdf-util-assert-pdf-buffer)
+  (dolist (window (get-buffer-window-list nil nil t))
+    (when (memq (pdf-view-current-page window)
+                pages)
+      (pdf-view-redisplay window))))
 
 (defun pdf-view-maybe-redisplay-resized-windows ()
   (unless (numberp pdf-view-display-size)
@@ -930,108 +971,3 @@ supercede hotspots in lower ones."
     (pdf-view-remove-hotspot-function 'pdf-view-text-regions-hotspots-function)
     (local-set-key [pdf-view-text-region] nil)))
   (pdf-view-redisplay t))
-
-
-;; * ================================================================== *
-;; * Prefetching images
-;; * ================================================================== *
-
-(defun pdf-view-prefetch-pages-function-default ()
-  (let ((page (pdf-view-current-page)))
-    (cl-remove-duplicates
-     (cl-remove-if-not
-      (lambda (page)
-        (and (>= page 1)
-             (<= page (pdf-cache-number-of-pages))))
-      (append
-       ;; +1, -1, +2, -2, ...
-       (let ((sign 1)
-             (incr 1))
-         (mapcar (lambda (i)
-                   (setq page (+ page (* sign incr))
-                         sign (- sign)
-                         incr (1+ incr))
-                   page)
-                 (number-sequence 1 16)))
-       ;; First and last
-       (list 1 (pdf-cache-number-of-pages))
-       ;; Links
-       (mapcar
-        'cadddr
-        (cl-remove-if-not
-         (lambda (link) (eq (cadr link) 'goto-dest))
-         (pdf-cache-pagelinks
-          (pdf-view-current-page)))))))))
-
-(defun pdf-view--prefetch-pages (window image-width)
-  (when (eq window (selected-window))
-    (let ((page (pop pdf-view--prefetch-pages)))
-      (while (and page
-                  (pdf-cache-lookup-image
-                   page
-                   image-width
-                   (if (not (pdf-view-use-scaling-p))
-                       image-width
-                     (* 2 image-width))))
-        (setq page (pop pdf-view--prefetch-pages)))
-      (if (null page)
-          (pdf-tools-debug "Prefetching done.")
-        (let ((pdf-info-asynchronous
-               (lambda (status data)
-                 (when (and (null status)
-                            (eq window
-                                (selected-window)))
-                   (with-current-buffer (window-buffer)
-                     (pdf-cache-put-image
-                      page image-width data)
-                     (image-size (pdf-view-create-page page))
-                     (pdf-tools-debug "Prefetched Page %s." page)
-                     ;; Avoid max-lisp-eval-depth
-                     (run-with-timer
-                         0.001 nil 'pdf-view--prefetch-pages window image-width))))))
-          (pdf-info-renderpage page image-width))))))
-
-(defun pdf-view--prefetch-start (buffer)
-  "Start prefetching images in BUFFER."
-  (when (and pdf-view-prefetch-mode
-             (not isearch-mode)
-             (null pdf-view--prefetch-pages)
-             (eq (window-buffer) buffer)
-             (fboundp pdf-view-prefetch-pages-function))
-    (let ((pages (funcall pdf-view-prefetch-pages-function)))
-      (setq pdf-view--prefetch-pages
-            (butlast pages (max 0 (- (length pages)
-                                     pdf-cache-image-limit))))
-      (pdf-view--prefetch-pages
-       (selected-window)
-       (car (pdf-view-desired-image-size))))))
-
-(defun pdf-view--prefetch-stop ()
-  "Stop prefetching images in current buffer."
-  (setq pdf-view--prefetch-pages nil))
-  
-(defun pdf-view--prefetch-cancel ()
-  "Cancel prefetching images in current buffer."
-  (pdf-view--prefetch-stop)
-  (when pdf-view--prefetch-timer
-    (cancel-timer pdf-view--prefetch-timer))
-  (setq pdf-view--prefetch-timer nil))
-
-(define-minor-mode pdf-view-prefetch-mode
-  "Try to load images which will probably be needed in a while."
-  nil nil t
-  
-  (pdf-view--prefetch-cancel)
-  (add-hook 'after-change-major-mode-hook
-            'pdf-view--prefetch-cancel nil t)            
-  (cond
-   (pdf-view-prefetch-mode
-    (add-hook 'pre-command-hook 'pdf-view--prefetch-stop nil t)
-    (setq pdf-view--prefetch-timer
-          (run-with-idle-timer (or pdf-view-prefetch-delay 1)
-              t 'pdf-view--prefetch-start (current-buffer))))
-   (t
-    (remove-hook 'pre-command-hook 'pdf-view--prefetch-stop t))))
-
-(provide 'pdf-view)
-;;; pdf-view.el ends here

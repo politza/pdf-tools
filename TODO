@@ -1,23 +1,20 @@
 -*- org -*-
 
 * epdfinfo
-** Merge duplicate code
-* Isearch
+** Provide some basic cairo rendering operations
+   This could be useful for example when displaying annotations as
+   selected.  (This looks pretty ugly at the moment.)
+* pdf-isearch
 ** Allow for entering multibyte characters with some input-methods.
    The PDF buffer is in unibyte mode prohibiting the user from
    inserting multibyte characters in the minibuffer with some
    input-methods, while editing the search string.
 ** Implement alternative rendering method
-   The advantage of the method is more accurate highlighting.  The
-   default method sometimes highlights to much text, but it looks
-   prettier.
-   + Use renderpage-regions instead of renderpage-text-regions
-   + Define appropriate faces
-   + Provide customizable alpha values
-   + Define a minor-mode for it
-   + Use minor-mode to decide rendering method
+   The default method sometimes highlights to much text, though it
+   looks pretty.
+* pdf-view
+** DONE Extended regions
+   Support extended selections, where multiple regions are active.  May
+   be usefull for text-markup annotations.
 * PDF Forms
   Recent poppler versions have some support for editing forms.
-* Region
-  Support extended selections, where multiple regions are active.  May
-  be usefull for text-markup annotations.

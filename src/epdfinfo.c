@@ -148,6 +148,16 @@ parse_rectangle (const char *str, PopplerRectangle *r)
 }
 
 static gboolean
+parse_edges_or_position (const char *str, PopplerRectangle *r)
+{
+  return (parse_rectangle (str, r)
+          && r->x1 >= 0 && r->x1 <= 1
+          && r->x2 <= 1
+          && r->y1 >= 0 && r->y1 <= 1
+          && r->y2 <= 1);
+}
+
+static gboolean
 parse_edges (const char *str, PopplerRectangle *r)
 {
   return (parse_rectangle (str, r)
@@ -721,8 +731,16 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
         cmd_arg->value.natnum = n;
       }
       break;
+    case ARG_EDGES_OR_POSITION:
+      {
+        PopplerRectangle *r = &cmd_arg->value.rectangle;
+        cerror_if_not (parse_edges_or_position (arg, r),
+                       error_msg,
+                       "Expected a relative position or rectangle: %s", arg);
+      }
+      break;
 #ifdef HAVE_POPPLER_ANNOT_MARKUP
-    case ARG_QUADRILATERAL:
+    case ARG_QUADRILATERAL:     /* fall through */
 #endif
     case ARG_EDGES:
       {
@@ -1115,10 +1133,10 @@ annotation_markup_append_text_region (PopplerPage *page, PopplerRectangle *regio
       q.p1.y = height - r->y1;
       q.p2.x = r->x2;
       q.p2.y = height - r->y1;      
-      q.p4.x = r->x1;
-      q.p3.y = height - r->y2;
-      q.p3.x = r->x2;
+      q.p4.x = r->x2;
       q.p4.y = height - r->y2;
+      q.p3.x = r->x1;
+      q.p3.y = height - r->y2;
 
       g_array_append_val (garray, q);
     }
@@ -1201,10 +1219,8 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
   int i = 0;
   command_arg_t carg;
 
-  const char* markup_error =
-    "Can modify `%s' property only for markup annotations";
-  const char* text_error =
-    "Can modify `%s' property only for text annotations";
+  const char* error_fmt =
+    "Can modify `%s' property only for %s annotations";
 
   while (i < nargs)
     {
@@ -1220,41 +1236,41 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
       else if (! strcmp (key, "contents"))
         atype = ARG_STRING;
       else if (! strcmp (key, "edges"))
-        atype = ARG_EDGES;
+        atype = ARG_EDGES_OR_POSITION;
       else if (! strcmp (key, "label"))
         {
           cerror_if_not (POPPLER_IS_ANNOT_MARKUP (annotation), error_msg,
-                         markup_error, key);
+                         error_fmt, key, "markup");
           atype = ARG_STRING;
         }
       else if (! strcmp (key, "opacity"))
         {
           cerror_if_not (POPPLER_IS_ANNOT_MARKUP (annotation), error_msg,
-                         markup_error, key);
+                         error_fmt, key, "markup");
           atype = ARG_EDGE;
         }
       else if (! strcmp (key, "popup"))
         {
           cerror_if_not (POPPLER_IS_ANNOT_MARKUP (annotation), error_msg,
-                         markup_error, key);
+                         error_fmt, key, "markup");
           atype = ARG_EDGES;
         }
       else if (! strcmp (key, "popup-is-open"))
         {
           cerror_if_not (POPPLER_IS_ANNOT_MARKUP (annotation), error_msg,
-                         markup_error, key);
+                         error_fmt, key, "markup");
           atype = ARG_BOOL;
         }
       else if (! strcmp (key, "icon"))
         {
           cerror_if_not (POPPLER_IS_ANNOT_TEXT (annotation), error_msg,
-                         text_error, key);
+                         error_fmt, key, "text");
           atype = ARG_NONEMPTY_STRING;
         }
       else if (! strcmp (key, "is-open"))
         {
           cerror_if_not (POPPLER_IS_ANNOT_TEXT (annotation), error_msg,
-                         text_error, key);
+                         error_fmt, key, "text");
           atype = ARG_BOOL;
         }
       else
@@ -1437,10 +1453,11 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
 }
 
 static void
-attachment_print (PopplerAttachment *att, gboolean do_save)
+attachment_print (PopplerAttachment *att, const char *id, gboolean do_save)
 {
   time_t time;
   
+  print_response_string (id, COLON);
   print_response_string (att->name, COLON);
   print_response_string (att->description, COLON);
   if (att->size + 1 != 0)
@@ -1499,9 +1516,14 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
     "no-case-sensitive-search",
 #endif
 #ifdef HAVE_POPPLER_ANNOT_WRITE
-    "write-annotations"
+    "writable-annotations",
 #else
-    "no-write-annotations"
+    "no-writable-annotations",
+#endif
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
+    "markup-annotations"
+#else
+    "no-markup-annotations"
 #endif
   };
   int i;
@@ -2189,20 +2211,23 @@ cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args)
   gboolean do_save = args[2].value.flag;
   PopplerAttachment *att = NULL;
   annotation_t *a = annotation_get_by_key (doc, key);
-
+  gchar *id = NULL;
+  
   perror_if_not (a, "No such annotation: %s", key);
   perror_if_not (POPPLER_IS_ANNOT_FILE_ATTACHMENT (a->amap->annot),
                 "Not a file annotation: %s", key);
   att = poppler_annot_file_attachment_get_attachment
         (POPPLER_ANNOT_FILE_ATTACHMENT (a->amap->annot));
   perror_if_not (att, "Unable to get attachment: %s", key);
-  
+  id = g_strdup_printf ("attachment-%s", key);
+       
   OK_BEGIN ();
-  attachment_print (att, do_save);
+  attachment_print (att, id, do_save);
   OK_END ();
 
  error:
   if (att) g_object_unref (att);
+  if (id) g_free (id);
 }
 
 
@@ -2220,13 +2245,17 @@ cmd_getattachments (const epdfinfo_t *ctx, const command_arg_t *args)
   gboolean do_save = args[1].value.flag;
   GList *item;
   GList *attmnts = poppler_document_get_attachments (doc->pdf);
+  int i;
   
   OK_BEGIN ();
-  for (item = attmnts; item; item = item->next)
+  for (item = attmnts, i = 0; item; item = item->next, ++i)
     {
       PopplerAttachment *att = (PopplerAttachment*) item->data;
-      attachment_print (att, do_save);
+      gchar *id = g_strdup_printf ("attachment-document-%d", i);
+      
+      attachment_print (att, id, do_save);
       g_object_unref (att);
+      g_free (id);
     }
   g_list_free (attmnts);
 
@@ -2240,8 +2269,8 @@ const command_arg_type_t cmd_addannot_spec[] =
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
     ARG_STRING,                 /* type */
-    ARG_EDGES,                  /* area */
-    ARG_REST,                   /* markup regions */
+    ARG_EDGES_OR_POSITION,      /* edges or position (uses default size) */
+    ARG_REST,                  /* markup regions */
   };
 
 static void
@@ -2260,17 +2289,21 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   annotation_t *a;
   gchar *key;
   GList *annotations;
-  gdouble tmp;
+  gdouble y2;
   char *error_msg = NULL;
-  
+
   page = poppler_document_get_page (doc->pdf, pn - 1);
   perror_if_not (page, "Unable to get page %d", pn);
   poppler_page_get_size (page, &width, &height);
-  r.x1 = r.x1 * width;
-  r.x2 = r.x2 * width;
-  tmp = height - (r.y2 * height);
-  r.y2 = height - (r.y1 * height);
-  r.y1 = tmp;
+  r.x1 *= width; r.x2 *= width;
+  r.y1 *= height; r.y2 *= height;
+  if (r.y2 < 0)
+    r.y2 = r.y1 + 24;
+  if (r.x2 < 0)
+    r.x2 = r.x1 + 24;
+  y2 = r.y2;
+  r.y2 = height - r.y1;
+  r.y1 = height - y2;
 
   pa = annotation_new (ctx, doc, page, type_string, &r, &args[4], &error_msg);
   perror_if_not (pa, "Creating annotation failed: %s",
@@ -2403,7 +2436,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
           PopplerRectangle r;
             
           perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
-                                                 ARG_EDGES, NULL),
+                                                 ARG_EDGES_OR_POSITION, NULL),
                          unexpected_parse_error, rest_args[i]);
           r = carg.value.rectangle;
           poppler_page_get_size (page, &width, &height);

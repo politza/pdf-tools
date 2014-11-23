@@ -23,108 +23,46 @@
 
 ;;; Code:
 
-(cl-defstruct (pdf-attach
-            (:constructor pdf-attach-new (buffer page id properties))
-            (:constructor nil))
-  buffer
-  id
-  page
-  properties)
+(defun pdf-attach-make-file-name (name &optional other)
+  "Turn NAME into a relative filename, not equal to names in OTHER."
+  
+  (let* ;; Name may be a unix or dos filename, I guess.
+      ((parts (split-string name "[/\\]" t))
+       (newname (concat (file-name-as-directory ".") (pop parts)))
+       (i 0))
 
-(defun pdf-attach-getattachments ()
+    (dolist (part parts)
+      (setq newname
+            (concat (file-name-as-directory newname)
+                    part)))
+
+    (let ((extension (file-name-extension newname)))
+      (while (member newname other)
+        (setq newname (format "%s-%d%s"
+                              (file-name-sans-extension newname)
+                              (cl-incf i)
+                              (if extension
+                                  (concat "." extension)
+                                "")))))
+    newname))
+
+(defun pdf-annot-getattachments (&optional do-save)
   "Return the attachments of the current buffer.
 
-The return value includes all attachments from annotations as
-well as global, document-level ones."
+See `pdf-info-getattachments' for the DO-SAVE argument and this
+function's return value.
+
+Returns all attachments from annotations, as well as
+document-level ones."
   (let* ((annots (pdf-annot-getannots nil 'file))
-         (docatt (pdf-info-getattachments nil))
-         attachments)
-    ;; Identify document level attachments by their order.
-    ;; Identification is needed for later retrieval of the
-    ;; attachment's data.
-    (dotimes (i (length docatt))
-      (push (pdf-attach-new (current-buffer)
-                            0 i (nth i docatt)) attachments))
-    ;; Annotations have a unique key attached, no problem here.
+         (attachments (pdf-info-getattachments do-save)))
     (dolist (a annots)
       (let ((pn (pdf-annot-get a 'page))
             (id (pdf-annot-get a 'id)))
-        (push (pdf-attach-new
-               (current-buffer)
-               pn id
-               (pdf-info-getattachment-from-annot id))
+        (push (pdf-info-getattachment-from-annot id do-save)
               attachments)))
     attachments))
 
-(defun pdf-attach-get-from-annot (a)
-  "Return annotation A's attached data.
-
-A should be a file-annotation, otherwise the result is an error."
-  (unless (eq (pdf-annot-get a 'type) 'file)
-    (error "Annotation has no data attached: %s" a))
-  (let* ((id (pdf-annot-get a 'id))
-         (buffer (pdf-annot-buffer a))
-         (page (pdf-annot-get a 'page))
-         (alist (pdf-info-getattachment-from-annot id buffer)))
-    (pdf-attach-new buffer page id alist)))
-
-(defun pdf-attach-get (a prop &optional default)
-  (or (cdr (assq prop (pdf-attach-properties a)))
-      default))
-
-(defun pdf-attach-name (a)
-  "Return attachment A's specified filename or nil."
-  (cdr (assq 'name (pdf-attach-properties a))))
-
-(defun pdf-attach-description (a)
-  "Return attachment A's description or nil."
-  (cdr (assq 'description (pdf-attach-properties a))))
-
-(defun pdf-attach-size (a)
-  "Return attachment A's size or nil."
-  (cdr (assq 'size (pdf-attach-properties a))))
-
-(defun pdf-attach-mtime (a)
-  "Return attachment A's modification time or nil."
-  (cdr (assq 'mtime (pdf-attach-properties a))))
-
-(defun pdf-attach-ctime (a)
-  "Return attachment A's creation time or nil."
-  (cdr (assq 'ctime (pdf-attach-properties a))))
-
-(defun pdf-attach-checksum (a)
-  "Return attachment A's checksum or nil."
-  (cdr (assq 'checksum (pdf-attach-properties a))))
-
-(defun pdf-attach-print-tooltip (a)
-  "Return a string describing attachment A."
-  (let ((header (propertize
-                 (format "File attachment `%s' of %s\n"
-                         (or (pdf-attach-name a) "unnamed")
-                         (if (pdf-attach-size a)
-                             (format "size %d" (file-size-human-readable
-                                                (pdf-attach-size a)))
-                           "unknown size"))
-                 'face 'header-line 'intangible t
-                 'read-only t)))
-    (concat
-     (propertize
-      (make-string (length header) ?\s)
-      'display
-      header)
-     (or (pdf-attach-description a) "No description"))))         
-  
-(defun pdf-attach-from-annotation-p (a)
-  "Return t, if attachment A belongs to some annotation.
-
-There are two kinds of attachments,
-
-i.  attachments associated with an annotation and
-ii. attachment associated with the whole document.
-
-This function returns t in case i. and nil in case ii. ."
-  (symbolp (pdf-attach-id a)))
-  
 (defun pdf-attach-create-file (a)
   "Return a filename containing the data of attachment A.
 
@@ -185,7 +123,6 @@ file."
             (let* ;; Name may be a unix or dos filename, I guess.
                 ((parts (split-string name "[/\\]" t))
                  (dirs (butlast parts)))
-
               (setq newfile (car (last parts)))
 
               (dolist (d dirs)
@@ -253,10 +190,7 @@ otherwise return DIRECTORY."
 (defun pdf-attach-default-directory (&optional buffer)
   (save-current-buffer
     (when buffer (set-buffer buffer))
-    (expand-file-name
-     (format "%s_attachments"
-             (file-name-sans-extension (buffer-name)))
-     (doc-view-current-cache-dir))))
+    (pdf-util-expand-file-name "pdf-attach")))
   
 (defun pdf-attach-dired (&optional buffer)
   "Visit all attachments of the PDF of BUFFER in dired."

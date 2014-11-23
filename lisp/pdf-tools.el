@@ -217,48 +217,6 @@ See `pdf-tools-enabled-modes'."
       (terpri) (terpri)
       (princ "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"))))
 
-
-
-
-;; * ================================================================== *
-;; * Dedicated directory
-;; * ================================================================== *
-
-(defvar pdf-tools--directory nil
-  "A dedicated directory for pdf-tools.")
-
-(defun pdf-tools-directory ()
-  "Return the name of a dedicated directory.
-
-The directory will be deleted when Emacs is killed."
-  (unless (and pdf-tools--directory
-               (file-directory-p
-                pdf-tools--directory)
-               (not (file-symlink-p
-                     pdf-tools--directory)))
-    (add-hook 'kill-emacs-hook 'pdf-tools-delete-directory)
-    (with-file-modes #o0700
-      (setq pdf-tools--directory
-            (make-temp-file "pdf-tools" t))))
-  pdf-tools--directory)
-
-(defun pdf-tools-delete-directory ()
-  "Delete PDF Tools dedicated directory."
-  (delete-directory (pdf-tools-directory) t))
-  
-(defun pdf-tools-expand-file-name (name)
-  "Expand filename against PDF Tool's dedicated directory."
-  (expand-file-name name (pdf-tools-directory)))
-
-(defun pdf-tools-make-temp-file (prefix &optional dir-flag suffix)
-  "Create a temporary file in PDF Tool's dedicated directory.
-
-See `make-temp-file' for meaning of the arguments."
-  (let ((temporary-file-directory
-         (pdf-tools-directory)))
-    (make-temp-file prefix dir-flag suffix)))
-
-
 
 ;; * ================================================================== *
 ;; * Debugging
@@ -274,9 +232,9 @@ See `make-temp-file' for meaning of the arguments."
     (message "Toggled debugging %s" (if pdf-tools-debug "on" "off"))))
 
 (defun pdf-tools-debug (fmt &rest args)
-  "If debugging like `message', else does nothing."
+  "If debugging like `message' with a DEBUG prefix, else does nothing."
   (when pdf-tools-debug
-    (apply 'message fmt args)))
+    (apply 'message (concat "DEBUG:" fmt) args)))
 
 (provide 'pdf-tools)
 

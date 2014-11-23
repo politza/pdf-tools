@@ -344,87 +344,84 @@ interrupted."
 
 (defun pdf-info-query--transform-response (cmd response)
   "Transform a RESPONSE to CMD into a Lisp form."
-  (cl-macrolet ((pop-not-empty (l)
-                  `(let ((str (pop ,l)))
-                     (and (> (length str) 0) str))))
-    (cl-case cmd
-      (open nil)
-      (close (equal "1" (caar response)))
-      (number-of-pages (string-to-number (caar response)))
-      (search
-       (let ((matches (mapcar (lambda (r)
-                                (list
-                                 (string-to-number (pop r))
-                                 (mapcar 'string-to-number
-                                         (split-string (pop r) " " t))
-                                 (pop r)))
-                              response))
-             result)
-         (while matches
-           (let ((page (caar matches))
-                 items)
-             (while (and matches
-                         (= (caar matches) page))
-               (push (cdr (pop matches)) items))
-             (push (cons page (nreverse items)) result)))
-         (nreverse result)))
-      (outline
-       (mapcar (lambda (r)
-                 (cons (string-to-number (pop r))
-                       (pdf-info-query--transform-action r)))
-               response))
-      (pagelinks
-       (mapcar (lambda (r)
-                 (cons
-                  (mapcar 'string-to-number ;area
-                          (split-string (pop r) " " t))
-                  (pdf-info-query--transform-action r)))
-               response))
-      (metadata
-       (let ((md (car response)))
-         (if (= 1 (length md))
-             (list (cons 'title (car md)))
-           (list
-            (cons 'title (pop md))
-            (cons 'author (pop md))
-            (cons 'subject (pop md))
-            (cons 'keywords-raw (car md))
-            (cons 'keywords (split-string (pop md) "[\t\n ]*,[\t\n ]*" t))
-            (cons 'creator (pop md))
-            (cons 'producer (pop md))
-            (cons 'format (pop md))
-            (cons 'created (pop md))
-            (cons 'modified (pop md))))))
-      (gettext
-       (or (caar response) ""))
-      (getselection
-       (mapcar (lambda (line)
-                 (mapcar 'string-to-number
-                         (split-string (car line) " " t)))
-               response))
-      (features (mapcar 'intern (car response)))
-      (pagesize
-       (setq response (car response))
-       (cons (round (string-to-number (car response)))
-             (round (string-to-number (cadr response)))))
-      ((getannot editannot addannot)
-       (pdf-info-query--transform-annotation (car response)))
-      (getannots
-       (mapcar 'pdf-info-query--transform-annotation response))
-      (getattachments
-       (mapcar 'pdf-info-query--transform-attachment (car response)))
-      ((getattachment-from-annot)
-       (mapcar 'pdf-info-query--transform-attachment response))
-      ((synctex-forward-search boundingbox)
-       (mapcar 'string-to-number (car response)))
-      (synctex-backward-search
-       (cons (caar response)
-             (mapcar 'string-to-number (cdar response))))
-      (delannot nil)
-      ((save) (caar response))
-      ((renderpage renderpage-text-regions renderpage-regions)
-       (pdf-util-munch-file (caar response)))
-      (t response))))
+  (cl-case cmd
+    (open nil)
+    (close (equal "1" (caar response)))
+    (number-of-pages (string-to-number (caar response)))
+    (search
+     (let ((matches (mapcar (lambda (r)
+                              (list
+                               (string-to-number (pop r))
+                               (mapcar 'string-to-number
+                                       (split-string (pop r) " " t))
+                               (pop r)))
+                            response))
+           result)
+       (while matches
+         (let ((page (caar matches))
+               items)
+           (while (and matches
+                       (= (caar matches) page))
+             (push (cdr (pop matches)) items))
+           (push (cons page (nreverse items)) result)))
+       (nreverse result)))
+    (outline
+     (mapcar (lambda (r)
+               (cons (string-to-number (pop r))
+                     (pdf-info-query--transform-action r)))
+             response))
+    (pagelinks
+     (mapcar (lambda (r)
+               (cons
+                (mapcar 'string-to-number ;area
+                        (split-string (pop r) " " t))
+                (pdf-info-query--transform-action r)))
+             response))
+    (metadata
+     (let ((md (car response)))
+       (if (= 1 (length md))
+           (list (cons 'title (car md)))
+         (list
+          (cons 'title (pop md))
+          (cons 'author (pop md))
+          (cons 'subject (pop md))
+          (cons 'keywords-raw (car md))
+          (cons 'keywords (split-string (pop md) "[\t\n ]*,[\t\n ]*" t))
+          (cons 'creator (pop md))
+          (cons 'producer (pop md))
+          (cons 'format (pop md))
+          (cons 'created (pop md))
+          (cons 'modified (pop md))))))
+    (gettext
+     (or (caar response) ""))
+    (getselection
+     (mapcar (lambda (line)
+               (mapcar 'string-to-number
+                       (split-string (car line) " " t)))
+             response))
+    (features (mapcar 'intern (car response)))
+    (pagesize
+     (setq response (car response))
+     (cons (round (string-to-number (car response)))
+           (round (string-to-number (cadr response)))))
+    ((getannot editannot addannot)
+     (pdf-info-query--transform-annotation (car response)))
+    (getannots
+     (mapcar 'pdf-info-query--transform-annotation response))
+    (getattachments
+     (mapcar 'pdf-info-query--transform-attachment response))
+    ((getattachment-from-annot)
+     (pdf-info-query--transform-attachment (car response)))
+    ((synctex-forward-search boundingbox)
+     (mapcar 'string-to-number (car response)))
+    (synctex-backward-search
+     (cons (caar response)
+           (mapcar 'string-to-number (cdar response))))
+    (delannot nil)
+    ((save) (caar response))
+    ((renderpage renderpage-text-regions renderpage-regions)
+     (pdf-util-munch-file (caar response)))
+    (t response)))
 
 
 (defun pdf-info-query--transform-action (action)
@@ -462,7 +459,7 @@ interrupted."
                    (contents . ,contents)
                    (modified . ,(pdf-info-parse-pdf-date modified))))
         (when rest
-          (cl-destructuring-bind (label subject opacity popup-edges popup-isopen created
+          (cl-destructuring-bind (label subject opacity popup-edges popup-is-open created
                                         &rest rest)
               rest
             (setq a2
@@ -474,32 +471,33 @@ interrupted."
                                       (when p
                                         (mapcar 'string-to-number
                                                 (split-string p " " t)))))
-                    (popup-isopen . ,(equal popup-isopen "1"))
+                    (popup-is-open . ,(equal popup-is-open "1"))
                     (created . ,(pdf-info-parse-pdf-date (not-empty created)))))
             (cond
              ((eq (cdr (assoc 'type a1)) 'text)
-              (cl-destructuring-bind (icon state isopen)
+              (cl-destructuring-bind (icon state is-open)
                   rest
                 (setq a3
                       `((icon . ,(not-empty icon))
                         (state . ,(not-empty state))
-                        (isopen . ,(equal isopen "1"))))))
+                        (is-open . ,(equal is-open "1"))))))
              ((memq (cdr (assoc 'type a1))
                     '(squiggly highlight underline strikeout))
-              (setcdr (assoc 'edges a1)
-                      (mapcar (lambda (r)
-                                (mapcar 'string-to-number
-                                        (split-string r " " t)))
-                              rest)))))))
+              (setq a3 `((markup-edges
+                          . ,(mapcar (lambda (r)
+                                       (mapcar 'string-to-number
+                                               (split-string r " " t)))
+                                     rest)))))))))
       (append a1 a2 a3))))
 
 (defun pdf-info-query--transform-attachment (a)
   (cl-labels ((not-empty (s)
                 (if (not (equal s "")) s)))
-    (cl-destructuring-bind (name description size modified
-                                 created checksum file)
+    (cl-destructuring-bind (id name description size modified
+                               created checksum file)
         a
-      `((name . ,(pop-not-empty name))
+      `((id . ,(intern id))
+        (name . ,(not-empty name))
         (description . ,(not-empty description))
         (size . ,(let ((n (string-to-number size)))
                    (and (>= n 0) n)))
@@ -632,23 +630,41 @@ end of the document or nil, which stands for all pages."
        (string-to-number year)
        tz))))
 
-(defun pdf-info-writable-annotations-p ()
-  (not (null (memq 'write-annotations (pdf-info-features)))))
-
-(defun pdf-info-assert-writable-annotations ()
-  (unless (memq 'write-annotations (pdf-info-features))
-    (error "Writing annotations is not supported by this version of epdfinfo")))
-
-
 
 ;; * ================================================================== *
 ;; * High level interface
 ;; * ================================================================== *
 
+(defvar pdf-info-features nil)
+
 (defun pdf-info-features ()
   "Return a list of symbols describing compile-time features."
-  (pdf-info-query 'features))
+  (or pdf-info-features
+      (setq pdf-info-features
+            (pdf-info-query 'features))))
                           
+(defun pdf-info-writable-annotations-p ()
+  (not (null (memq 'writable-annotations (pdf-info-features)))))
+
+(defun pdf-info-markup-annotations-p ()
+  (not (null (memq 'markup-annotations (pdf-info-features)))))
+
+(defmacro pdf-info-assert-writable-annotations ()
+  `(unless (memq 'writable-annotations (pdf-info-features))
+     (error "Writing annotations is not supported by this version of epdfinfo")))
+
+(defmacro pdf-info-assert-markup-annotations ()
+  `(unless (memq 'markup-annotations (pdf-info-features))
+     (error "Creating markup annotations is not supported by this version of epdfinfo")))
+
+(defun pdf-info-creatable-annotation-types ()
+  (let ((features (pdf-info-features)))
+    (cond
+     ((not (memq 'writable-annotations features)) nil)
+     ((memq 'markup-annotations features)
+      (list 'text 'squiggly 'underline 'strikeout 'highlight))
+     (t (list 'text)))))
+
 (defun pdf-info-open (&optional file-or-buffer password)
   "Open the docüment FILE-OR-BUFFER using PASSWORD.
 
@@ -850,7 +866,7 @@ label        - The annotation's label.
 subject      - The subject addressed.
 opacity      - The level of relative opacity.
 popup-edges  - The edges of a associated popup window or nil.
-popup-isopen - Whether this window should be displayed open.
+popup-is-open - Whether this window should be displayed open.
 created      - The date this markup annotation was created.
 
 If the annotation is also a markup text annotation, the alist
@@ -880,20 +896,24 @@ function."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    id))
 
-(defun pdf-info-addannot (page edges &optional type file-or-buffer)
+(defun pdf-info-addannot (page edges &optional type file-or-buffer &rest markup-edges)
   "Add a new annotation to PAGE with EDGES of TYPE.
 
 FIXME: TYPE may be one of `text', `markup-highlight', ... .
-
+FIXME: -1 = 24
 See `pdf-info-getannots' for the kind of value of this function
 returns."
   (pdf-info-assert-writable-annotations)
-  (pdf-info-query
+  (apply
+   'pdf-info-query
    'addannot
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page
-   'text
-   (mapconcat 'number-to-string edges " ")))
+   type
+   (mapconcat 'number-to-string edges " ")
+   (mapcar (lambda (me)
+             (mapconcat 'number-to-string me " "))
+           markup-edges)))
 
 (defun pdf-info-delannot (id &optional file-or-buffer)
   "Delete the annotation with ID in FILE-OR-BUFFER.
@@ -940,6 +960,8 @@ The server must support modifying annotations for this to work."
               (edges
                (list (car elt)
                      (mapconcat 'number-to-string (cdr elt) " ")))
+              ((popup-is-open is-open)
+               (list (car elt) (if (cdr elt) 1 0)))
               (t
                (list (car elt) (cdr elt)))))
           modifications)))
@@ -982,11 +1004,13 @@ If DO-SAVE is non-nil, save the attachments data to a local file,
 which is then owned by the caller, see below.
 
 This function returns a list of alists, where every element
-contains the following keys.
+contains the following keys.  All values, except for id, may be
+nil, i.e. not present.
 
+id          - A symbol uniquely identifying this attachment.
 name        - The filename of this attachment.
 description - A description of this attachment.
-size        - The size in bytes or -1 if this is not available.
+size        - The size in bytes.
 modified    - The last modification date.
 created     - The date of creation.
 checksum    - A MD5 checksum of this attachment's data.

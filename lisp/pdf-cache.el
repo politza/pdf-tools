@@ -26,6 +26,33 @@
 (require 'pdf-info)
 (require 'pdf-util)
 (require 'pdf-annot)
+(require 'pdf-view)
+
+
+;; * ================================================================== *
+;; * Customiazations
+;; * ================================================================== *
+
+(defcustom pdf-cache-image-limit 64
+  "Maximum number of cached PNG images per buffer."
+  :type 'integer
+  :group 'pdf-cache
+  :group 'pdf-view)
+
+(defcustom pdf-cache-prefetch-delay 0.5
+  "Idle time in seconds before prefetching images starts."
+  :group 'pdf-view
+  :type 'number)
+
+(defcustom pdf-cache-prefetch-pages-function
+  'pdf-cache-prefetch-pages-function-default
+  "A function returning a list of pages to be prefetched.
+
+It is called with no arguments in the PDF window and should
+return a list of page-numbers, determining the pages that should
+be prefetched and their order."
+  :group 'pdf-view
+  :type 'function)
 
 
 ;; * ================================================================== *
@@ -103,29 +130,22 @@ Make shure, not to modify it's return value.\n" fn)
   (dolist (page (cons t pages))
     (remhash page pdf-cache--cache)))
 
-(defun pdf-cache--clear-annotations-pages (&rest annotation-lists)
+(defun pdf-cache--clear-annotations-pages (fn)
   (pdf-cache-clear-pages
    (delq nil (mapcar (lambda (a)
                        (pdf-annot-get a 'page))
-                     (apply 'append annotation-lists)))))
+                     (funcall fn t)))))
 
 (define-cacheable-epdfinfo-command number-of-pages nil)
 (define-cacheable-epdfinfo-command pagelinks 0)
 (define-cacheable-epdfinfo-command boundingbox 0)
 (define-cacheable-epdfinfo-command pagesize 0)
 (define-cacheable-epdfinfo-command textlayout 0)
-(define-cacheable-epdfinfo-command writable-annotations-p nil)
 
 
 ;; * ================================================================== *
 ;; * PNG image LRU cache
 ;; * ================================================================== *
-
-(defcustom pdf-cache-image-limit 64
-  "Maximum number of cached PNG images per buffer."
-  :type 'integer
-  :group 'pdf-cache
-  :group 'pdf-view)
 
 (defvar pdf-cache-image-inihibit nil
   "Non-nil, if the image cache should be bypassed.")
@@ -241,10 +261,10 @@ from the cache."
             (pdf-cache--image/hash image)))
          pdf-cache--image-cache)))
 
-(defun pdf-cache--clear-images-from-annotations (&rest annotation-lists)
+(defun pdf-cache--clear-images-from-annotations (fn)
   (let ((pages (delq nil (mapcar (lambda (a)
                                    (pdf-annot-get a 'page))
-                                 (apply 'append annotation-lists)))))
+                                 (funcall fn t)))))
     (pdf-cache-remove-image-if
      (lambda (page &rest _)
        (memq page pages)))))
@@ -281,6 +301,136 @@ See also `pdf-info-renderpage-text-regions' and
                              page width single-line-p nil selection)))
             (pdf-cache-put-image page width data hash)
             data)))))
+
+(defun pdf-cache-renderpage-regions (page width &rest regions)
+  "Render PAGE according to WIDTH and REGIONS.
+
+See also `pdf-info-renderpage-text-regions' and
+`pdf-cache-renderpage'."
+  (if pdf-cache-image-inihibit
+      (apply 'pdf-info-renderpage-regions
+             page width nil regions)
+    (let ((hash (sxhash
+                 (format "%S" (cons 'renderpage-regions
+                                    regions)))))
+      (or (pdf-cache-get-image page width nil hash)
+          (let ((data (apply 'pdf-info-renderpage-regions
+                             page width nil regions)))
+            (pdf-cache-put-image page width data hash)
+            data)))))
+
+
+;; * ================================================================== *
+;; * Prefetching images
+;; * ================================================================== *
+
+(defvar-local pdf-cache--prefetch-pages nil
+  "Pages to be prefetched.")
+
+(defvar-local pdf-cache--prefetch-timer nil
+  "Timer used when prefetching images.")
+
+(defun pdf-cache-prefetch-pages-function-default ()
+  (let ((page (pdf-view-current-page)))
+    (cl-remove-duplicates
+     (cl-remove-if-not
+      (lambda (page)
+        (and (>= page 1)
+             (<= page (pdf-cache-number-of-pages))))
+      (append
+       ;; +1, -1, +2, -2, ...
+       (let ((sign 1)
+             (incr 1))
+         (mapcar (lambda (i)
+                   (setq page (+ page (* sign incr))
+                         sign (- sign)
+                         incr (1+ incr))
+                   page)
+                 (number-sequence 1 16)))
+       ;; First and last
+       (list 1 (pdf-cache-number-of-pages))
+       ;; Links
+       (mapcar
+        'cadddr
+        (cl-remove-if-not
+         (lambda (link) (eq (cadr link) 'goto-dest))
+         (pdf-cache-pagelinks
+          (pdf-view-current-page)))))))))
+
+(defun pdf-cache--prefetch-pages (window image-width)
+  (when (eq window (selected-window))
+    (let ((page (pop pdf-cache--prefetch-pages)))
+      (while (and page
+                  (pdf-cache-lookup-image
+                   page
+                   image-width
+                   (if (not (pdf-view-use-scaling-p))
+                       image-width
+                     (* 2 image-width))))
+        (setq page (pop pdf-cache--prefetch-pages)))
+      (when (null page)
+        (pdf-tools-debug "Prefetching done."))
+      (when page
+        (let ((pdf-info-asynchronous
+               (lambda (status data)
+                 (when (and (null status)
+                            (eq window
+                                (selected-window)))
+                   (with-current-buffer (window-buffer)
+                     (pdf-cache-put-image
+                      page image-width data)
+                     (image-size (pdf-view-create-page page))
+                     (pdf-tools-debug "Prefetched Page %s." page)
+                     ;; Avoid max-lisp-eval-depth
+                     (run-with-timer
+                         0.001 nil 'pdf-cache--prefetch-pages window image-width))))))
+          (pdf-info-renderpage page image-width))))))
+
+(defun pdf-cache--prefetch-start (buffer)
+  "Start prefetching images in BUFFER."
+  (when (and pdf-cache-prefetch-minor-mode
+             (not isearch-mode)
+             (null pdf-cache--prefetch-pages)
+             (eq (window-buffer) buffer)
+             (fboundp pdf-cache-prefetch-pages-function))
+    (let ((pages (funcall pdf-cache-prefetch-pages-function)))
+      (setq pdf-cache--prefetch-pages
+            (butlast pages (max 0 (- (length pages)
+                                     pdf-cache-image-limit))))
+      (pdf-cache--prefetch-pages
+       (selected-window)
+       (car (pdf-view-desired-image-size))))))
+
+(defun pdf-cache--prefetch-stop ()
+  "Stop prefetching images in current buffer."
+  (setq pdf-cache--prefetch-pages nil))
+  
+(defun pdf-cache--prefetch-cancel ()
+  "Cancel prefetching images in current buffer."
+  (pdf-cache--prefetch-stop)
+  (when pdf-cache--prefetch-timer
+    (cancel-timer pdf-cache--prefetch-timer))
+  (setq pdf-cache--prefetch-timer nil))
+
+(define-minor-mode pdf-cache-prefetch-minor-mode
+  "Try to load images which will probably be needed in a while."
+  nil nil t
+  
+  (pdf-util-assert-pdf-buffer)
+  (pdf-cache--prefetch-cancel)
+  (add-hook 'after-change-major-mode-hook
+            'pdf-cache--prefetch-cancel nil t)            
+  (cond
+   (pdf-cache-prefetch-minor-mode
+    (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
+    (setq pdf-cache--prefetch-timer
+          (run-with-idle-timer (or pdf-cache-prefetch-delay 1)
+              t 'pdf-cache--prefetch-start (current-buffer))))
+   (t
+    (remove-hook 'pre-command-hook 'pdf-cache--prefetch-stop t))))
+
+(provide 'pdf-view)
+;;; pdf-view.el ends here
 
 (provide 'pdf-cache)
 

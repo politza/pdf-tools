@@ -359,6 +359,68 @@ which case scroll as much as possible."
       (image-set-window-hscroll hscroll))))
 
 
+
+;; * ================================================================== *
+;; * Temporary files
+;; * ================================================================== *
+
+(defvar pdf-util--base-directory nil
+  "Base directory for temporary files.")
+
+(defvar-local pdf-util--dedicated-directory nil
+  "The relative name of buffer's dedicated directory.")
+
+(defun pdf-util-dedicated-directory ()
+  "Return the name of a existing dedicated directory.
+
+The directory is exclusive to the current buffer.  It will be
+automatically deleted, if Emacs or the current buffer are
+killed."
+  (with-file-modes #o0700
+    (unless (and pdf-util--base-directory
+                 (file-directory-p
+                  pdf-util--base-directory)
+                 (not (file-symlink-p
+                       pdf-util--base-directory)))
+      (add-hook 'kill-emacs-hook
+                (lambda nil
+                  (when (and pdf-util--base-directory
+                             (file-directory-p pdf-util--base-directory))
+                    (delete-directory pdf-util--base-directory t))))
+      (setq pdf-util--base-directory
+            (make-temp-file "pdf-tools-" t)))
+    (unless (and pdf-util--dedicated-directory
+                 (file-directory-p pdf-util--dedicated-directory)
+                 (not (file-symlink-p
+                       pdf-util--base-directory)))
+      (let ((temporary-file-directory
+             pdf-util--base-directory))
+        (setq pdf-util--dedicated-directory
+              (make-temp-file (concat (if buffer-file-name
+                                          (file-name-nondirectory
+                                           buffer-file-name)
+                                        (buffer-name))
+                                      "-")
+                              t))
+        (add-hook 'kill-buffer-hook 'pdf-util-delete-dedicated-directory
+                  nil t)))
+    pdf-util--dedicated-directory))
+
+(defun pdf-util-delete-dedicated-directory ()
+  "Delete current buffer's dedicated directory."
+  (delete-directory (pdf-util-dedicated-directory) t))
+  
+(defun pdf-util-expand-file-name (name)
+  "Expand filename against current buffer's dedicated directory."
+  (expand-file-name name (pdf-util-dedicated-directory)))
+
+(defun pdf-util-make-temp-file (prefix &optional dir-flag suffix)
+  "Create a temporary file in current buffer's dedicated directory.
+
+See `make-temp-file' for the arguments."
+  (let ((temporary-file-directory
+         (pdf-util-dedicated-directory)))
+    (make-temp-file prefix dir-flag suffix)))
 
 
 ;; * ================================================================== *
@@ -377,6 +439,9 @@ which case scroll as much as possible."
     (error "Buffer is not in PDFView mode")))
 
 (defun pdf-util-pdf-window-p (&optional window)
+  (unless (or (null window)
+              (window-live-p window))
+    (signal 'wrong-type-argument (list 'window-live-p window)))
   (unless window (setq window (selected-window)))
   (and (window-live-p window)
        (with-selected-window window
@@ -866,7 +931,8 @@ non-nil, unread the final non-processed event.
        (when (and ,ran-once-p
                   unread-command-events)
          (setq unread-command-events
-               (butlast unread-command-events))))))
+               (butlast unread-command-events)))
+       ,ran-once-p)))
      
                                 
 (provide 'pdf-util)
