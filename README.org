@@ -75,9 +75,9 @@
     Next we need to install a few libraries PDF Tools depends on, some
     of which are probably already on your system.
 #+begin_src sh
-  \$ sudo aptitude install libpng-dev libz-dev 
-  \$ sudo aptitude install libpoppler-glib-dev 
-  \$ sudo aptitude install libpoppler-private-dev 
+  $ sudo aptitude install libpng-dev libz-dev 
+  $ sudo aptitude install libpoppler-glib-dev 
+  $ sudo aptitude install libpoppler-private-dev 
 #+end_src
     If you are doing this on a recent Ubuntu system, the final command
     will probably give an error.  This should be no problem, since the
@@ -90,12 +90,12 @@
     the following table for what they are and what version they
     require.
 
-    | You want to ...                             | Minimal required version |
-    |---------------------------------------------+--------------------------|
-    | modify text annotations.                    |                   0.19.4 |
-    | search case-insensitive.                    |                     0.22 |
-    | create markup (e.g. underline) annotations. |                     0.26 |
-    |---------------------------------------------+--------------------------|
+    | You want to ...                                 | Required version |
+    |-------------------------------------------------+------------------|
+    | ... modify text annotations.                    | \ge 0.19.4       |
+    | ... search case-insensitive.                    | \ge 0.22         |
+    | ... create markup (e.g. underline) annotations. | \ge 0.26         |
+    |-------------------------------------------------+------------------|
 
     In case you decide to install libpoppler from source, make shure
     to run it's configure script with the ~--enable-xpdf-headers~
@@ -105,7 +105,7 @@
     plain keystrokes) which requires imagemagick's convert utility.
     This requirement is optional and you may install it like so:
 #+begin_src sh
-  \$ sudo aptitude install imagemagick
+  $ sudo aptitude install imagemagick
 #+end_src
 *** Compilation
     Now it's time to compile the source.  Since we are building from
@@ -113,8 +113,8 @@
     There is a tiny script in the root directory doing this for us.
     
 #+begin_src sh
-    \$ cd /path/to/pdf-tools
-    \$ ./autogen.sh
+    $ cd /path/to/pdf-tools
+    $ ./autogen.sh
 #+end_src
 
     Now comes the familiar
@@ -127,11 +127,12 @@
     version, will be available.  These commands should give no error,
     otherwise you are in trouble.
 
-    If ~make~ produces the ELP file ~pdf-tools-0.40.tar~ you are fine.
+*** Installing
+    If ~make~ produced the ELP file ~pdf-tools-0.40.tar~ you are fine.
     This package contains all the nescessary files for Emacs and may
     be installed via
 #+begin_src sh
-  \$ make install-package
+  $ make install-package
 #+end_src
     Alternatively start the one true Editor from the same directory
     and execute the command

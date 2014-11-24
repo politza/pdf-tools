@@ -217,7 +217,7 @@ PNG images in Emacs buffers.
                                   buffer-file-name)
                                (buffer-name))
                              "-"))))
-      (write-region nil nil tempfile)
+      (write-region nil nil tempfile nil 'no-message)
       (setq-local pdf-view--buffer-file-name tempfile)))
 
   ;; Setup scroll functions
@@ -243,20 +243,23 @@ PNG images in Emacs buffers.
   ;; Setup other local variables.
   (setq-local mode-line-position
               '(" P" (:eval (number-to-string (pdf-view-current-page)))
-                "/" (:eval (number-to-string (pdf-cache-number-of-pages)))))
-  (setq-local auto-hscroll-mode nil)
-  ;; High values of scroll-conservatively seem to trigger some display
-  ;; bug in xdisp.c:try_scrolling .
-  (setq-local scroll-conservatively 0)
-  (setq-local cursor-type nil)
-  (setq mode-name "PDFView"
-        buffer-read-only t
-        major-mode 'pdf-view-mode)
-  (setq-local view-read-only nil)
+                "/" (:eval (number-to-string (pdf-cache-number-of-pages))))
+              auto-hscroll-mode nil
+              ;; High values of scroll-conservatively seem to trigger
+              ;; some display bug in xdisp.c:try_scrolling .
+              scroll-conservatively 0
+              cursor-type nil
+              mode-name "PDFView"
+              major-mode 'pdf-view-mode
+              buffer-read-only t
+              view-read-only nil
+              ;; No auto-save at the moment.
+              buffer-auto-save-file-name nil)
   (use-local-map pdf-view-mode-map)
   (add-hook 'window-configuration-change-hook
             'pdf-view-maybe-redisplay-resized-windows nil t)
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
+  (add-hook 'write-contents-functions 'pdf-view--write-contents-function nil t)
   
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1))
@@ -271,53 +274,31 @@ a local copy of a remote file."
   (or pdf-view--buffer-file-name
       (buffer-file-name)))
 
-(defun pdf-view-save-buffer ()
-  (interactive)
-  (when (buffer-modified-p)
-    (pdf-info-assert-writable-annotations)
-    (let (write-needed)
-      (dolist (a (pdf-annot-getannots))
-        (when (and (null (pdf-annot-get a 'id))
-                   (not (pdf-annot-deleted-p a)))
-          (setq write-needed t)
-          (let ((id
-                 (assq 'id (apply
-                            'pdf-info-addannot
-                            (pdf-annot-get a 'page)
-                            (pdf-annot-get a 'edges)))))
-            (push id (pdf-annot-properties a))))
-        (when (and (pdf-annot-deleted-p a)
-                   (pdf-annot-get a 'id))
-          (setq write-needed t)
-          (pdf-info-delannot (pdf-annot-get a 'id)))
-        (unless (pdf-annot-deleted-p a)
-          (let (modifications)
-            (dolist (property (pdf-annot-modified-properties a))
-              (push (cons property (pdf-annot-get a property))
-                    modifications))
-            (when modifications
-              (setq write-needed t)
-              (pdf-info-editannot (pdf-annot-get a 'id)
-                                  modifications)))))
-      (when write-needed
-        (let ((tmpfile (pdf-info-save))
-              (old-cache (doc-view-current-cache-dir)))
-          (rename-file tmpfile (buffer-file-name) t)
-          (unless (file-equal-p
-                   (buffer-file-name)
-                   doc-view-buffer-file-name)
-            (copy-file (buffer-file-name)
-                       doc-view-buffer-file-name t))
-          ;; Recompute the MD5 dirname.
-          (setq doc-view-current-cache-dir nil)
-          (let ((new-cache (doc-view-current-cache-dir)))
-            (rename-file old-cache new-cache t))))
-      (pdf-info-close)
-      (clear-visited-file-modtime)
-      (pdf-annot-revert-document)
-      (set-buffer-modified-p nil)))
-  t)
+(defun pdf-view--write-contents-function ()
+  "Function for `write-contents-functions' to save the buffer."
+  (when (pdf-util-pdf-buffer-p)
+    (let ((tempfile (pdf-info-save)))
+      (unwind-protect
+          (progn
+            (pdf-info-close)
+            (copy-file tempfile (buffer-file-name) t)
+            (when pdf-view--buffer-file-name
+              (copy-file tempfile pdf-view--buffer-file-name t))
+            (clear-visited-file-modtime)
+            (set-buffer-modified-p nil)
+            (pdf-view-redisplay t)
+            t)
+        (when (file-exists-p tempfile)
+          (delete-file tempfile))))))
 
+(defun pdf-view-revert-buffer (&optional ignore-auto noconfirm)
+  "Like `revert-buffer', but preserves the buffer's current modes."
+  (interactive (list (not current-prefix-arg)))
+  (prog1
+      (revert-buffer ignore-auto noconfirm 'preserve-modes)
+    (pdf-info-close)
+    (pdf-view-redisplay t)))
+    
 
 ;; * ================================================================== *
 ;; * Scaling

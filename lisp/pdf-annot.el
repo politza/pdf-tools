@@ -65,9 +65,9 @@ FIXME: Describe. Restrict keys and values."
 FIXME: Describe. Restrict keys and values."
   :group 'pdf-annot)
 
-(defcustom pdf-annot-preferred-markup-annotation-colors
+(defcustom pdf-annot-preferred-annotation-colors
   '("red" "lightgoldenrod2")
-  "A list of preferred colors for markup annotations."
+  "A list of preferred colors for annotations."
   :type '(repeat color)
   :group 'pdf-annot)
 
@@ -145,6 +145,11 @@ Any other argument signals an error."
   :group 'pdf-annot
   :type 'boolean)
 
+(defcustom pdf-annot-attachment-display-buffer-action nil
+  "The display action used when displaying attachments."
+  :group 'pdf-annot
+  :type display-buffer--action-custom-type)
+
 
 ;; * ================================================================== *
 ;; * Variables and Macros
@@ -185,6 +190,8 @@ no effect on the rendering.")
 It contains three entries :change, :delete and :insert.  Each one
 having a list of annotations as value.")
 
+(defvar-local pdf-annot--attachment-file-alist nil
+  "Alist mapping attachment ids to unique relative filenames.")
 
 
 ;; * ================================================================== *
@@ -223,9 +230,13 @@ Setting this after the package was loaded has no effect."
       (when (boundp 'x-gtk-use-system-tooltips)
         (setq x-gtk-use-system-tooltips nil))
       (setq tooltip-hide-delay 3600))
-    (pdf-view-add-hotspot-function 'pdf-annot-hotspot-function 9))
+    (pdf-view-add-hotspot-function 'pdf-annot-hotspot-function 9)
+    (add-hook 'pdf-info-close-document-hook
+              'pdf-annot-attachment-delete-base-directory nil t))
    (t
-    (pdf-view-remove-hotspot-function 'pdf-annot-hotspot-function)))
+    (pdf-view-remove-hotspot-function 'pdf-annot-hotspot-function)
+    (remove-hook 'pdf-info-close-document-hook
+                 'pdf-annot-attachment-delete-base-directory t)))
   (pdf-view-redisplay t))
 
 (defun pdf-annot-create-context-menu (a)
@@ -446,46 +457,6 @@ current buffer, because that won't run the hooks properly."
       (and (pdf-annot-text-annotation-p a)
            (memq property '(icon is-open)))))
 
-
-
-;; * ================================================================== *
-;; * Handling attachments
-;; * ================================================================== *
-
-(defun pdf-annot-has-attachment-p (a)
-  (eq 'file (pdf-annot-get a 'type)))
-
-(defun pdf-annot-get-attachment (a &optional do-save)
-  (unless (pdf-annot-has-attachment-p a)
-    (error "Annotation has no data attached: %s" a))
-  (pdf-info-getattachment-from-annot
-   (pdf-annot-get-id a) do-save))
-
-(defun pdf-annot-display-attachment (a &optional buffer-name
-                                       display-action no-select-window-p)
-  "Display file annotation A's data in a buffer."
-  (let ((att (pdf-annot-get-attachment a t)))
-    (unwind-protect
-        (let* ((name (or buffer-name
-                         (format
-                          "*Attachment (p. %d) <%s>*"
-                          (pdf-annot-get a 'page)
-                          (or (cdr (assq 'name att))
-                              "No name"))))
-               (buffer (get-buffer-create name)))
-          (with-current-buffer buffer
-            (let ((inhibit-read-only t))
-              (erase-buffer))
-            (insert-file-contents (cdr (assq 'file att)))
-            (let ((buffer-file-name
-                   (cdr (assq 'name att))))
-              (normal-mode))
-            (let ((window (display-buffer (current-buffer) display-action)))
-              (unless no-select-window-p
-                (select-window window)))))
-      (when (and att (file-exists-p (cdr (assq 'file att))))
-        (delete-file (cdr (assq 'file att)))))))
-
 (defun pdf-annot-activate-annotation (a)
   (or (run-hook-with-args-until-success
        'pdf-annot-activate-handler-functions
@@ -495,9 +466,154 @@ current buffer, because that won't run the hooks properly."
 (defun pdf-annot-default-activate-handler (a)
   (cond
    ((pdf-annot-has-attachment-p a)
-    (pdf-attach-display-attachment a))
+    (pdf-annot-pop-to-attachment a))
    (t (pdf-annot-edit-contents a))))
+
+
+;; * ================================================================== *
+;; * Handling attachments
+;; * ================================================================== *
+
+(defun pdf-annot-has-attachment-p (a)
+  "Return non-nil if annotation A's has data attached."
+  (eq 'file (pdf-annot-get a 'type)))
+
+(defun pdf-annot-get-attachment (a &optional do-save)
+  "Retrieve annotation A's attachment.
+
+The DO-SAVE argument is given to
+`pdf-info-getattachment-from-annot', which see."
+  (unless (pdf-annot-has-attachment-p a)
+    (error "Annotation has no data attached: %s" a))
+  (pdf-info-getattachment-from-annot
+   (pdf-annot-get-id a) do-save))
+
+(defun pdf-annot-attachment-base-directory ()
+  "Return the base directory for saving attachments."
+  (let ((dir (pdf-util-expand-file-name "attachments")))
+    (unless (file-exists-p dir)
+      (make-directory dir))
+    dir))
+
+(defun pdf-annot-attachment-delete-base-directory ()
+  "Delete all saved attachment files of the current buffer."
+  (setq pdf-annot--attachment-file-alist nil)
+  (delete-directory (pdf-annot-attachment-base-directory) t)) 
     
+(defun pdf-annot-attachment-unique-filename (attachment)
+  "Return a unique absolute filename for ATTACHMENT."
+  (let* ((filename (or (cdr (assq 'filename attachment))
+                       "attachment"))
+         (id (cdr (assq 'id attachment)))
+         (unique
+          (or (cdr (assoc id pdf-annot--attachment-file-alist))
+              (let* ((sans-ext
+                      (expand-file-name
+                       (concat (file-name-as-directory ".")
+                               (file-name-sans-extension filename))
+                       (pdf-annot-attachment-base-directory)))
+                     (ext (file-name-extension filename))
+                     (newname (concat sans-ext "." ext))
+                     (i 0))
+                (while (rassoc newname pdf-annot--attachment-file-alist)
+                  (setq newname (format "%s-%d.%s" sans-ext (cl-incf i) ext)))
+                (push (cons id newname) pdf-annot--attachment-file-alist)
+                newname)))
+         (directory (file-name-directory unique)))
+    (unless (file-exists-p directory)
+      (make-directory directory t))
+    unique))
+      
+
+(defun pdf-annot-attachment-save (attachment &optional regenrate-p)
+  "Save ATTACHMENT's data to a unique filename and return it's name.
+
+If REGENRATE-P is non-nil, copy attachment's file even if the
+copy already exists.
+
+Signal an error, if ATTACHMENT has no, or a non-existing, `file'
+property, i.e. it was retrieved with an unset do-save argument.
+See `pdf-info-getattachments'"
+
+  (let ((datafile (cdr (assq 'file attachment))))
+    (unless (and datafile
+                 (file-exists-p datafile))
+      (error "Attachment's file property is invalid"))
+    (let* ((filename
+            (pdf-annot-attachment-unique-filename attachment)))
+      (when (or regenrate-p
+                (not (file-exists-p filename)))
+        (copy-file datafile filename nil nil t t))
+      filename)))
+
+(defun pdf-annot-find-attachment-noselect (a)
+  "Find annotation A's attachment in a buffer, without selecting it.
+
+Signals an error, if A has no data attached."
+  (let ((attachment (pdf-annot-get-attachment a t)))
+    (unwind-protect
+        (find-file-noselect
+         (pdf-annot-attachment-save attachment))
+      (let ((tmpfile (cdr (assq 'file attachment))))
+        (when (and tmpfile
+                   (file-exists-p tmpfile))
+          (delete-file tmpfile))))))
+
+(defun pdf-annot-attachment-dired (&optional regenerate-p)
+  "List all attachments in a dired buffer.
+
+If REGENERATE-P is non-nil, create attachment's files even if
+they already exist.  Interactively REGENERATE-P is non-nil if a
+prefix argument was given.
+
+Return the dired buffer."
+  (interactive (list current-prefix-arg))
+  (let ((attachments (pdf-info-getattachments t)))
+    (unwind-protect
+        (progn
+          (dolist (a (pdf-annot-getannots nil 'file))
+            (push (pdf-annot-get-attachment a t)
+                  attachments ))
+          (dolist (att attachments)
+            (pdf-annot-attachment-save att regenerate-p))
+          (unless attachments
+            (error "Document has no data attached"))
+          (dired (pdf-annot-attachment-base-directory)))
+      (dolist (att attachments)
+        (let ((tmpfile (cdr (assq 'file att))))
+          (when (and tmpfile (file-exists-p tmpfile))
+            (delete-file tmpfile)))))))
+
+(defun pdf-annot-display-attachment (a &optional display-action select-window-p)
+  "Display file annotation A's data in a buffer.
+
+DISPLAY-ACTION should be a valid `display-buffer' action.  If
+nil, `pdf-annot-attachment-display-buffer-action' is used.
+
+Select the window, if SELECT-WINDOW-P is non-nil.
+
+Return the window attachment is displayed in."
+
+  (interactive
+   (list (pdf-annot-at-position
+          (pdf-util-read-image-position
+           "Select a file annotation by clicking on it"))))
+  (let* ((buffer (pdf-annot-find-attachment-noselect a))
+         (window (display-buffer
+                  buffer (or display-action
+                             pdf-annot-attachment-display-buffer-action))))
+    (when select-window-p
+      (select-window window))
+    window))
+
+(defun pdf-annot-pop-to-attachment (a)
+  "Display annotation A's attachment in a window and select it."
+  (interactive
+   (list (pdf-annot-at-position
+          (pdf-util-read-image-position
+           "Select a file annotation by clicking on it"))))
+  (pdf-annot-display-attachment a nil t))
+
 
 ;; * ================================================================== *
 ;; * Interfacing with the display
@@ -574,21 +690,31 @@ See `pdf-annot-image-position' for IMAGE-SIZE."
   "Return annotation at POS in the selected window.
 
 POS should be an absolute image position as a cons \(X . Y\).
+Alternatively POS may also be an event position, in which case
+`posn-window' and `posn-object-x-y' is used to find the image
+position.
+
 Return nil, if no annotation was found."
-  (let* ((annots (pdf-annot-getannots (pdf-view-current-page)))
-         (size (pdf-view-image-size))
-         (offset (pdf-view-image-offset))
-         (rx (+ (/ (car pos) (float (car size)))
-                (car offset)))
-         (ry (+ (/ (cdr pos) (float (cdr size)))
-                (cdr offset)))
-         (rpos (cons rx ry)))
-    (cl-some (lambda (a)
-               (and (pdf-util-edges-inside-p
-                     (pdf-annot-get a 'edges)
-                     rpos)
-                    a))
-             annots)))
+  (let (window)
+    (when (posnp pos)
+      (setq pos (posn-object-x-y pos)
+            window (posn-window pos)))
+    (save-selected-window
+      (when window (select-window window))
+      (let* ((annots (pdf-annot-getannots (pdf-view-current-page)))
+             (size (pdf-view-image-size))
+             (offset (pdf-view-image-offset))
+             (rx (+ (/ (car pos) (float (car size)))
+                    (car offset)))
+             (ry (+ (/ (cdr pos) (float (cdr size)))
+                    (cdr offset)))
+             (rpos (cons rx ry)))
+        (cl-some (lambda (a)
+                   (and (pdf-util-edges-inside-p
+                         (pdf-annot-get a 'edges)
+                         rpos)
+                        a))
+                 annots)))))
 
 ;; FIXME: Remove resize code in the near future, since popplers
 ;; rendering engine does not support it (annotations are rendered with
@@ -618,9 +744,7 @@ i.e. a non mouse-movement event is read."
                 (pdf-annot-at-position mpos))))
     (unless a
       (error "No annotation at this position: %s" mpos))
-    (let* ((pdf-annot-inhibit-modification-hooks t)
-           (pdf-cache-image-inihibit t)
-           (apos (pdf-annot-image-position a))
+    (let* ((apos (pdf-annot-image-position a))
            (offset (cons (- (car mpos) (car apos))
                          (- (cdr mpos) (cdr apos))))
            (asize (pdf-annot-image-size a))
@@ -638,6 +762,8 @@ i.e. a non mouse-movement event is read."
               (when (and (eq window (selected-window))
                          (eq 'image (car-safe (posn-object (event-start ev)))))
                 (let ((pdf-view-inhibit-hotspots t)
+                      (pdf-annot-inhibit-modification-hooks t)
+                      (pdf-cache-image-inihibit t)
                       (xy (posn-object-x-y (event-start ev))))
                   (cond
                    ((or hresize vresize)
@@ -657,7 +783,7 @@ i.e. a non mouse-movement event is read."
               
 (defun pdf-annot-hotspot-function (page size)
   "Create image hotspots for page PAGE of size SIZE."
-  (let ((types (remq 'link pdf-annot-markup-annotation-types)))
+  (let ((types '(text file squiggly highlight strikeout underline)))
     (apply 'nconc (mapcar (lambda (a)
                             (pdf-annot-create-hotspots a size))
                           (pdf-annot-getannots page types)))))
@@ -684,6 +810,7 @@ i.e. a non mouse-movement event is read."
     (pdf-annot-create-hotspot-binding id (if moveable-p 'move) a)
     hotspots))
       
+;; FIXME: Define a keymap as a template for this. Much cleaner.
 (defun pdf-annot-create-hotspot-binding (id operation annotation)
   ;; Activating
   (local-set-key
@@ -738,27 +865,54 @@ Turns to A's page, if nescessary."
 ;; * Creating annotations
 ;; * ================================================================== *
 
-(defun pdf-annot-add-annotation (type edges &optional property-alist page window)
-  "Creates and adds a new annotation of type TYPE to the document."
+(defun pdf-annot-add-annotation (type edges &optional property-alist page)
+  "Creates and adds a new annotation of type TYPE to the document.
+
+TYPE determines the kind of annotation to add and maybe one of
+`text', `squiggly', `underline', `strikeout' or `highlight'.
+
+EDGES determines where the annotation will appear on the page.
+If type is `text', this should be a single list of \(LEFT TOP
+RIGHT BOT\).  Though, in this case only LEFT and TOP are used,
+since the size of text annotations is fixed. Otherwise EDGES may
+be a list of such elements.  All values should be image relative
+coordinates, i.e. in the range \[0;1\].
+
+PROPERTY-ALIST is a list of annotation properties, which will be
+put on the created annotation.
+
+PAGE determines the page of the annotation. It defaults to the
+page currently displayed in the selected window.
+
+Signal an error, if PROPERTY-ALIST contains non-modifiable
+properties or PAGE is nil and the selected window does not
+display a PDF document or creating annotations of type TYPE is
+not supported.
+
+Set buffers modified flag and calls
+`pdf-annot-activate-annotation' if
+`pdf-annot-activate-created-annotations' is non-nil.
+
+Return the new annotation."
 
   (unless (memq type (pdf-info-creatable-annotation-types))
     (error "Unsupported annotation type: %s" type))
-  (pdf-util-assert-pdf-window window)
-  (unless page (setq page (pdf-view-current-page window)))
+  (unless page
+    (pdf-util-assert-pdf-window)
+    (setq page (pdf-view-current-page)))
   (unless (consp (car-safe edges))
     (setq edges (list edges)))
   (when (and (eq type 'text)
              (> (length edges) 1))
     (error "Edges argument should be a single edge-list for text annotations")) 
-  (let* ((scaled (pdf-util-scale-pixel-to-relative edges nil nil window))
-         (raw (apply 'pdf-info-addannot
+  (let* ((raw (apply 'pdf-info-addannot
                      page
                      (if (eq type 'text)
-                         (car scaled)
+                         (car edges)
                        '(0 0 0 0))
                      type
                      nil
-                     (if (not (eq type 'text)) scaled)))
+                     (if (not (eq type 'text)) edges)))
          (id (cdr (assq 'id raw))))
     (when property-alist
       (condition-case err
@@ -774,7 +928,26 @@ Turns to A's page, if nescessary."
         (pdf-annot-activate-annotation a))
       a)))
 
-(defun pdf-annot-add-text-annotation (x y &optional icon property-alist page window)
+(defun pdf-annot-add-text-annotation (x y &optional icon property-alist)
+  "Add a new text annotation at X, Y in the selected window.
+
+X and Y should be image coordinates.
+
+ICON determines how the annotation is displayed and should be one
+listed in `pdf-annot-standard-text-icons'.  Any other value is ok
+as well, but will render the annotation invisible.
+
+Adjust X and Y accordingly, if the position would render the
+annotation off-page.
+
+Merge ICON as a icon property with PROPERTY-ALIST and
+`pdf-annot-default-markup-annotation-properties' and apply the
+result to the created annotation.
+
+See also `pdf-annot-add-annotation'.
+
+Return the new annotation."
+
   (interactive
    (let* ((default-icon (or (cdr (assq 'icon pdf-annot-default-text-annotation-properties))
                             "Note"))
@@ -784,10 +957,11 @@ Turns to A's page, if nescessary."
           (posn (pdf-util-read-image-position
                  "Click where a new text annotation should be added ..."))
           (window (posn-window posn)))
+     (select-window window)
      (list (car (posn-object-x-y posn))
            (cdr (posn-object-x-y posn))
-           (if (equal icon "") nil icon)
-           nil nil (unless (eq window (selected-window))))))
+           (if (equal icon "") nil icon))))
+  (pdf-util-assert-pdf-window)
   (let ((isize (pdf-view-image-size window)))
     (unless (and (>= x 0)
                  (< x (car isize)))
@@ -802,15 +976,30 @@ Turns to A's page, if nescessary."
       (cl-decf x (max 0 (- (+ x (car size)) (car isize))))
       (cl-decf y (max 0 (- (+ y (cdr size)) (cdr isize))))
       (pdf-annot-add-annotation
-       'text (list x y -1 -1)
+       'text (pdf-util-scale-pixel-to-relative
+              (list x y -1 -1))
        (pdf-annot-merge-alists
         (and icon `((icon . ,icon)))
         property-alist
-        pdf-annot-default-text-annotation-properties)
-       page window))))
+        pdf-annot-default-text-annotation-properties)))))
 
-(defun pdf-annot-add-markup-annotation (edges type &optional color
-                                              property-alist page window)
+(defun pdf-annot-add-markup-annotation (list-of-edges type &optional color
+                                                      property-alist)
+  "Add a new markup annotation to the PAGE in the selected window.
+
+LIST-OF-EDGES determines the marked up area and should be a list
+of \(LEFT TOP RIGHT BOT\), each value a image coordinate.
+
+TYPE should be one of `squiggly', `underline', `strikeout' or
+`highlight'.
+
+Merge COLOR as a color property with PROPERTY-ALIST and
+`pdf-annot-default-markup-annotation-properties' and apply the
+result to the created annotation.
+
+See also `pdf-annot-add-annotation'.
+
+Return the new annotation."
   (interactive
    (progn
      (pdf-info-assert-markup-annotations)
@@ -822,21 +1011,29 @@ Turns to A's page, if nescessary."
                                    '(squiggly highlight underline strikeout)
                                    nil t)))
         (if (equal type "") 'highlight (intern type)))
-      (pdf-annot-read-markup-color))))
+      (pdf-annot-read-color))))
+  (pdf-util-assert-pdf-window)
   (pdf-annot-add-annotation
    type
-   edges
+   (pdf-util-scale-pixel-to-relative list-of-edges)
    (pdf-annot-merge-alists
     (and color `((color . ,color)))
     property-alist
     pdf-annot-default-markup-annotation-properties)
-   page window))
+   (pdf-view-current-page)))
 
-(defun pdf-annot-read-markup-color (&optional prompt)
-  (let* ((defaults (delq nil
-                         (cons (cdr (assq 'color
-                                          pdf-annot-default-markup-annotation-properties))
-                               pdf-annot-preferred-markup-annotation-colors)))
+(defun pdf-annot-read-color (&optional prompt)
+  "Read and return a color using PROMPT.
+
+Offer `pdf-annot-preferred-annotation-colors' as default values."
+  (let* ((defaults (append
+                    pdf-annot-preferred-annotation-colors
+                    (delq nil
+                          (list
+                           (cdr (assq 'color
+                                      pdf-annot-default-markup-annotation-properties))
+                           (cdr (assq 'color
+                                      pdf-annot-default-text-annotation-properties))))))
          (prompt
           (format "%s%s: "
                   (or prompt "Color")
@@ -850,10 +1047,14 @@ Turns to A's page, if nescessary."
                      initial-input hist
                      defaults
                      inherit-input-method))))
-    (read-color prompt)))
-  
+    (read-color prompt)))  
     
 (defun pdf-annot-merge-alists (&rest alists)
+  "Merge ALISTS into a single one.
+
+Suppresses duplicate entries of each key following the first
+occurence in any list in ALISTS."
+
   (let (merged)
     (dolist (elt (apply 'append alists))
       (unless (assq (car elt) merged)
@@ -877,13 +1078,15 @@ Turns to A's page, if nescessary."
       ((created modified)
        (let ((date value))
          (if (null date)
-             "Unknown date"
+             "No date"
            (current-time-string date))))
       ;; print verbatim
+      (subject
+       (or value "No subject"))
       (opacity
        (let ((opacity (or value 1.0)))
          (format "%d%%" (round (* 100 opacity)))))
-      (t (format "%s" value)))))
+      (t (format "%s" (or value ""))))))
 
 (defun pdf-annot-print-annotation (a)
   "Pretty print annotation A."
@@ -909,27 +1112,22 @@ property."
           ((eq 'file (pdf-annot-get a 'type))
            (let ((att (pdf-annot-get-attachment a)))
              (format "File attachment `%s' of %s"
-                     (or (cdr (assq 'name att)) "unnamed")
+                     (or (cdr (assq 'filename att)) "unnamed")
                      (if (cdr (assq 'size att))
                          (format "size %d" (file-size-human-readable
                                             (cdr (assq 'size att))))
                        "unknown size"))))
           (t
-           (format "[%s]"
+           (format "%s"
                    (mapconcat
                     'identity
                     (mapcar
                      (lambda (property)
                        (pdf-annot-print-property
                         a property))
-                     (remq nil
-                           `(,(unless (pdf-annot-text-annotation-p a)
-                                'type)
-                             label
-                             ,(when (pdf-annot-text-annotation-p a)
-                                'icon)
-                             subject
-                             modified)))
+                     `(subject
+                       label
+                       modified))
                     ";"))))))
     (setq header (propertize header 'face 'header-line
                              'intangible t 'read-only t))
@@ -965,7 +1163,7 @@ by a header."
                  (org-format-latex-header
                   pdf-annot-latex-header)
                  (temporary-file-directory
-                  (pdf-util-expand-file-name "pdf-annot")))
+                  (pdf-util-expand-file-name "pdf-annot-print-annotation-latex")))
             (unless (file-directory-p temporary-file-directory)
               (make-directory temporary-file-directory))
             (unless data
@@ -1008,21 +1206,9 @@ by a header."
 (require 'pdf-misc)
 (require 'facemenu) ;;for list-colors-duplicates
 (require 'faces) ;;for color-values
-(require 'org)   ;;org-with-gensyms, org-create-formula-image-with-dvipng
+(require 'org)   ;;org-with-gensyms, org-create-formula-image
 (require 'tablist)
 (require 'cl-lib)
-
-(defun pdf-annot-revert-document (&optional interactive)
-  (interactive (list t))
-  (pdf-util-assert-pdf-buffer)
-  (when (or (null interactive)
-            (pdf-annot-y-or-n-p 'revert-document
-              "Abandon all modifications of all annotations in this buffer ?"))
-    (setq pdf-annot-annotations nil)
-    (set-buffer-modified-p nil)
-    (pdf-annot-run-pages-modified-hooks
-     (mapcar (lambda (a) (pdf-annot-get a 'page))
-             (pdf-annot-getannots)))))
 
 
 ;; * ================================================================== *
@@ -1133,11 +1319,6 @@ by a header."
     (unless a
       (error "No annotation at this position"))
     (pdf-annot-edit-contents a)))
-
-
-
-
-;; 
 
 (provide 'pdf-annot)
 ;;; pdf-annot.el ends here

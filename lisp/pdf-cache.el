@@ -106,8 +106,7 @@ Make shure, not to modify it's return value.\n" fn)
 (defun pdf-cache--retrieve (page-argument command fn &rest args)
   (unless pdf-cache--cache
     (setq pdf-cache--cache (make-hash-table))
-    (add-hook 'after-revert-hook 'pdf-cache-clear nil t)
-    ;; (add-hook 'after-save-hook 'pdf-cache-clear nil t)
+    (add-hook 'pdf-info-close-document-hook 'pdf-cache-clear nil t)
     (add-hook 'pdf-annot-modified-functions
               'pdf-cache--clear-annotations-pages))  
   (let* ((page (if (numberp page-argument)
@@ -225,7 +224,7 @@ the HASH argument.
 
 This function always returns nil."
   (unless pdf-cache--image-cache
-    (add-hook 'after-revert-hook 'pdf-cache-clear-images nil t)
+    (add-hook 'pdf-info-close-document-hook 'pdf-cache-clear-images nil t)
     (add-hook 'pdf-annot-modified-functions
               'pdf-cache--clear-images-from-annotations nil t))
   (push (pdf-cache--make-image page width data hash)
@@ -299,23 +298,6 @@ See also `pdf-info-renderpage-text-regions' and
       (or (pdf-cache-get-image page width nil hash)
           (let ((data (apply 'pdf-info-renderpage-text-regions
                              page width single-line-p nil selection)))
-            (pdf-cache-put-image page width data hash)
-            data)))))
-
-(defun pdf-cache-renderpage-regions (page width &rest regions)
-  "Render PAGE according to WIDTH and REGIONS.
-
-See also `pdf-info-renderpage-text-regions' and
-`pdf-cache-renderpage'."
-  (if pdf-cache-image-inihibit
-      (apply 'pdf-info-renderpage-regions
-             page width nil regions)
-    (let ((hash (sxhash
-                 (format "%S" (cons 'renderpage-regions
-                                    regions)))))
-      (or (pdf-cache-get-image page width nil hash)
-          (let ((data (apply 'pdf-info-renderpage-regions
-                             page width nil regions)))
             (pdf-cache-put-image page width data hash)
             data)))))
 

@@ -1265,7 +1265,7 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
         {
           cerror_if_not (POPPLER_IS_ANNOT_TEXT (annotation), error_msg,
                          error_fmt, key, "text");
-          atype = ARG_NONEMPTY_STRING;
+          atype = ARG_STRING;
         }
       else if (! strcmp (key, "is-open"))
         {
@@ -2493,7 +2493,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
         {
           PopplerAnnotText *ta = POPPLER_ANNOT_TEXT (pa);
           perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
-                                                 ARG_NONEMPTY_STRING, NULL),
+                                                 ARG_STRING, NULL),
                          unexpected_parse_error, rest_args[i]);
           poppler_annot_text_set_icon (ta, carg.value.string);
         }

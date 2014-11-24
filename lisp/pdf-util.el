@@ -851,6 +851,9 @@ Return the converted PNG image as a string.  See also
         (* inters-width inters-height)))))
 
 (defun pdf-util-read-image-position (prompt)
+  "Read a image position using prompt.
+
+Return the event position object."
   (save-selected-window
     (let ((ev (read-event
                (propertize prompt 'face 'minibuffer-prompt)))

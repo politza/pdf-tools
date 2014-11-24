@@ -92,8 +92,11 @@ ask -- ask whether to restart or not."
                  (const :tag "Restart silently" t)
                  (const :tag "Always ask" ask)))
 
-(defvar pdf-info-after-close-document-hook nil
-  "A hook ran after a document was closed in the server.")
+(defcustom pdf-info-close-document-hook nil
+  "A hook ran after a document was closed in the server.
+
+The hook is run in the documents buffer, if it exists. Otherwise
+in a `with-temp-buffer' form.")
 
 
 
@@ -493,11 +496,11 @@ interrupted."
 (defun pdf-info-query--transform-attachment (a)
   (cl-labels ((not-empty (s)
                 (if (not (equal s "")) s)))
-    (cl-destructuring-bind (id name description size modified
+    (cl-destructuring-bind (id filename description size modified
                                created checksum file)
         a
       `((id . ,(intern id))
-        (name . ,(not-empty name))
+        (filename . ,(not-empty filename))
         (description . ,(not-empty description))
         (size . ,(let ((n (string-to-number size)))
                    (and (>= n 0) n)))
@@ -687,9 +690,11 @@ This command is rarely needed, see also `pdf-info-open'."
          (buffer (find-buffer-visiting pdf)))
     (prog1
         (pdf-info-query 'close pdf)
-      (save-current-buffer
-        (when (buffer-live-p buffer) (set-buffer buffer))
-        (run-hooks 'pdf-info-after-close-document-hook)))))
+      (if (buffer-live-p buffer)
+          (with-current-buffer buffer
+            (run-hooks 'pdf-info-close-document-hook))
+        (with-temp-buffer
+          (run-hooks 'pdf-info-close-document-hook))))))
   
 (defun pdf-info-metadata (&optional file-or-buffer)
   "Extract the metadata from the document FILE-OR-BUFFER.
@@ -1008,7 +1013,7 @@ contains the following keys.  All values, except for id, may be
 nil, i.e. not present.
 
 id          - A symbol uniquely identifying this attachment.
-name        - The filename of this attachment.
+filename    - The filename of this attachment.
 description - A description of this attachment.
 size        - The size in bytes.
 modified    - The last modification date.
@@ -1083,8 +1088,7 @@ If SINGLE-LINE-P is non-nil, the edges in REGIONS are each
 supposed to be limited to a single line in the document.  Setting
 this, if applicable, avoids rendering problems.
 
-For the other args see `pdf-info-renderpage'. See also
-`pdf-info-renderpage-regions'.
+For the other args see `pdf-info-renderpage'.
 
 Return the data of the corresponding PNG image."
   
@@ -1111,42 +1115,6 @@ Return the data of the corresponding PNG image."
                              edges)))))
                  regions))))
 
-(defun pdf-info-renderpage-regions (page width 
-                                         &optional file-or-buffer
-                                         &rest regions)
-  "Highlight regions on PAGE with width WIDTH using REGIONS.
-
-REGIONS is a list determining the background color, a alpha value
-and the regions to render. So each element should look like
-\(BG ALPHA \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
-
-For the other args see `pdf-info-renderpage'.
-
-Return the data of the corresponding PNG image."
-  
-  (when (consp file-or-buffer)
-    (push file-or-buffer regions)
-    (setq file-or-buffer nil))
-  
-  (apply 'pdf-info-query
-         'renderpage-regions
-         (pdf-info--normalize-file-or-buffer file-or-buffer)
-         page
-         width 
-         (apply 'append
-                (mapcar
-                 (lambda (s)
-                   (cl-destructuring-bind (bg alpha &rest edges)
-                       s
-                     (cons
-                      (pdf-util-hexcolor bg)
-                      (cons alpha
-                            (mapcar
-                             (lambda (e)
-                               (mapconcat 'number-to-string e " "))
-                             edges)))))
-                 regions))))
-
 (defun pdf-info-boundingbox (page &optional file-or-buffer)
   "Return a bounding-box for PAGE.
 
@@ -1156,19 +1124,6 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
    'boundingbox
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page))
-
-(define-minor-mode pdf-info-auto-revert-minor-mode
-  "Close the document, after the buffer is reverted.
-
-This ensures that the information retrieved is not outdated."
-
-  nil nil t
-  (pdf-util-assert-pdf-buffer)
-  (cond
-   (pdf-info-auto-revert-minor-mode
-    (add-hook 'after-revert-hook 'pdf-info-close nil t))
-   (t
-    (remove-hook 'after-revert-hook 'pdf-info-close t))))
 
 (add-hook 'kill-emacs-hook 'pdf-info-quit)
 
