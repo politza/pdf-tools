@@ -9,9 +9,10 @@ LISP_FILES = $(top_srcdir)/lisp/pdf-history.el		\
 		$(top_srcdir)/lisp/pdf-outline.el	\
 		$(top_srcdir)/lisp/pdf-tools.el		\
 		$(top_srcdir)/lisp/pdf-util.el		\
-		$(top_srcdir)/lisp/pdf-render.el	\
 		$(top_srcdir)/lisp/pdf-annot.el		\
 		$(top_srcdir)/lisp/pdf-sync.el		\
+		$(top_srcdir)/lisp/pdf-view.el		\
+		$(top_srcdir)/lisp/pdf-cache.el		\
 		$(top_srcdir)/lisp/tablist.el		\
 		$(top_srcdir)/lisp/tablist-filter.el
 

@@ -231,8 +231,7 @@ scroll the current page."
          (when (derived-mode-p 'pdf-view-mode)
            (when (> page 0)
              (pdf-view-goto-page page))
-           (when (and top
-                      (pdf-util-page-displayed-p))
+           (when top
              ;; Showing the tooltip is somewhat slow.
              (sit-for 0)
              (pdf-util-tooltip-arrow top)))))
@@ -346,7 +345,7 @@ See `pdf-links-action-perform' for the interface."
                            (lambda (e)
                              (= 0 (pdf-util-edges-intersection-area (car e) match)))
                            (mapcar (lambda (l)
-                                     (cons (pdf-util-scale-edges
+                                     (cons (pdf-util-scale
                                             (car l) size)
                                            (cdr l)))
                                    (pdf-cache-pagelinks page)))
@@ -358,7 +357,7 @@ See `pdf-links-action-perform' for the interface."
         (pdf-links-action-perform (cdar links))))))
                    
 (defun pdf-links-isearch-link-filter-matches (matches)
-  (let ((links (pdf-util-scale-edges
+  (let ((links (pdf-util-scale
                 (mapcar 'car (pdf-cache-pagelinks
                               (pdf-view-current-page)))
                 (pdf-view-image-size))))

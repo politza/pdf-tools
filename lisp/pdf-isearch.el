@@ -29,7 +29,7 @@
 (require 'pdf-info)
 (require 'pdf-misc)
 (require 'pdf-view)
-
+(require 'pdf-cache)
 ;;; Code:
 
 
@@ -470,7 +470,7 @@ match."
   (cond
    ((null last-match)
     ;; Goto first match from top or bottom of the window.
-    (let* ((iedges (pdf-util-image-edges-in-window))
+    (let* ((iedges (pdf-util-image-displayed-edges))
            (pos (pdf-util-with-edges (iedges)
                   (if forward
                       (cons iedges-left iedges-top)
@@ -503,7 +503,7 @@ match."
           (not (eq last-page this-page)))
       (pdf-isearch-next-match-isearch
        last-page this-page last-match matches same-search-p forward-p)
-    (let ((iedges (pdf-util-image-edges-in-window)))
+    (let ((iedges (pdf-util-image-displayed-edges)))
       (pdf-util-with-edges (match iedges)
         (car (cl-remove-if
               ;; Filter matches visible on screen.

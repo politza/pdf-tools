@@ -22,6 +22,16 @@
 ;;
 
 
+(require 'pdf-view)
+(require 'pdf-info)
+(require 'pdf-cache)
+(require 'pdf-misc)
+(require 'facemenu) ;; list-colors-duplicates
+(require 'faces) ;; color-values
+(require 'org)   ;; org-create-formula-image
+(require 'tablist)
+(require 'cl-lib)
+
 
 
 ;; * ================================================================== *
@@ -155,7 +165,7 @@ Any other argument signals an error."
 ;; * Variables and Macros
 ;; * ================================================================== *
 
-(defconst pdf-annot-rendered-annotation-size '(24 . 24)
+(defconst pdf-annot-text-annotation-size '(24 . 24)
   "The Size of text and file annotations in PDF points.
 
 These values are hard-coded in poppler.  And while the size of
@@ -192,6 +202,21 @@ having a list of annotations as value.")
 
 (defvar-local pdf-annot--attachment-file-alist nil
   "Alist mapping attachment ids to unique relative filenames.")
+
+(defmacro pdf-annot-with-atomic-modifications (&rest body)
+  "Execute BODY joining multiple modifications.
+
+The effect is, that `pdf-annot-modified-functions' will be called
+only once at the end of BODY.
+
+BODY should not modify annotations in a different then the
+current buffer, because that won't run the hooks properly."
+  (declare (indent 0) (debug t))
+  `(unwind-protect
+       (save-current-buffer
+         (let ((pdf-annot-inhibit-modification-hooks t))
+           (progn ,@body)))
+     (pdf-annot-run-modified-hooks)))
 
 
 ;; * ================================================================== *
@@ -252,20 +277,20 @@ Setting this after the package was loaded has no effect."
         `(menu-item "Delete annotation"
                     ,(lambda ()
                        (interactive)
-                       (when (pdf-annot-y-or-n-p 'delete)
-                         (pdf-annot-set-deleted-p a t)
+                       (when (y-or-n-p "Delete annotation ? ")
+                         (pdf-annot-delete a)
                          (message "Annotation deleted")))
                     :help
                     ,(substitute-command-keys
                       "Delete this annotation"))))
     
-    (cl-case (pdf-annot-type a)
+    (cl-case (pdf-annot-get a 'type)
       (file
        (define-key menu [open-attachment]
          `(menu-item "Open attachment"
                      ,(lambda ()
                         (interactive)
-                        (pdf-annot-attach-find-file-other-window a))
+                        (pdf-annot-pop-to-attachment a))
                      :help "Find this attachment in another window")))
       (t
        (define-key menu [goto-annotation]
@@ -339,7 +364,8 @@ Returns the modified annotation."
   (declare (indent 2))
   (unless (equal value (pdf-annot-get a property))
     (unless (pdf-annot-property-modifiable-p a property)
-      (error "Property `%s' is read-only for this annotation"))
+      (error "Property `%s' is read-only for this annotation"
+             property))
     (with-current-buffer (pdf-annot-get-buffer a)
       (setq a (pdf-annot-create
                (pdf-info-editannot
@@ -349,38 +375,6 @@ Returns the modified annotation."
       (pdf-annot-run-modified-hooks :change a)
       (pdf-view-redisplay-pages (pdf-annot-get a 'page))))
   a)
-
-(defun pdf-annot-equal (a1 a2)
-  "Return non-nil, if annotations A1 and A2 are equal.
-
-Two annotations are equal, if they belong to the same buffer and
-have identical id properties."
-  (and (eq (pdf-annot-get-buffer a1)
-           (pdf-annot-get-buffer a2))
-       (eq (pdf-annot-get a1 'id)
-           (pdf-annot-get a2 'id))))
-  
-(defun pdf-annot-get-buffer (a)
-  "Return annotation A's buffer."
-  (pdf-annot-get a 'pdf-annot-buffer))
-
-(defun pdf-annot-get-id (a)
-  "Return id property of A."
-  (pdf-annot-get a 'id))
-
-(defun pdf-annot-delete (a)
-  "Delete annotation A.
-
-Sets A's buffer's modified flag and runs the hook
-`pdf-annot-modified-functions'.
-
-This function alwasy returns nil."
-  (with-current-buffer (pdf-annot-get-buffer a)
-    (pdf-info-delannot
-     (pdf-annot-get a 'id))
-    (set-buffer-modified-p t)
-    (pdf-annot-run-modified-hooks :delete a))
-  nil)
 
 (defun pdf-annot-run-modified-hooks (&optional operation &rest annotations)
   "Run `pdf-annot-modified-functions' using OPERATION on ANNOTATIONS.
@@ -427,20 +421,37 @@ the variable is nil and this function is called again."
              'pdf-annot-modified-functions closure)
           (setq pdf-annot-delayed-modified-annotations nil))))))
 
-(defmacro pdf-annot-with-atomic-modifications (&rest body)
-  "Execute BODY joining multiple modifications.
+(defun pdf-annot-equal (a1 a2)
+  "Return non-nil, if annotations A1 and A2 are equal.
 
-The effect is, that `pdf-annot-modified-functions' will be called
-only once at the end of BODY.
+Two annotations are equal, if they belong to the same buffer and
+have identical id properties."
+  (and (eq (pdf-annot-get-buffer a1)
+           (pdf-annot-get-buffer a2))
+       (eq (pdf-annot-get a1 'id)
+           (pdf-annot-get a2 'id))))
+  
+(defun pdf-annot-get-buffer (a)
+  "Return annotation A's buffer."
+  (pdf-annot-get a 'pdf-annot-buffer))
 
-BODY should not modify annotations in a different then the
-current buffer, because that won't run the hooks properly."
-  (declare (indent 0) (debug t))
-  (unwind-protect
-      (save-current-buffer
-        (let ((pdf-annot-inhibit-modification-hooks t))
-          (progn ,@body)))
-    (pdf-annot-run-pages-modified-hooks)))
+(defun pdf-annot-get-id (a)
+  "Return id property of A."
+  (pdf-annot-get a 'id))
+
+(defun pdf-annot-delete (a)
+  "Delete annotation A.
+
+Sets A's buffer's modified flag and runs the hook
+`pdf-annot-modified-functions'.
+
+This function alwasy returns nil."
+  (with-current-buffer (pdf-annot-get-buffer a)
+    (pdf-info-delannot
+     (pdf-annot-get a 'id))
+    (set-buffer-modified-p t)
+    (pdf-annot-run-modified-hooks :delete a))
+  nil)
 
 (defun pdf-annot-text-annotation-p (a)
   (eq 'text (pdf-annot-get a 'type)))
@@ -664,7 +675,7 @@ See `pdf-annot-image-position' for IMAGE-SIZE."
   (unless image-size
     (pdf-util-assert-pdf-window)
     (setq image-size (pdf-view-image-size)))
-  (let ((edges (pdf-util-scale-edges
+  (let ((edges (pdf-util-scale
                 (pdf-annot-get a 'edges) image-size)))
     (pdf-util-with-edges (edges)
       (cons edges-width edges-height))))
@@ -756,7 +767,6 @@ i.e. a non mouse-movement event is read."
                                       resize-diagonally)))
            (vresize (memq operation '(resize-vertically
                                       resize-diagonally)))
-           (button (event-basic-type event))
            (window (selected-window))
            make-pointer-invisible)
       (when (pdf-util-track-mouse-dragging (ev 0.1)
@@ -817,8 +827,8 @@ i.e. a non mouse-movement event is read."
   ;; Activating
   (local-set-key
    (vector id 'mouse-1)
-   (lambda (ev)
-     (interactive "@e")
+   (lambda ()
+     (interactive)
      (pdf-annot-activate-annotation annotation)))
   ;; Move/Resize
   (when operation
@@ -850,9 +860,7 @@ other annotations."
   (save-selected-window
     (when window (select-window window))
     (pdf-util-assert-pdf-window)
-    (let ((color "black")
-          (alpha 0.5)
-          (page (pdf-annot-get a 'page))
+    (let ((page (pdf-annot-get a 'page))
           (size (pdf-view-image-size)))
       (unless (= page (pdf-view-current-page))
         (pdf-view-goto-page page))
@@ -971,7 +979,7 @@ Return the new annotation."
            (cdr (posn-object-x-y posn))
            (if (equal icon "") nil icon))))
   (pdf-util-assert-pdf-window)
-  (let ((isize (pdf-view-image-size window)))
+  (let ((isize (pdf-view-image-size)))
     (unless (and (>= x 0)
                  (< x (car isize)))
       (signal 'args-out-of-range (list x)))
@@ -979,7 +987,7 @@ Return the new annotation."
                  (< y (cdr isize)))
       (signal 'args-out-of-range (list y)))
     (let ((size (pdf-util-scale-points-to-pixel
-                 pdf-annot-default-text-annotation-size 'round)))
+                 pdf-annot-text-annotation-size 'round)))
       (setcar size (min (car size) (car isize)))
       (setcdr size (min (cdr size) (cdr isize)))
       (cl-decf x (max 0 (- (+ x (car size)) (car isize))))
@@ -1050,7 +1058,7 @@ Offer `pdf-annot-preferred-annotation-colors' as default values."
          (current-completing-read-function completing-read-function)
          (completing-read-function
           (lambda (prompt collection &optional predicate require-match
-                          initial-input hist def inherit-input-method)
+                          initial-input hist _def inherit-input-method)
             (funcall current-completing-read-function
                      prompt collection predicate require-match
                      initial-input hist
@@ -1083,7 +1091,7 @@ occurence in any list in ALISTS."
       (color
        (propertize (or value "")
                    'face (and value
-                              `(:background ,color))))
+                              `(:background ,value))))
       ((created modified)
        (let ((date value))
          (if (null date)
@@ -1201,23 +1209,6 @@ by a header."
       (when (and tempfile
                  (file-exists-p tempfile))
         (delete-file tempfile)))))
-
-
-
-
-
-;; * ================================================================== *
-;; * O L D   C O D E
-;; * ================================================================== *
-
-(require 'pdf-info)
-(require 'pdf-render)
-(require 'pdf-misc)
-(require 'facemenu) ;;for list-colors-duplicates
-(require 'faces) ;;for color-values
-(require 'org)   ;;org-with-gensyms, org-create-formula-image
-(require 'tablist)
-(require 'cl-lib)
 
 
 ;; * ================================================================== *
@@ -1370,11 +1361,11 @@ A2."
         (p2 (pdf-annot-get a2 'page)))
     (or (< p1 p2)
         (and (= p1 p2)
-             (let ((e1 (pdf-util-scale-edges
+             (let ((e1 (pdf-util-scale
                         (or (car (pdf-annot-get a1 'markup-edges))
                             (pdf-annot-get a1 'edges))
                         '(1000 . 1000)))
-                   (e2 (pdf-util-scale-edges
+                   (e2 (pdf-util-scale
                         (or (car (pdf-annot-get a2 'markup-edges))
                             (pdf-annot-get a2 'edges))
                         '(1000 . 1000))))
@@ -1518,7 +1509,8 @@ A2."
 
 (define-minor-mode pdf-annot-list-follow-minor-mode
   "" nil nil nil
-  (pdf-util-assert-derived-mode 'pdf-annot-list-mode)
+  (unless (derived-mode-p 'pdf-annot-list-mode)
+    (error "No in pdf-annot-list-mode."))
   (cond
    (pdf-annot-list-follow-minor-mode
     (add-hook 'tablist-selection-changed-functions

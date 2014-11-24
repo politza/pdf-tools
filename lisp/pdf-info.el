@@ -543,6 +543,9 @@ This is a no-op, if `pdf-info-log' is nil."
 ;; * Utility functions
 ;; * ================================================================== *
 
+(defvar doc-view-buffer-file-name)
+(defvar doc-view--buffer-file-name)
+
 (defun pdf-info--normalize-file-or-buffer (file-or-buffer)
   "Return the PDF file corresponding to FILE-OR-BUFFER.
 
@@ -551,7 +554,11 @@ or a PDF file."
   (unless file-or-buffer
     (setq file-or-buffer
           (cl-case major-mode
-            (doc-view-mode doc-view-buffer-file-name)
+            (doc-view-mode
+             (cond ((boundp 'doc-view-buffer-file-name)
+                    doc-view-buffer-file-name)
+                   ((boundp 'doc-view--buffer-file-name)
+                    doc-view--buffer-file-name)))
             (pdf-view-mode (pdf-view-buffer-file-name))
             (t (current-buffer)))))
   (when (bufferp file-or-buffer)
@@ -823,19 +830,14 @@ aforementioned function, when called with the same arguments."
   (pdf-info-getselection
    page '(0 0 1 1) 'glyph file-or-buffer))
 
-(defun pdf-info-pagesize (&optional page file-or-buffer)
+(defun pdf-info-pagesize (page &optional file-or-buffer)
   "Return the size of PAGE as a cons \(WIDTH . HEIGHT\)
 
 The size is in pixel."
   (pdf-info-query
    'pagesize
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   (or page
-       (and (eq (window-buffer)
-                (current-buffer))
-            (derived-mode-p 'doc-view-mode)
-            (doc-view-current-page))
-       1)))
+   page)) 
 
 (defun pdf-info-quit ()
   "Quit the epdfinfo server."

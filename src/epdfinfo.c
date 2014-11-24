@@ -1070,6 +1070,7 @@ annotation_get_by_key (document_t *doc, const gchar *key)
   return g_hash_table_lookup (doc->annotations.keys, key);
 }
 
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
 static cairo_region_t*
 annotation_markup_get_text_regions (PopplerPage *page, PopplerAnnotTextMarkup *a)
 {
@@ -1144,6 +1145,7 @@ annotation_markup_append_text_region (PopplerPage *page, PopplerRectangle *regio
   g_list_free (regions);
 }
 
+#endif
 /** 
  * Create a new annotation.
  * 
@@ -1204,7 +1206,9 @@ annotation_new (const epdfinfo_t *ctx, document_t *doc, PopplerPage *page,
   else
     cerror_if_not (0, error_msg, "Unknown annotation type: %s", type);
     
+#endif
  error:
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
   if (garray) g_array_unref (garray);
   if (region) cairo_region_destroy (region);
 #endif
@@ -1318,12 +1322,14 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
   r.y1 = height - m->area.y2;
   r.y2 = height - m->area.y1;
 
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
   if (POPPLER_IS_ANNOT_TEXT_MARKUP (a))
     {
       region = annotation_markup_get_text_regions (page, POPPLER_ANNOT_TEXT_MARKUP (a));
       perror_if_not (region, "%s", "Unable to extract annotation's text regions");
     }
-
+#endif
+  
   /* >>> Any Annotation >>> */
   /* Page */
   printf ("%d:", poppler_page_get_index (page) + 1);
@@ -1426,6 +1432,7 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
               xpoppler_annot_text_state_string (poppler_annot_text_get_state (ta)),
               poppler_annot_text_get_is_open (ta));
     }
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
   /* <<< Text Annotation <<< */
   else if (POPPLER_IS_ANNOT_TEXT_MARKUP (a))
     {
@@ -1448,6 +1455,7 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
         }
       /* <<< Markup Text Annotation <<< */
     }
+#endif
   putchar ('\n');
  error:
   if (region) cairo_region_destroy (region);

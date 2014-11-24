@@ -22,14 +22,19 @@
 ;;
 ;;; Todo:
 ;; 
-;; * Handle remote and locally cached documents.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'format-spec)
 (require 'faces)
-(require 'pdf-view)
+
+;; These functions are only used after a PdfView window was asserted,
+;; which won't succeed, if pdf-view.el isn't loaded.
+(declare-function pdf-view-image-size "pdf-view")
+(declare-function pdf-view-image-offset "pdf-view")
+(declare-function pdf-view-current-image "pdf-view")
+(declare-function pdf-view-current-overlay "pdf-view")
 
 
 ;; * ================================================================== *
@@ -253,6 +258,7 @@ values."
   "Return the visible region of the image in WINDOW.
 
 Returns a list of pixel edges."
+  (pdf-util-assert-pdf-window)
   (let* ((edges (window-inside-pixel-edges window))
          (isize (pdf-view-image-size window))
          (offset (pdf-view-image-offset window))
@@ -279,6 +285,7 @@ top of the window.  CONTEXT-PIXEL defaults to 0.
 Return the require hscroll in columns or nil, if scrolling is not
 needed."
 
+  (pdf-util-assert-pdf-window)
   (unless context-pixel
     (setq context-pixel 0))
   (let* ((win (window-inside-pixel-edges))
@@ -318,6 +325,7 @@ value of `next-screen-context-lines'.
 Return the require vscroll in lines or nil, if scrolling is not
 needed."
   
+  (pdf-util-assert-pdf-window)
   (let* ((win (window-inside-pixel-edges))
          (image-height (cdr (pdf-view-image-size t)))
          (image-top (window-vscroll nil t))
@@ -471,7 +479,7 @@ is non-nil."
   "Return COLOR in hex-format.
 
 Singal an error, if color is invalid." 
-  (let ((values (color-values (string-trim color))))
+  (let ((values (color-values color)))
     (unless values
       (signal 'wrong-type-argument (list 'color-defined-p color)))
     (apply 'format "#%02x%02x%02x"

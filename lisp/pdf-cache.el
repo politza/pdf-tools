@@ -25,8 +25,8 @@
 
 (require 'pdf-info)
 (require 'pdf-util)
-(require 'pdf-annot)
-(require 'pdf-view)
+
+(defvar pdf-annot-modified-functions)
 
 
 ;; * ================================================================== *
@@ -129,7 +129,10 @@ Make shure, not to modify it's return value.\n" fn)
   (dolist (page (cons t pages))
     (remhash page pdf-cache--cache)))
 
+(declare-function pdf-annot-get "pdf-annot")
+
 (defun pdf-cache--clear-annotations-pages (fn)
+  "Hook function for `pdf-annot-modified-functions'."
   (pdf-cache-clear-pages
    (delq nil (mapcar (lambda (a)
                        (pdf-annot-get a 'page))
@@ -152,7 +155,7 @@ Make shure, not to modify it's return value.\n" fn)
 (defvar-local pdf-cache--image-cache nil)
 
 (defmacro pdf-cache--make-image (page width data hash)
-  `(list page width data hash))
+  `(list ,page ,width ,data ,hash))
 (defmacro pdf-cache--image/page (img) `(nth 0 ,img))
 (defmacro pdf-cache--image/width (img) `(nth 1 ,img))
 (defmacro pdf-cache--image/data (img) `(nth 2 ,img))
@@ -329,6 +332,22 @@ See also `pdf-info-renderpage-text-regions' and
 (defvar-local pdf-cache--prefetch-timer nil
   "Timer used when prefetching images.")
 
+(define-minor-mode pdf-cache-prefetch-minor-mode
+  "Try to load images which will probably be needed in a while."
+  nil nil t
+  (pdf-util-assert-pdf-buffer)
+  (pdf-cache--prefetch-cancel)
+  (add-hook 'after-change-major-mode-hook
+            'pdf-cache--prefetch-cancel nil t)            
+  (cond
+   (pdf-cache-prefetch-minor-mode
+    (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
+    (setq pdf-cache--prefetch-timer
+          (run-with-idle-timer (or pdf-cache-prefetch-delay 1)
+              t 'pdf-cache--prefetch-start (current-buffer))))
+   (t
+    (remove-hook 'pre-command-hook 'pdf-cache--prefetch-stop t))))
+
 (defun pdf-cache-prefetch-pages-function-default ()
   (let ((page (pdf-view-current-page)))
     (cl-remove-duplicates
@@ -340,7 +359,7 @@ See also `pdf-info-renderpage-text-regions' and
        ;; +1, -1, +2, -2, ...
        (let ((sign 1)
              (incr 1))
-         (mapcar (lambda (i)
+         (mapcar (lambda (_)
                    (setq page (+ page (* sign incr))
                          sign (- sign)
                          incr (1+ incr))
@@ -368,7 +387,8 @@ See also `pdf-info-renderpage-text-regions' and
                      (* 2 image-width))))
         (setq page (pop pdf-cache--prefetch-pages)))
       (when (null page)
-        (pdf-tools-debug "Prefetching done."))
+        ;; (pdf-tools-debug "Prefetching done.")
+        )
       (when page
         (let ((pdf-info-asynchronous
                (lambda (status data)
@@ -379,7 +399,7 @@ See also `pdf-info-renderpage-text-regions' and
                      (pdf-cache-put-image
                       page image-width data)
                      (image-size (pdf-view-create-page page))
-                     (pdf-tools-debug "Prefetched Page %s." page)
+                     ;; (pdf-tools-debug "Prefetched Page %s." page)
                      ;; Avoid max-lisp-eval-depth
                      (run-with-timer
                          0.001 nil 'pdf-cache--prefetch-pages window image-width))))))
@@ -411,26 +431,5 @@ See also `pdf-info-renderpage-text-regions' and
     (cancel-timer pdf-cache--prefetch-timer))
   (setq pdf-cache--prefetch-timer nil))
 
-(define-minor-mode pdf-cache-prefetch-minor-mode
-  "Try to load images which will probably be needed in a while."
-  nil nil t
-  
-  (pdf-util-assert-pdf-buffer)
-  (pdf-cache--prefetch-cancel)
-  (add-hook 'after-change-major-mode-hook
-            'pdf-cache--prefetch-cancel nil t)            
-  (cond
-   (pdf-cache-prefetch-minor-mode
-    (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
-    (setq pdf-cache--prefetch-timer
-          (run-with-idle-timer (or pdf-cache-prefetch-delay 1)
-              t 'pdf-cache--prefetch-start (current-buffer))))
-   (t
-    (remove-hook 'pre-command-hook 'pdf-cache--prefetch-stop t))))
-
-(provide 'pdf-view)
-;;; pdf-view.el ends here
-
 (provide 'pdf-cache)
-
 ;;; pdf-cache.el ends here
