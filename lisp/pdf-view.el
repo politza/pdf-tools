@@ -610,9 +610,8 @@ or png."
                 (if (not (pdf-view-use-scaling-p))
                     (car size)
                   (* 2 (car size)))))
-         (hotspots (unless pdf-view-inhibit-hotspots
-                     (pdf-view-apply-hotspot-functions
-                      window page size))))
+         (hotspots (pdf-view-apply-hotspot-functions
+                    window page size)))
     (pdf-view-create-image data 
       :width (car size)
       :map hotspots
@@ -810,12 +809,13 @@ supercede hotspots in lower ones."
                         '> :key 'car)))
 
 (defun pdf-view-apply-hotspot-functions (window page image-size)
-  (save-selected-window
-    (when window (select-window window))
-    (apply 'nconc
-           (mapcar (lambda (fn)
-                     (funcall fn page image-size))
-                   (pdf-view-sorted-hotspot-functions)))))
+  (unless pdf-view-inhibit-hotspots
+    (save-selected-window
+      (when window (select-window window))
+      (apply 'nconc
+             (mapcar (lambda (fn)
+                       (funcall fn page image-size))
+                     (pdf-view-sorted-hotspot-functions))))))
 
 
 ;; * ================================================================== *

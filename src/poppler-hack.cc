@@ -85,9 +85,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
     return result;
   }
 #if HAVE_POPPLER_ANNOT_WRITE
-  // Set the rectangle of an annotation.  It was added in v0.26, but
-  // in a slightly more destructive way, i.e. it seems to destroy the
-  // original appearance of non-poppler annotations.
+  // Set the rectangle of an annotation.  It was first added in v0.26.
   void xpoppler_annot_set_rectangle (PopplerAnnot *a, PopplerRectangle *rectangle)
   {
     GooString *state = a->annot->getAppearState ();

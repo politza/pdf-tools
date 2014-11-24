@@ -422,7 +422,7 @@ interrupted."
            (mapcar 'string-to-number (cdar response))))
     (delannot nil)
     ((save) (caar response))
-    ((renderpage renderpage-text-regions renderpage-regions)
+    ((renderpage renderpage-text-regions renderpage-highlight)
      (pdf-util-munch-file (caar response)))
     (t response)))
 
@@ -1109,6 +1109,42 @@ Return the data of the corresponding PNG image."
                      (cons
                       (pdf-util-hexcolor fg)
                       (cons (pdf-util-hexcolor bg)
+                            (mapcar
+                             (lambda (e)
+                               (mapconcat 'number-to-string e " "))
+                             edges)))))
+                 regions))))
+
+(defun pdf-info-renderpage-highlight (page width 
+                                           &optional file-or-buffer
+                                           &rest regions)
+  "Highlight regions on PAGE with width WIDTH using REGIONS.
+
+REGIONS is a list determining the background color, a alpha value
+and the regions to render. So each element should look like
+\(BG ALPHA \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
+
+For the other args see `pdf-info-renderpage'.
+
+Return the data of the corresponding PNG image."
+  
+  (when (consp file-or-buffer)
+    (push file-or-buffer regions)
+    (setq file-or-buffer nil))
+  
+  (apply 'pdf-info-query
+         'renderpage-highlight
+         (pdf-info--normalize-file-or-buffer file-or-buffer)
+         page
+         width 
+         (apply 'append
+                (mapcar
+                 (lambda (s)
+                   (cl-destructuring-bind (bg alpha &rest edges)
+                       s
+                     (cons
+                      (pdf-util-hexcolor bg)
+                      (cons alpha
                             (mapcar
                              (lambda (e)
                                (mapconcat 'number-to-string e " "))

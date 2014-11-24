@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <png.h>
+#include <math.h>
 #include "synctex_parser.h"
 #include "epdfinfo.h"
 #include "config.h"
@@ -2785,16 +2786,17 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
   if (page) g_object_unref (page);
 }
 
-const command_arg_type_t cmd_renderpage_regions_spec[] =
+const command_arg_type_t cmd_renderpage_highlight_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
     ARG_NATNUM,                 /* width */
-    ARG_REST                    /* (background alpha edges*)* */
+    ARG_REST                    /* (fill-color stroke-color edges*)* */
   };
 
+
 static void
-cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
+cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
@@ -2820,15 +2822,15 @@ cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
       gdouble alpha;
 
       perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
-                                           &error_msg),
-                    "%s", error_msg);
+                                            &error_msg),
+                     "%s", error_msg);
       bg = rest_arg.value.color;
       ++i;
 
       perror_if_not (i < nrest_args, "Missing alpha argument");
       perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_EDGE,
-                                           &error_msg),
-                    "%s", error_msg);
+                                            &error_msg),
+                     "%s", error_msg);
       alpha = rest_arg.value.edge;
       ++i;
 
@@ -2837,21 +2839,33 @@ cmd_renderpage_regions (const epdfinfo_t *ctx, const command_arg_t *args)
                                        ARG_EDGES, NULL))
         {
           PopplerRectangle *r = &rest_arg.value.rectangle;
+          const int yoffset = 3;
+          const int xoffset = 6;
+          const double deg = M_PI / 180.0;
+          double rad;
           
-          r->x1 *= width;
-          r->x2 *= width;
-          r->y1 *= height;
-          r->y2 *= height;
+          r->x1 *= width; r->x2 *= width;
+          r->x1 -= xoffset; r->x2 += xoffset;
+          r->y1 *= height; r->y2 *= height;
+          r->y1 -= yoffset; r->y2 += yoffset;
+
+          rad = MIN (5, MIN (r->x2 - r->x1, r->y2 - r->y1) / 2.0);
           
-          cairo_save (cr);
-          cairo_set_source_rgba (cr, bg.red, bg.green, bg.blue, alpha);
-          cairo_rectangle (cr, r->x1, r->y1, r->x2 - r->x1, r->y2 - r->y1);
+          cairo_move_to (cr, r->x1 , r->y1 + rad);
+          cairo_arc (cr, r->x1 + rad, r->y1 + rad, rad, 180 * deg, 270 * deg);
+          cairo_arc (cr, r->x2 - rad, r->y1 + rad, rad, 270 * deg, 360 * deg);
+          cairo_arc (cr, r->x2 - rad, r->y2 - rad, rad, 0 * deg, 90 * deg);
+          cairo_arc (cr, r->x1 + rad, r->y2 - rad, rad, 90 * deg, 180 * deg);
+          cairo_close_path (cr);
+
+          cairo_set_source_rgba (cr, 1, 1, 1, alpha);
           cairo_fill_preserve (cr);
-          cairo_set_line_width (cr, 0.5);
-          cairo_set_source_rgb (cr, bg.red, bg.green, bg.blue);
+          cairo_set_source_rgba (cr,
+                                 bg.red / 65535.0,
+                                 bg.green / 65535.0,
+                                 bg.blue / 65535.0, 1.0);
+          cairo_set_line_width (cr, 2.5);
           cairo_stroke (cr);
-          cairo_restore (cr);
-      
           ++i;
         }
     }
@@ -3022,9 +3036,9 @@ static const command_t commands [] =
     {"renderpage-text-regions", cmd_renderpage_text_regions,
      cmd_renderpage_text_regions_spec,
      G_N_ELEMENTS (cmd_renderpage_text_regions_spec)},
-    {"renderpage-regions", cmd_renderpage_regions,
-     cmd_renderpage_regions_spec,
-     G_N_ELEMENTS (cmd_renderpage_regions_spec)}
+    {"renderpage-highlight", cmd_renderpage_highlight,
+     cmd_renderpage_highlight_spec,
+     G_N_ELEMENTS (cmd_renderpage_highlight_spec)}
   };
 
 int main(int argc, char **argv)

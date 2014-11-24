@@ -301,6 +301,23 @@ See also `pdf-info-renderpage-text-regions' and
             (pdf-cache-put-image page width data hash)
             data)))))
 
+(defun pdf-cache-renderpage-highlight (page width &rest regions)
+  "Highlight PAGE according to WIDTH and REGIONS.
+
+See also `pdf-info-renderpage-text-regions' and
+`pdf-cache-renderpage'."
+  (if pdf-cache-image-inihibit
+      (apply 'pdf-info-renderpage-highlight
+             page width nil regions)
+    (let ((hash (sxhash
+                 (format "%S" (cons 'renderpage-highlight
+                                    regions)))))
+      (or (pdf-cache-get-image page width nil hash)
+          (let ((data (apply 'pdf-info-renderpage-highlight
+                             page width nil regions)))
+            (pdf-cache-put-image page width data hash)
+            data)))))
+
 
 ;; * ================================================================== *
 ;; * Prefetching images

@@ -272,7 +272,7 @@ Setting this after the package was loaded has no effect."
          `(menu-item "List annotation"
                      ,(lambda ()
                         (interactive)
-                        (pdf-annot-display-selected a)
+                        (pdf-annot-show-annotation a t)
                         (pdf-annot-list-annotations)
                         (pdf-annot-list-goto-annotation a))
                      :help "List annotations in a buffer"))
@@ -486,7 +486,9 @@ The DO-SAVE argument is given to
   (unless (pdf-annot-has-attachment-p a)
     (error "Annotation has no data attached: %s" a))
   (pdf-info-getattachment-from-annot
-   (pdf-annot-get-id a) do-save))
+   (pdf-annot-get-id a)
+   do-save
+   (pdf-annot-get-buffer a)))
 
 (defun pdf-annot-attachment-base-directory ()
   "Return the base directory for saving attachments."
@@ -837,26 +839,33 @@ i.e. a non mouse-movement event is read."
    (vector id t)
    'pdf-util-image-map-mouse-event-proxy))
 
-(defun pdf-annot-display-selected (a &optional window)
-  "Visually distinguish annotation A in window WINDOW.
+(defun pdf-annot-show-annotation (a &optional highlight-p window)
+  "Make annotation A visible.
 
-Turns to A's page, if nescessary."
+Turn to A's page in WINDOW, and scroll it if necessary.
+
+If HIGHLIGHT-P is non-nil, visually distinguish annotation A from
+other annotations."
+  
   (save-selected-window
     (when window (select-window window))
     (pdf-util-assert-pdf-window)
     (let ((color "black")
           (alpha 0.5)
           (page (pdf-annot-get a 'page))
-          (width (car (pdf-view-image-size))))
+          (size (pdf-view-image-size)))
       (unless (= page (pdf-view-current-page))
         (pdf-view-goto-page page))
       (let ((edges (or (pdf-annot-get a 'markup-edges)
                        (list (pdf-annot-get a 'edges)))))
-        (pdf-view-display-image
-         (pdf-view-create-image
-             (pdf-cache-renderpage-regions
-              page width
-              `(,color ,alpha ,@edges))))
+        (when highlight-p
+          (pdf-view-display-image
+           (pdf-view-create-image
+               (pdf-cache-renderpage-highlight
+                page (car size)
+                `("#ff0000" 0.6 ,@edges))
+             :map (pdf-view-apply-hotspot-functions
+                   window page size))))
         (pdf-util-scroll-to-edges
          (pdf-util-scale-relative-to-pixel (car edges)))))))
 
@@ -1319,6 +1328,207 @@ by a header."
     (unless a
       (error "No annotation at this position"))
     (pdf-annot-edit-contents a)))
+
+
+
+;; * ================================================================== *
+;; * Listing annotations
+;; * ================================================================== *
+
+(defcustom pdf-annot-list-display-buffer-action
+  '((display-buffer-reuse-window
+     display-buffer-pop-up-window)
+    (inhibit-same-window . t))
+  "Display action used when displaying the list buffer."
+  :group 'pdf-annot)
+
+(defvar-local pdf-annot-list-buffer nil)
+
+(defvar-local pdf-annot-list-document-buffer nil)
+
+(defvar pdf-annot-list-mode-map
+  (let ((km (make-sparse-keymap)))
+    (define-key km (kbd "C-c C-f") 'pdf-annot-list-follow-minor-mode)
+    (define-key km (kbd "SPC") 'pdf-annot-display-annotation)
+    km))
+
+(defun pdf-annot-property-completions (property)
+  "Return a list of completion candidats for annotation property PROPERTY.
+
+Return nil, if not available."
+  (cl-case property
+    (color (pdf-util-color-completions))
+    (icon (copy-sequence pdf-annot-standard-text-icons))))
+
+(defun pdf-annot-compare-annotations (a1 a2)
+  "Compare annotations A1 and A2.
+
+Return non-nil if A1's page is less than A2's one or if they
+belong to the same page and A1 is displayed above and/or right of
+A2."
+  (let ((p1 (pdf-annot-get a1 'page))
+        (p2 (pdf-annot-get a2 'page)))
+    (or (< p1 p2)
+        (and (= p1 p2)
+             (let ((e1 (pdf-util-scale-edges
+                        (or (car (pdf-annot-get a1 'markup-edges))
+                            (pdf-annot-get a1 'edges))
+                        '(1000 . 1000)))
+                   (e2 (pdf-util-scale-edges
+                        (or (car (pdf-annot-get a2 'markup-edges))
+                            (pdf-annot-get a2 'edges))
+                        '(1000 . 1000))))
+               (pdf-util-with-edges (e1 e2)
+                 (or (< e1-top e2-top)
+                     (and (= e1-top e2-top)
+                          (<= e1-left e2-left)))))))))
+
+(defun pdf-annot-list-entries ()
+  (unless (buffer-live-p pdf-annot-list-document-buffer)
+    (error "No PDF document associated with this buffer"))
+  (let ((types '(text file squiggly highlight strikeout underline)))
+    (mapcar 'pdf-annot-list-create-entry
+            (sort (pdf-annot-getannots nil types pdf-annot-list-document-buffer)
+                  'pdf-annot-compare-annotations))))
+
+(defun pdf-annot-list-create-entry (a)
+  "Create a `tabulated-list-entries' entry for annotation A."
+  (list a (vector
+           (pdf-annot-print-property a 'page)
+           (pdf-annot-print-property a 'type)
+           (replace-regexp-in-string
+            "\n" " "
+            (pdf-annot-print-property a 'label) t t)
+           (if (pdf-annot-get a 'modified)
+               (pdf-annot-print-property a 'modified)
+             (if (pdf-annot-get a 'created)
+                 (pdf-annot-print-property a 'created)
+               "Unknown date")))))
+    
+(define-derived-mode pdf-annot-list-mode tablist-mode "Annots"
+  (setq tabulated-list-entries 'pdf-annot-list-entries
+        tabulated-list-format (vector
+                               '("Pg." 3 t :read-only t :right-align t)
+                               `("Type" 12 t :read-only t)
+                               `("Label" 24 t :read-only t)
+                               '("Date" 24 t :read-only t))
+        tabulated-list-padding 2)
+  (set-keymap-parent pdf-annot-list-mode-map tablist-mode-map)
+  (use-local-map pdf-annot-list-mode-map)
+  (tabulated-list-init-header))
+
+(defun pdf-annot-list-annotations ()
+  (interactive)
+  (pdf-util-assert-pdf-buffer)
+  (let ((buffer (current-buffer)))
+    (with-current-buffer (get-buffer-create
+                          (format "*%s's annots*"
+                                  (file-name-sans-extension
+                                   (buffer-name))))
+      (unless (derived-mode-p 'pdf-annot-list-mode)
+        (pdf-annot-list-mode))
+      (setq pdf-annot-list-document-buffer buffer)
+      (tabulated-list-print)
+      (setq tablist-context-window-function 'pdf-annot-list-context-function
+            tablist-operations-function 'pdf-annot-list-operation-function)
+      (let ((list-buffer (current-buffer)))
+        (with-current-buffer buffer
+          (setq pdf-annot-list-buffer list-buffer)))
+      (pop-to-buffer
+       (current-buffer)
+       pdf-annot-list-display-buffer-action)
+      (tablist-move-to-major-column)
+      (tablist-display-context-window))
+    (add-hook 'pdf-annot-modified-functions
+              'pdf-annot-list-update nil t)))
+
+(defun pdf-annot-list-goto-annotation (a)
+  (with-current-buffer (pdf-annot-get-buffer a)
+    (unless (and (buffer-live-p pdf-annot-list-buffer)
+                 (get-buffer-window pdf-annot-list-buffer))
+      (pdf-annot-list-annotations))
+    (with-selected-window (get-buffer-window pdf-annot-list-buffer)
+      (goto-char (point-min))
+      (while (and (not (eobp))
+                  (not (eq a (tabulated-list-get-id))))
+        (forward-line))
+      (unless (eq a (tabulated-list-get-id))
+        (error "Unable to find annotation"))
+      (when (invisible-p (point))
+        (tablist-suspend-filter t))
+      (tablist-move-to-major-column))))
+        
+  
+(defun pdf-annot-list-update (_fn)
+  (when (buffer-live-p pdf-annot-list-buffer)
+    (with-current-buffer pdf-annot-list-buffer
+      (unless tablist-edit-column-minor-mode
+        (tablist-revert))
+      (tablist-context-window-update))))
+  
+(defun pdf-annot-list-context-function (annot)
+  (with-current-buffer (get-buffer-create "*Contents*")
+    (set-window-buffer nil (current-buffer))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (when annot
+        (save-excursion
+          (insert
+           (pdf-annot-print-annotation annot))))
+      (read-only-mode 1))))
+
+(defun pdf-annot-list-operation-function (op &rest args)
+  (cl-ecase op
+    (supported-operations '(delete find-entry complete))
+    (delete
+     (cl-destructuring-bind (annots)
+         args
+       (when (buffer-live-p pdf-annot-list-document-buffer)
+         (with-current-buffer pdf-annot-list-document-buffer
+           (pdf-annot-with-atomic-modifications
+             (dolist (a annots)
+               (pdf-annot-delete a)))))))
+    (find-entry
+     (cl-destructuring-bind (a)
+         args
+       (let* ((buffer (pdf-annot-get-buffer a))
+              (pdf-window (save-selected-window
+                            (or (get-buffer-window buffer)
+                                (display-buffer buffer))))
+              window)
+         (with-current-buffer buffer
+           (pdf-annot-activate-annotation a)
+           (setq window (selected-window)))
+         ;; Make it so that quitting the edit window returns to the
+         ;; list window.
+         (unless (memq window (list (selected-window) pdf-window))
+           (let* ((quit-restore
+                   (window-parameter window 'quit-restore)))
+             (when quit-restore
+               (setcar (nthcdr 2 quit-restore) (selected-window))))))))))
+
+(defun pdf-annot-display-annotation (a)
+  (interactive (list (tabulated-list-get-id)))
+  (let ((buffer (pdf-annot-get-buffer a)))
+    (with-selected-window (or (get-buffer-window buffer)
+                              (display-buffer
+                               buffer
+                               '(nil (inhibit-same-window . t))))
+      (pdf-annot-show-annotation a t))))
+
+(define-minor-mode pdf-annot-list-follow-minor-mode
+  "" nil nil nil
+  (pdf-util-assert-derived-mode 'pdf-annot-list-mode)
+  (cond
+   (pdf-annot-list-follow-minor-mode
+    (add-hook 'tablist-selection-changed-functions
+              'pdf-annot-display-annotation nil t)
+    (let ((a (tabulated-list-get-id)))
+      (when a
+        (pdf-annot-display-annotation a))))
+   (t
+    (remove-hook 'tablist-selection-changed-functions
+                 'pdf-annot-display-annotation t))))
 
 (provide 'pdf-annot)
 ;;; pdf-annot.el ends here

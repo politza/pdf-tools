@@ -478,6 +478,16 @@ Singal an error, if color is invalid."
            (mapcar (lambda (c) (lsh c -8))
                    values))))
 
+(defun pdf-util-color-completions ()
+  "Return a fontified list of defined colors."
+  (let ((color-list (list-colors-duplicates))
+        colors)
+    (dolist (cl color-list)
+      (dolist (c (reverse cl))
+        (push (propertize c 'face `(:background ,c))
+              colors)))
+    (nreverse colors)))
+
 (defun pdf-util-tooltip-in-window (text x y &optional window)
   (let* ((we (window-inside-absolute-pixel-edges window))
          (dx (round (+ x (nth 0 we))))
