@@ -193,6 +193,9 @@ Edge values are image coordinates.")
     (define-key map [remap kill-region] 'pdf-view-kill-ring-save)
     (define-key map [remap kill-ring-save] 'pdf-view-kill-ring-save)
     (define-key map [remap mark-whole-buffer] 'pdf-view-mark-whole-page)
+    ;; Other
+    (define-key kmap (kbd "C-c C-d") 'pdf-view-dark-mode)
+    (define-key kmap (kbd "I") 'pdf-view-display-metadata)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
@@ -781,6 +784,19 @@ If WINDOW is t, redisplay pages in all windows."
     (cons (floor (max 1 (* (car pagesize) scale)))
           (floor (max 1 (* (cdr pagesize) scale))))))
 
+(define-minor-mode pdf-view-dark-minor-mode
+  "Mode for PDF documents with dark background.
+
+This tells the various modes to use face's dark colors."
+  nil nil nil
+  (pdf-util-assert-pdf-buffer)
+  ;; FIXME: This should really be run in a hook.
+  (when (bound-and-true-p pdf-isearch-active-mode)
+    (with-no-warnings
+      (pdf-isearch-redisplay)
+      (pdf-isearch-message
+       (if pdf-view-dark-minor-mode "dark mode" "light mode")))))
+
 
 ;; * ================================================================== *
 ;; * Hotspot handling
@@ -876,7 +892,7 @@ supercede hotspots in lower ones."
     (pdf-view-assert-active-region)
     (setq region pdf-view-active-region))
   (let ((colors (pdf-util-face-colors 'pdf-view-region
-                                      (bound-and-true-p pdf-misc-dark-mode)))
+                                      (bound-and-true-p pdf-view-dark-minor-mode)))
         (page (pdf-view-current-page))
         (width (car (pdf-view-image-size))))
     (pdf-view-display-image

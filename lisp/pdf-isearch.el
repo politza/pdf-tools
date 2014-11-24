@@ -105,7 +105,7 @@ FIXME: Explain."
 
 (defvar pdf-isearch-active-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap (kbd "C-d") 'pdf-misc-dark-mode)
+    (define-key kmap (kbd "C-d") 'pdf-view-dark-minor-mode)
     (define-key kmap (kbd "C-b") 'pdf-isearch-batch-mode)
     (define-key kmap (kbd "C-v") 'pdf-view-scroll-up-or-next-page)
     (define-key kmap (kbd "M-v") 'pdf-view-scroll-down-or-previous-page)
@@ -118,7 +118,7 @@ isearch-scroll property.")
 
 (progn
   (put 'pdf-isearch-batch-mode 'isearch-scroll t)
-  (put 'pdf-misc-dark-mode 'isearch-scroll t)
+  (put 'pdf-view-dark-minor-mode 'isearch-scroll t)
   (put 'pdf-view-scroll-up-or-next-page 'isearch-scroll t)
   (put 'pdf-view-scroll-down-or-previous-page 'isearch-scroll t))
 
@@ -144,7 +144,7 @@ The kind of highlighting is determined by three faces
 mode\), which see.
 
 Colors may also be influenced by the minor-mode
-`pdf-misc-dark-mode'.  If this is minor mode enabled, each face's
+`pdf-view-dark-minor-mode'.  If this is minor mode enabled, each face's
 dark colors, are used (see e.g. `frame-background-mode'), instead
 of the light ones.
 
@@ -560,10 +560,10 @@ FORWARD-P."
 (defun pdf-isearch-current-colors ()
   "Return the current color set.
 
-The return value depends on `pdf-misc-dark-mode' and
+The return value depends on `pdf-view-dark-minor-mode' and
 `pdf-isearch-batch-mode'.  It is a list of four colors \(MATCH-FG
 MATCH-BG LAZY-FG LAZY-BG\)."
-  (let ((dark-p pdf-misc-dark-mode))
+  (let ((dark-p pdf-view-dark-minor-mode))
     (cond
      (pdf-isearch-batch-mode
       (let ((colors (pdf-util-face-colors 'pdf-isearch-batch dark-p)))
@@ -593,8 +593,8 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                            (reverse matches)
                          matches)
                        page 
-                       (if (boundp 'pdf-misc-dark-mode)
-                           pdf-misc-dark-mode
+                       (if (boundp 'pdf-view-dark-minor-mode)
+                           pdf-view-dark-minor-mode
                          'unbound)
                        pdf-isearch-batch-mode
                        pdf-isearch-current-parameter))))

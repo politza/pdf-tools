@@ -258,7 +258,7 @@ See `pdf-links-action-perform' for the interface."
          (alist (cl-mapcar 'cons keys links))
          (size (pdf-view-image-size))
          (colors (pdf-util-face-colors
-                  'pdf-links-read-link pdf-misc-dark-mode))
+                  'pdf-links-read-link pdf-view-dark-minor-mode))
          (args (list
                 :foreground (car colors)
                 :background (cdr colors)
