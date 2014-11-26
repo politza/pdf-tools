@@ -1007,10 +1007,10 @@ Return the new annotation."
         (y (cdr pos)))
     (unless (and (>= x 0)
                  (< x (car isize)))
-      (signal 'args-out-of-range (list x)))
+      (signal 'args-out-of-range (list pos)))
     (unless (and (>= y 0)
                  (< y (cdr isize)))
-      (signal 'args-out-of-range (list y)))
+      (signal 'args-out-of-range (list pos)))
     (let ((size (pdf-util-scale-points-to-pixel
                  pdf-annot-text-annotation-size 'round)))
       (setcar size (min (car size) (car isize)))
