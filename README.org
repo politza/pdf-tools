@@ -78,7 +78,7 @@
     | You want to ...                                 | Required version |
     |-------------------------------------------------+------------------|
     | ... modify text annotations.                    | \ge 0.19.4       |
-    | ... search case-insensitive.                    | \ge 0.22         |
+    | ... search case-sensitive.                      | \ge 0.22         |
     | ... create markup (e.g. underline) annotations. | \ge 0.26         |
     |-------------------------------------------------+------------------|
 
