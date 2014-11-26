@@ -262,6 +262,7 @@ PNG images in Emacs buffers.
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
   (add-hook 'write-contents-functions 'pdf-view--write-contents-function nil t)
   (add-hook 'kill-buffer-hook 'pdf-info-close nil t)
+  (add-hook 'after-revert-hook 'pdf-view--after-revert-hook nil t)
   (pdf-view-add-hotspot-function 'pdf-view-text-regions-hotspots-function -9)
   
   ;; Setup initial page and start display
@@ -297,11 +298,12 @@ a local copy of a remote file."
 (defun pdf-view-revert-buffer (&optional ignore-auto noconfirm)
   "Like `revert-buffer', but preserves the buffer's current modes."
   (interactive (list (not current-prefix-arg)))
-  (prog1
-      (revert-buffer ignore-auto noconfirm 'preserve-modes)
-    (pdf-info-close)
-    (pdf-view-redisplay t)))
-    
+  (revert-buffer ignore-auto noconfirm 'preserve-modes))
+
+(defun pdf-view--after-revert-hook ()
+  (pdf-info-close)
+  (pdf-view-redisplay t))
+
 
 ;; * ================================================================== *
 ;; * Scaling
