@@ -75,12 +75,6 @@ FIXME: Describe. Restrict keys and values."
 FIXME: Describe. Restrict keys and values."
   :group 'pdf-annot)
 
-(defcustom pdf-annot-preferred-annotation-colors
-  '("red" "green" "blue")
-  "A list of preferred colors for annotations."
-  :type '(repeat color)
-  :group 'pdf-annot)
-
 (defcustom pdf-annot-print-annotation-functions
   '(pdf-annot-print-annotation-latex-maybe)
   "A alist of functions for printing annotations, e.g. for the tooltip.
@@ -140,6 +134,9 @@ annoyed while reading the annotations."
 ;; * ================================================================== *
 ;; * Variables and Macros
 ;; * ================================================================== *
+
+(defvar pdf-annot-color-history nil
+  "A list of recently used colors for annotations.")
 
 (defvar-local pdf-annot-modified-functions nil
   "Functions to call, when an annotation was modified.
@@ -235,6 +232,7 @@ Setting this after the package was loaded has no effect."
     ;; (define-key smap "d" 'pdf-annot-toggle-display-annotations)
     (define-key smap "a" 'pdf-annot-attachment-dired)
     (when (pdf-info-writable-annotations-p)
+      (define-key smap "D" 'pdf-annot-delete)
       (define-key smap "t" 'pdf-annot-add-text-annotation)
       (when (pdf-info-markup-annotations-p)
         (define-key smap "m" 'pdf-annot-add-markup-annotation)
@@ -311,12 +309,6 @@ Setting this after the package was loaded has no effect."
 
 (defun pdf-annot-create-color-submenu (a)
   (let ((menu (make-sparse-keymap)))
-    (define-key menu [customize-colors]
-      `(menu-item "Customize colors"
-                  ,(lambda nil
-                     (interactive)
-                     (customize-variable 'pdf-annot-preferred-annotation-colors))))
-    (define-key menu [color-separator] menu-bar-separator)
     (define-key menu [color-chooser]
       `(menu-item "Choose ..."
                   ,(lambda ()
@@ -328,9 +320,14 @@ Setting this after the package was loaded has no effect."
                         (fset callback
                               (lambda (color)
                                 (pdf-annot-put a 'color color)
+                                (setq pdf-annot-color-history
+                                      (cons color
+                                            (remove color pdf-annot-color-history)))
                                 (quit-window t)))
                         (list 'function callback))))))
-    (dolist (color (reverse pdf-annot-preferred-annotation-colors))
+    (dolist (color (butlast (reverse pdf-annot-color-history)
+                            (max 0 (- (length pdf-annot-color-history)
+                                      12))))
       (define-key menu (vector (intern (format "color-%s" color)))
         `(menu-item ,color
                     ,(lambda nil
@@ -493,11 +490,16 @@ Sets A's buffer's modified flag and runs the hook
 `pdf-annot-modified-functions'.
 
 This function alwasy returns nil."
+  (interactive
+   (list (pdf-annot-read-annotation
+          "Click on the annotation you wish to delete")))
   (with-current-buffer (pdf-annot-get-buffer a)
     (pdf-info-delannot
      (pdf-annot-get a 'id))
     (set-buffer-modified-p t)
     (pdf-annot-run-modified-hooks :delete a))
+  (when (called-interactively-p 'any)
+    (message "Annotation deleted"))
   nil)
 
 (defun pdf-annot-text-annotation-p (a)
@@ -655,9 +657,8 @@ Select the window, if SELECT-WINDOW-P is non-nil.
 Return the window attachment is displayed in."
 
   (interactive
-   (list (pdf-annot-at-position
-          (pdf-util-read-image-position
-           "Select a file annotation by clicking on it"))))
+   (list (pdf-annot-read-annotation
+          "Select a file annotation by clicking on it")))
   (let* ((buffer (pdf-annot-find-attachment-noselect a))
          (window (display-buffer
                   buffer (or display-action
@@ -669,9 +670,8 @@ Return the window attachment is displayed in."
 (defun pdf-annot-pop-to-attachment (a)
   "Display annotation A's attachment in a window and select it."
   (interactive
-   (list (pdf-annot-at-position
-          (pdf-util-read-image-position
-           "Select a file annotation by clicking on it"))))
+   (list (pdf-annot-read-annotation
+          "Select a file annotation by clicking on it")))
   (pdf-annot-display-attachment a nil t))
 
 
@@ -757,8 +757,8 @@ position.
 Return nil, if no annotation was found."
   (let (window)
     (when (posnp pos)
-      (setq pos (posn-object-x-y pos)
-            window (posn-window pos)))
+      (setq window (posn-window pos)
+            pos (posn-object-x-y pos)))
     (save-selected-window
       (when window (select-window window))
       (let* ((annots (pdf-annot-getannots (pdf-view-current-page)))
@@ -769,12 +769,13 @@ Return nil, if no annotation was found."
              (ry (+ (/ (cdr pos) (float (cdr size)))
                     (cdr offset)))
              (rpos (cons rx ry)))
-        (cl-some (lambda (a)
-                   (and (pdf-util-edges-inside-p
-                         (pdf-annot-get a 'edges)
-                         rpos)
-                        a))
-                 annots)))))
+        (or (cl-some (lambda (a)
+                       (and (pdf-util-edges-inside-p
+                             (pdf-annot-get a 'edges)
+                             rpos)
+                            a))
+                     annots)
+            (error "No annotation at this position"))))))
 
 (defun pdf-annot-mouse-move (event &optional annot)
   "Start moving an annotation at EVENT's position.
@@ -899,6 +900,12 @@ other annotations."
         (pdf-util-scroll-to-edges
          (pdf-util-scale-relative-to-pixel (car edges)))))))
 
+(defun pdf-annot-read-annotation (&optional prompt)
+  "Let the user choose a annotation a mouse click using PROMPT."
+  (pdf-annot-at-position
+   (pdf-util-read-image-position
+    (or prompt "Choose a annotation by clicking on it"))))
+
 
 ;; * ================================================================== *
 ;; * Creating annotations
@@ -1013,12 +1020,19 @@ Return the new annotation."
         (and icon `((icon . ,icon)))
         property-alist
         pdf-annot-default-text-annotation-properties
-        `((color . ,(car pdf-annot-preferred-annotation-colors))))))))
+        `((color . ,(car pdf-annot-color-history))))))))
 
 (defun pdf-annot-mouse-add-text-annotation (ev)
   (interactive "@e")
-  (let ((x (car (posn-object-x-y (event-start ev))))
-        (y (cdr (posn-object-x-y (event-start ev)))))
+  (let* ((pos (if (eq (car-safe ev)
+                      'menu-bar)
+                  (let (echo-keystrokes)
+                    (message nil)
+                    (pdf-util-read-image-position
+                     "Click where a new text annotation should be added ..."))
+                (event-start ev)))
+         (x (car (posn-object-x-y pos)))
+         (y (cdr (posn-object-x-y pos))))
     (pdf-annot-add-text-annotation x y)))
     
 (defun pdf-annot-add-markup-annotation (list-of-edges type &optional color
@@ -1043,7 +1057,8 @@ Return the new annotation."
          (let ((type (completing-read "Markup type (default highlight): "
                                       '(squiggly highlight underline strikeout)
                                       nil t)))
-           (if (equal type "") 'highlight (intern type)))))
+           (if (equal type "") 'highlight (intern type)))
+         (pdf-annot-read-color)))
   (pdf-util-assert-pdf-window)
   (pdf-annot-add-annotation
    type
@@ -1052,7 +1067,7 @@ Return the new annotation."
     (and color `((color . ,color)))
     property-alist
     pdf-annot-default-markup-annotation-properties
-    `((color . ,(car pdf-annot-preferred-annotation-colors))))
+    `((color . ,(car pdf-annot-color-history))))
    (pdf-view-current-page)))
 
 (defun pdf-annot-add-squiggly-markup-annotation (list-of-edges
@@ -1090,15 +1105,15 @@ See also `pdf-annot-add-markup-annotation'."
 (defun pdf-annot-read-color (&optional prompt)
   "Read and return a color using PROMPT.
 
-Offer `pdf-annot-preferred-annotation-colors' as default values."
+Offer `pdf-annot-color-history' as default values."
   (let* ((defaults (append
-                    pdf-annot-preferred-annotation-colors
                     (delq nil
                           (list
                            (cdr (assq 'color
                                       pdf-annot-default-markup-annotation-properties))
                            (cdr (assq 'color
-                                      pdf-annot-default-text-annotation-properties))))))
+                                      pdf-annot-default-text-annotation-properties))))
+                    pdf-annot-color-history))
          (prompt
           (format "%s%s: "
                   (or prompt "Color")
@@ -1469,6 +1484,9 @@ A2."
   (tabulated-list-init-header))
 
 (defun pdf-annot-list-annotations ()
+  "List annotations in a dired like buffer.
+
+\\{pdf-annot-list-mode-map}"
   (interactive)
   (pdf-util-assert-pdf-buffer)
   (let ((buffer (current-buffer)))
@@ -1566,17 +1584,26 @@ A2."
              (when quit-restore
                (setcar (nthcdr 2 quit-restore) (selected-window))))))))))
 
+(defvar pdf-annot-list-display-annotation--timer nil)
+
 (defun pdf-annot-list-display-annotation-from-id (id)
   (interactive (list (tabulated-list-get-id)))
   (unless (buffer-live-p pdf-annot-list-document-buffer)
     (error "PDF buffer was killed"))
-  (let* ((buffer pdf-annot-list-document-buffer)
-         (a (pdf-annot-getannot id buffer)))
-    (with-selected-window (or (get-buffer-window buffer)
-                              (display-buffer
-                               buffer
-                               '(nil (inhibit-same-window . t))))
-      (pdf-annot-show-annotation a t))))
+  (when (timerp pdf-annot-list-display-annotation--timer)
+    (cancel-timer pdf-annot-list-display-annotation--timer))
+  (setq pdf-annot-list-display-annotation--timer
+        (run-with-idle-timer 0.1 nil
+          (lambda (buffer a)
+            (when (buffer-live-p buffer)
+              (with-selected-window
+                  (or (get-buffer-window buffer)
+                      (display-buffer
+                       buffer
+                       '(nil (inhibit-same-window . t))))
+                (pdf-annot-show-annotation a t))))
+          pdf-annot-list-document-buffer
+          (pdf-annot-getannot id pdf-annot-list-document-buffer))))
 
 (define-minor-mode pdf-annot-list-follow-minor-mode
   "" nil nil nil

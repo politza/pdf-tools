@@ -75,11 +75,9 @@ PDF buffers."
   :group 'pdf-tools
   :type 'hook)
 
-(defcustom pdf-tools-auto-mode-alist-entry
+(defconst pdf-tools-auto-mode-alist-entry
   '("\\.[pP][dD][fF]\\'" . pdf-view-mode)
-  "The entry to use for `auto-mode-alist'."
-  :group 'pdf-tools
-  :type '(cons regexp (const pdf-view-mode)))
+  "The entry to use for `auto-mode-alist'.")
   
 (defun pdf-tools-customize ()
   "Customize Pdf Tools."
@@ -109,8 +107,10 @@ PDF buffers."
   (save-current-buffer
     (when buffer (set-buffer buffer))
     (save-excursion
-      (goto-char 1)
-      (looking-at "%PDF"))))
+      (save-restriction
+        (widen)
+        (goto-char 1)
+        (looking-at "%PDF")))))
 
 (defun pdf-tools-assert-pdf-buffer (&optional buffer)
   (unless (pdf-tools-pdf-buffer-p buffer)

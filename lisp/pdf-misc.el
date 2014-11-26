@@ -23,6 +23,7 @@
 
 (require 'pdf-view)
 (require 'pdf-util)
+(require 'pdf-occur)
 (require 'imenu)
 
 
@@ -126,7 +127,9 @@
      :visible (and (featurep 'pdf-sync)
                    (equal last-command-event
                           last-nonmenu-event))]
-    "--"
+    ["--" nil :visible (and (featurep 'pdf-sync)
+                            (equal last-command-event
+                                   last-nonmenu-event))]
     ["Revert buffer" pdf-view-revert-buffer
      :visible (pdf-info-writable-annotations-p)]
     "--"

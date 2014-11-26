@@ -879,7 +879,7 @@ Return the converted PNG image as a string.  See also
 
 Return the event position object."
   (save-selected-window
-    (let ((ev (read-event
+    (let ((ev (pdf-util-read-click-event
                (propertize prompt 'face 'minibuffer-prompt)))
           (buffer (current-buffer)))
       (unless (mouse-event-p ev)
@@ -892,6 +892,20 @@ Return the event position object."
           (error "Invalid image position"))
         posn))))
 
+(defun pdf-util-read-click-event (&optional prompt seconds)
+  (let ((down (read-event prompt seconds)))
+    (unless (and (mouse-event-p down)
+                 (equal (event-modifiers down)
+                        '(down)))
+      (error "No a mouse click event"))
+    (let ((up (read-event prompt seconds)))
+      (unless (and (mouse-event-p up)
+                   (equal (event-modifiers up)
+                          '(click)))
+        (error "No a mouse click event"))
+      up)))
+      
+    
 (defun pdf-util-image-map-mouse-event-proxy (event)
   "Set POS-OR-AREA in EVENT to 1 and unread it."
   (interactive "e")

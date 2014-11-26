@@ -298,12 +298,13 @@ as argument for the function `completion-in-region'.")
     (setq tablist-context-window-update--timer
           (run-with-idle-timer 0.1 nil
             (lambda (fn window)
-              (with-selected-window window
-                (set-window-dedicated-p nil nil)
-                (save-selected-window
-                  (funcall fn id))
-                (when (window-live-p (selected-window))
-                  (set-window-dedicated-p nil t))))
+              (when (window-live-p window)
+                (with-selected-window window
+                  (set-window-dedicated-p nil nil)
+                  (save-selected-window
+                    (funcall fn id))
+                  (when (window-live-p (selected-window))
+                    (set-window-dedicated-p nil t)))))
             tablist-context-window-function
             tablist-context-window))))
 

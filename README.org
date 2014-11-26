@@ -12,23 +12,8 @@
    whatever reason, poppler, running inside a server programm.  This
    programm is called ~epdfinfo~ and it's job is it to successively
    read requests from Emacs and produce the proper results, i.e. the
-   PNG image of a PDF page.  Here are some reasons, why you might want
-   to consider switching to PDF Tools for viewing PDF files.
+   PNG image of a PDF page.  
    
-   + Smoother Display :: Some care has been taken to get the page you
-        care to look at as quickly as possible on the monitor. We use
-        low compression PNG images, resulting in faster creation and
-        loading times.  These images are kept in memory in a LRU
-        cache, which is filled in the background with pages you are
-        likely going to want to look at in the near future.
-   + No image cache directory :: Almost everything happens in memory.
-   + Keep the page in view :: As is common in other PDF viewer, the
-        image may be fit to a window's width or height, even if it's
-        size changes.  Slices are independent of the image size and
-        it's pretty easy and fast to make those boring white borders
-        go away.
-   + Everything else :: Read on.
-
    Actually, displaying PDF files is just one part of PDF Tools.
    Since poppler can provide us with all kinds of informations about a
    document and is also able to modify it, there is a lot more we can
