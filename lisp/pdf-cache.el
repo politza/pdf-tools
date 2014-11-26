@@ -410,7 +410,11 @@ See also `pdf-info-renderpage-text-regions' and
                      ;; Avoid max-lisp-eval-depth
                      (run-with-timer
                          0.001 nil 'pdf-cache--prefetch-pages window image-width))))))
-          (pdf-info-renderpage page image-width))))))
+          (condition-case err
+              (pdf-info-renderpage page image-width)
+            (error
+             (pdf-cache-prefetch-minor-mode -1)
+             (signal (car err) (cdr err)))))))))
 
 (defun pdf-cache--prefetch-start (buffer)
   "Start prefetching images in BUFFER."
