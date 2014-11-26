@@ -972,12 +972,13 @@ Return the new annotation."
       (pdf-annot-activate-annotation a))
     a))
 
-(defun pdf-annot-add-text-annotation (x y &optional icon property-alist)
-  "Add a new text annotation at X, Y in the selected window.
+(defun pdf-annot-add-text-annotation (pos &optional icon property-alist)
+  "Add a new text annotation at POS in the selected window.
 
-X and Y should be image coordinates.
+POS should be a image position object or a cons \(X . Y\), both
+beeing image coordinates.
 
-ICON determines how the annotation is displayed and should be one
+ICON determines how the annotation is displayed and should be
 listed in `pdf-annot-standard-text-icons'.  Any other value is ok
 as well, but will render the annotation invisible.
 
@@ -997,10 +998,13 @@ Return the new annotation."
                  "Click where a new text annotation should be added ..."))
           (window (posn-window posn)))
      (select-window window)
-     (list (car (posn-object-x-y posn))
-           (cdr (posn-object-x-y posn)))))
+     (list posn)))
   (pdf-util-assert-pdf-window)
-  (let ((isize (pdf-view-image-size)))
+  (when (posnp pos)
+    (setq pos (posn-object-x-y pos)))
+  (let ((isize (pdf-view-image-size))
+        (x (car pos))
+        (y (cdr pos)))
     (unless (and (>= x 0)
                  (< x (car isize)))
       (signal 'args-out-of-range (list x)))
@@ -1024,16 +1028,14 @@ Return the new annotation."
 
 (defun pdf-annot-mouse-add-text-annotation (ev)
   (interactive "@e")
-  (let* ((pos (if (eq (car-safe ev)
-                      'menu-bar)
-                  (let (echo-keystrokes)
-                    (message nil)
-                    (pdf-util-read-image-position
-                     "Click where a new text annotation should be added ..."))
-                (event-start ev)))
-         (x (car (posn-object-x-y pos)))
-         (y (cdr (posn-object-x-y pos))))
-    (pdf-annot-add-text-annotation x y)))
+  (pdf-annot-add-text-annotation
+   (if (eq (car-safe ev)
+           'menu-bar)
+       (let (echo-keystrokes)
+         (message nil)
+         (pdf-util-read-image-position
+          "Click where a new text annotation should be added ..."))
+     (event-start ev))))
     
 (defun pdf-annot-add-markup-annotation (list-of-edges type &optional color
                                                       property-alist)
