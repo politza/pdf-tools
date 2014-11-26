@@ -67,6 +67,7 @@ may be naviagted with the following keys.
 (defun pdf-history-before-change-page-hook ()
   "Push a history item, before leaving this page."
   (when (and pdf-history-minor-mode
+             (not (bound-and-true-p pdf-isearch-active-mode))
              (pdf-view-current-page))
     (pdf-history-push)))
 
