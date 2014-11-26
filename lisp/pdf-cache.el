@@ -342,10 +342,10 @@ See also `pdf-info-renderpage-text-regions' and
 (define-minor-mode pdf-cache-prefetch-minor-mode
   "Try to load images which will probably be needed in a while."
   nil nil t
-  (pdf-util-assert-pdf-buffer)
   (pdf-cache--prefetch-cancel)
   (cond
    (pdf-cache-prefetch-minor-mode
+    (pdf-util-assert-pdf-buffer)
     (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
     (setq pdf-cache--prefetch-timer
           (run-with-idle-timer (or pdf-cache-prefetch-delay 1)
