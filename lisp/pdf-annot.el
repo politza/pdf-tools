@@ -1067,7 +1067,8 @@ Return the new annotation."
     (and color `((color . ,color)))
     property-alist
     pdf-annot-default-markup-annotation-properties
-    `((color . ,(car pdf-annot-color-history))))
+    (when pdf-annot-color-history
+      `((color . ,(car pdf-annot-color-history)))))
    (pdf-view-current-page)))
 
 (defun pdf-annot-add-squiggly-markup-annotation (list-of-edges
