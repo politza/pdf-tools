@@ -986,7 +986,7 @@ Adjust X and Y accordingly, if the position would render the
 annotation off-page.
 
 Merge ICON as a icon property with PROPERTY-ALIST and
-`pdf-annot-default-markup-annotation-properties' and apply the
+`pdf-annot-default-text-annotation-properties' and apply the
 result to the created annotation.
 
 See also `pdf-annot-add-annotation'.
