@@ -26,6 +26,7 @@
 (require 'image-mode)
 (require 'pdf-util)
 (require 'pdf-info)
+(require 'jka-compr)
 
 
 ;; * ================================================================== *
@@ -131,18 +132,13 @@ Edge values are image coordinates.")
 (defmacro pdf-view-current-slice (&optional window)
   `(image-mode-window-get 'slice ,window))
 
-(defmacro pdf-view-active-region-p nil
-  `(not (null pdf-view-active-region)))
+(defun pdf-view-active-region-p nil
+  (not (null pdf-view-active-region)))
 
 (defmacro pdf-view-assert-active-region ()
   `(unless (pdf-view-active-region-p)
      (error "The region is not active")))
 
-(defmacro pdf-view-active-region ()
-  `(progn
-     (pdf-view-assert-active-region)
-     pdf-view-active-region))
-  
 
 ;; * ================================================================== *
 ;; * Major Mode
@@ -194,8 +190,8 @@ Edge values are image coordinates.")
     (define-key map [remap kill-ring-save] 'pdf-view-kill-ring-save)
     (define-key map [remap mark-whole-buffer] 'pdf-view-mark-whole-page)
     ;; Other
-    (define-key kmap (kbd "C-c C-d") 'pdf-view-dark-mode)
-    (define-key kmap (kbd "I") 'pdf-view-display-metadata)
+    (define-key map (kbd "C-c C-d") 'pdf-view-dark-mode)
+    (define-key map (kbd "I") 'pdf-view-display-metadata)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
@@ -259,10 +255,13 @@ PNG images in Emacs buffers.
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
   (use-local-map pdf-view-mode-map)
+
   (add-hook 'window-configuration-change-hook
             'pdf-view-maybe-redisplay-resized-windows nil t)
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
   (add-hook 'write-contents-functions 'pdf-view--write-contents-function nil t)
+  (add-hook 'kill-buffer-hook 'pdf-info-close nil t)
+  (pdf-view-add-hotspot-function 'pdf-view-text-regions-hotspots-function -9)
   
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1))
@@ -678,7 +677,7 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
         (overlay-put ol 'display
                      (if slice
                          (list (cons 'slice
-                                     (pdf-util-scale slice size))
+                                     (pdf-util-scale slice size 'round))
                                image)
                        image))
         (let* ((win (overlay-get ol 'window))
@@ -701,7 +700,8 @@ If WINDOW is t, redisplay pages in all windows."
       (dolist (win (get-buffer-window-list nil nil t))
         (pdf-view-display-page
          (pdf-view-current-page win)
-         win)))))
+         win)))
+    (force-mode-line-update)))
 
 (defun pdf-view-redisplay-pages (&rest pages)
   (pdf-util-assert-pdf-buffer)
@@ -711,14 +711,20 @@ If WINDOW is t, redisplay pages in all windows."
       (pdf-view-redisplay window))))
 
 (defun pdf-view-maybe-redisplay-resized-windows ()
-  (unless (numberp pdf-view-display-size)
+  "Redisplay some windows needing redisplay."
+  (unless (or (numberp pdf-view-display-size)
+              (pdf-view-active-region-p))
     (dolist (window (get-buffer-window-list nil nil t))
       (let ((stored (window-parameter window 'pdf-view-window-size))
             (size (cons (window-width window)
                         (window-height window))))
         (unless (equal size stored)
           (set-window-parameter window 'pdf-view-window-size size)
-          (pdf-view-redisplay window))))))
+          (unless (or (and (eq pdf-view-display-size 'fit-width)
+                           (eq (car size) (car stored)))
+                      (and (eq pdf-view-display-size 'fit-height)
+                           (eq (cdr size) (cdr stored))))
+            (pdf-view-redisplay window)))))))
 
 (defun pdf-view-new-window-function (winprops)
   ;; (message "New window %s for buf %s" (car winprops) (current-buffer))
@@ -784,6 +790,20 @@ If WINDOW is t, redisplay pages in all windows."
     (cons (floor (max 1 (* (car pagesize) scale)))
           (floor (max 1 (* (cdr pagesize) scale))))))
 
+(defun pdf-view-text-regions-hotspots-function (page size)
+  "Return a list of hotspots for text regions on PAGE using SIZE.
+
+This will display a text cursor, when hovering over them."
+  (local-set-key [pdf-view-text-region t]
+                 'pdf-util-image-map-mouse-event-proxy)
+  (mapcar (lambda (region)
+            (let ((e (pdf-util-scale region size 'round)))
+              `((rect . ((,(nth 0 e) . ,(nth 1 e))
+                         . (,(nth 2 e) . ,(nth 3 e))))
+                pdf-view-text-region
+                (pointer text))))
+          (pdf-cache-textlayout page)))
+
 (define-minor-mode pdf-view-dark-minor-mode
   "Mode for PDF documents with dark background.
 
@@ -838,6 +858,17 @@ supercede hotspots in lower ones."
 ;; * Region
 ;; * ================================================================== *
 
+(defun pdf-view-active-region (&optional deactivate-p)
+  "Return the active region, a list of edges.
+
+Deactivate the region if DEACTIVATE-P is non-nil."
+  
+  (pdf-view-assert-active-region)
+  (prog1
+      pdf-view-active-region
+    (when deactivate-p
+      (pdf-view-deactivate-region))))
+
 (defun pdf-view-deactivate-region ()
   "Deactivate the region."
   (interactive)
@@ -864,21 +895,19 @@ supercede hotspots in lower ones."
   (let* ((window (selected-window))
          (beg (posn-object-x-y (event-start ev)))
          region)
-    (pdf-util-track-mouse-dragging (event 0.15)
-        (mouse-movement-p event)
-      (let* ((pos (event-start event))
-             (end (posn-object-x-y pos)))
-        (when (and (eq window (posn-window pos))
-                   (posn-image pos))
-          (setq region
-                (list (min (car beg) (car end))
-                      (min (cdr beg) (cdr end))
-                      (max (car beg) (car end))
-                      (max (cdr beg) (cdr end))))
-          (pdf-view-display-region
-           (cons region pdf-view-active-region))
-          (pdf-util-scroll-to-edges region))))
-    (when region
+    (when (pdf-util-track-mouse-dragging (event 0.15)
+            (let* ((pos (event-start event))
+                   (end (posn-object-x-y pos)))
+              (when (and (eq window (posn-window pos))
+                         (posn-image pos))
+                (setq region
+                      (list (min (car beg) (car end))
+                            (min (cdr beg) (cdr end))
+                            (max (car beg) (car end))
+                            (max (cdr beg) (cdr end))))
+                (pdf-view-display-region
+                 (cons region pdf-view-active-region))
+                (pdf-util-scroll-to-edges region))))
       (push region pdf-view-active-region)
       (let ((transient-mark-mode t))
         (push-mark)))))
@@ -937,37 +966,6 @@ supercede hotspots in lower ones."
 ;; * ================================================================== *
 ;; * Display a text cursor
 ;; * ================================================================== *
-
-(defvar pdf-view-text-regions-minor-mode-map
-  (let ((km (make-sparse-keymap)))
-    (define-key km [t] 'pdf-util-image-map-mouse-event-proxy)
-    km)
-  "Keymap used over `pdf-view-text-region' hotspots.")
-
-(defun pdf-view-text-regions-hotspots-function (page size)
-  "Return a list of hotspots for text regions on PAGE using SIZE."
-  (mapcar (lambda (region)
-            (let ((e (pdf-util-scale region size)))
-              `((rect . ((,(nth 0 e) . ,(nth 1 e))
-                         . (,(nth 2 e) . ,(nth 3 e))))
-                pdf-view-text-region
-                (pointer text))))
-          (pdf-cache-textlayout page)))
-
-(define-minor-mode pdf-view-text-regions-minor-mode
-  "Display a text cursor over text areas.
-
-\\{pdf-view-text-regions-minor-mode-map}"
-  nil nil nil
-  (pdf-util-assert-pdf-buffer)
-  (cond
-   (pdf-view-text-regions-minor-mode
-    (pdf-view-add-hotspot-function 'pdf-view-text-regions-hotspots-function -9)
-    (local-set-key [pdf-view-text-region] pdf-view-text-regions-minor-mode-map))
-   (t
-    (pdf-view-remove-hotspot-function 'pdf-view-text-regions-hotspots-function)
-    (local-set-key [pdf-view-text-region] nil)))
-  (pdf-view-redisplay t))
 
 (provide 'pdf-view)
 

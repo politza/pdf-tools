@@ -28,10 +28,15 @@
 
 
 (defvar pdf-misc-minor-mode-map
-  (let ((kmap (make-sparse-keymap)))
-    
-    kmap)
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "I") 'pdf-misc-display-metadata)
+    map)
   "Keymap used in `pdf-misc-minor-mode'.")
+
+;;;###autoload
+(define-minor-mode pdf-misc-minor-mode
+  "FIXME:  Not documented."
+  nil nil nil)  
 
 ;;;###autoload
 (define-minor-mode pdf-misc-size-indication-minor-mode
@@ -68,130 +73,66 @@
           (* 100 (/ (float (window-vscroll nil t))
                     (cdr (pdf-view-image-size t))))))))))
 
-(defvar pdf-misc-menu-bar-minor-mode-map
-  (let ((map (make-sparse-keymap))
-        (menu (make-sparse-keymap)))
-
-    (define-key map [menu-bar pdf-tools]
-      (cons "PDF Tools" menu))
-    
-    (define-key menu [customize]
-      '(menu-item "Customize" pdf-tools-customize
-                  :help "Customize PDF Tools"))
-
-    (define-key menu [sep-0]
-      '(menu-item "--" nil
-                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
-                                (pdf-info-writable-annotations-p))))
-    
-    (define-key menu [revert-document]
-      '(menu-item "Revert all annotations" pdf-annot-revert-document
-                  :help "Revert all annotations to their saved state"
-                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
-                                (pdf-info-writable-annotations-p))))
-    
-    (define-key menu [revert-page]
-      '(menu-item "Revert page's annotations" pdf-annot-revert-page
-                  :help "Revert annotations on this page to their saved state"
-                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
-                                (pdf-info-writable-annotations-p))))
-
-    (define-key menu [sep-1]
-      '(menu-item "--" nil
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
-    
-    (define-key menu [render-links]
-      '(menu-item "Render Links" pdf-annot-toggle-display-links
-                  :help "Display or undisplay links"
-                  :button (:toggle . (memq 'link pdf-annot-rendered-types))
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
-
-    (define-key menu [render-annotations]
-      '(menu-item "Render Annotations" pdf-annot-toggle-display-annotations
-                  :help "Display or undisplay annotations"
-                  :button (:toggle . (memq 'text pdf-annot-rendered-types))
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
-
-    (define-key menu [sep-4] menu-bar-separator)
-
-    (define-key menu [copy-region]
-      '(menu-item "Copy region" pdf-misc-kill-ring-save
-                  :help "Copy the text of the region to the kill-ring"
-                  :visible (featurep 'pdf-misc)))
-    
-    (define-key menu [occur]
-      '(menu-item "Occur Document" pdf-occur
-                  :help "Display lines containing a string"
-                  :visible (featurep 'pdf-occur)))
-    
-    (define-key menu [isearch]
-      '(menu-item "Isearch Document" isearch-forward
-                  :help "Interactively search the document"
-                  :visible (featurep 'pdf-isearch)))
-
-    (define-key menu [sep-2] menu-bar-separator)
-
-    (define-key menu [list-annotations]
-      '(menu-item "Display Annotations" pdf-annot-list-annotations
-                  :help "List all annotations"
-                  :visible (bound-and-true-p pdf-annot-minor-mode)))
-
-    (define-key menu [dired-attachments]
-      '(menu-item "Display Attachments" pdf-annot-attach-dired
-                  :help "Display attachments in a dired buffer"
-                  :visible (featurep 'pdf-annot)))
-
-    (define-key menu [metadata]
-      '(menu-item "Display Metadata" pdf-misc-display-metadata
-                  :help "Display information about the document"
-                  :visible (featurep 'pdf-misc)))
-    
-    (define-key menu [outline]
-      '(menu-item "Display Outline" pdf-outline
-                  :help "Display documents outline"
-                  :visible (featurep 'pdf-outline)))
-
-    ;; Context menu only
-    (define-key menu [sep-5]
-      '(menu-item "--" nil
-        :visible (equal last-command-event
-                        last-nonmenu-event)))
-    
-    ;; Context menu only
-    (define-key menu [locate-source]
-      '(menu-item "Locate TeX source" pdf-sync-mouse-goto-tex
-                  :help "Open the TeX source corresponding to this position."
-                  :visible (and (featurep 'pdf-sync)
-                                (equal last-command-event
-                                       last-nonmenu-event))))
-    
-    ;; Context menu only
-    (define-key menu [add-text-annotation]
-      '(menu-item "Add text annotation" pdf-annot-add-text-annot-at-event
-                  :help "Add a new text annotation"
-                  :keys "\\[pdf-annot-add-text-annot]"
-                  :visible (and (bound-and-true-p pdf-annot-minor-mode)
-                                (pdf-info-writable-annotations-p)
-                                (equal last-command-event
-                                       last-nonmenu-event))))
-    
-    (define-key menu [sep-6] menu-bar-separator)
-    
-    (define-key menu [hist-forward]
-      '(menu-item "Go Forward" pdf-history-forward
-                  :help "Go forward in history"
-                  :visible (bound-and-true-p pdf-history-minor-mode)
-                  :enable (not (pdf-history-beginning-of-history-p))))
-    
-    (define-key menu [hist-backward]
-      '(menu-item "Go Back" pdf-history-backward
-                  :help "Go back in history"
-                  :visible (bound-and-true-p pdf-history-minor-mode)
-                  :enable (not (pdf-history-end-of-history-p))))
-    
-    map)
+(defvar pdf-misc-menu-bar-minor-mode-map (make-sparse-keymap)
   "The keymap used in `pdf-misc-menu-bar-minor-mode'.")
 
+(easy-menu-define nil pdf-misc-menu-bar-minor-mode-map
+  "Menu for PDF Tools."
+  `("PDF Tools"
+    ["Go Backward" pdf-history-backward
+     :visible (bound-and-true-p pdf-history-minor-mode)
+     :active (and (bound-and-true-p pdf-history-minor-mode)
+                  (not (pdf-history-end-of-history-p)))]
+    ["Go Forward" pdf-history-forward
+     :visible (bound-and-true-p pdf-history-minor-mode)
+     :active (not (pdf-history-end-of-history-p))]
+    ["--" nil
+     :visible (bound-and-true-p pdf-history-minor-mode)]
+    ["Add text annotation" pdf-annot-mouse-add-text-annotation
+     :visible (bound-and-true-p pdf-annot-minor-mode)
+     :keys "\\[pdf-annot-add-text-annotation]"]
+    ("Add markup annotation"
+     :active (pdf-view-active-region-p)
+     :visible (and (bound-and-true-p pdf-annot-minor-mode)
+                   (pdf-info-markup-annotations-p))
+     ["highlight" pdf-annot-add-highlight-markup-annotation]
+     ["squiggly" pdf-annot-add-squiggly-markup-annotation]
+     ["underline" pdf-annot-add-underline-markup-annotation]
+     ["strikeout" pdf-annot-add-strikeout-markup-annotation])
+    ["--" nil :visible (bound-and-true-p pdf-annot-minor-mode)]
+    ["Display Annotations" pdf-annot-list-annotations
+     :help "List all annotations"
+     :visible (bound-and-true-p pdf-annot-minor-mode)]
+    ["Display Attachments" pdf-annot-attachment-dired
+     :help "Display attachments in a dired buffer"
+     :visible (featurep 'pdf-annot)]
+    ["Display Metadata" pdf-misc-display-metadata
+     :help "Display information about the document"
+     :visible (featurep 'pdf-misc)]
+    ["Display Outline" pdf-outline
+     :help "Display documents outline"
+     :visible (featurep 'pdf-outline)]
+    "--"
+    ["Copy region" pdf-view-kill-ring-save
+     :keys "\\[kill-ring-save]"
+     :active (pdf-view-active-region-p)]
+    "--"
+    ["Isearch document" isearch-forward
+     :visible (bound-and-true-p pdf-isearch-minor-mode)]
+    ["Occur document" pdf-occur
+     :visible (featurep 'pdf-occur)]
+    "--"
+    ["Locate TeX source" pdf-sync-mouse-goto-tex
+     :visible (and (featurep 'pdf-sync)
+                   (equal last-command-event
+                          last-nonmenu-event))]
+    "--"
+    ["Revert buffer" pdf-view-revert-buffer
+     :visible (pdf-info-writable-annotations-p)]
+    "--"
+    ["Customize" pdf-tools-customize]))
+
+;;;###autoload
 (define-minor-mode pdf-misc-menu-bar-minor-mode
   "Display a PDF Tools menu in the menu-bar."
   nil nil nil
@@ -202,6 +143,7 @@
     (define-key kmap [down-mouse-3] 'pdf-misc-popup-context-menu)
     kmap))
 
+;;;###autoload
 (define-minor-mode pdf-misc-context-menu-minor-mode
   "Provide a right-click context menu in PDF buffers.
 
@@ -213,8 +155,9 @@
   "Popup a context menu at position determined by EVENT."
   (interactive "@e")
   (popup-menu
-   (lookup-key pdf-misc-menu-bar-minor-mode-map
-               [menu-bar pdf-tools])))
+   (cons 'keymap
+         (cddr (lookup-key pdf-misc-menu-bar-minor-mode-map
+                           [menu-bar PDF\ Tools])))))
 
 (defun pdf-misc-display-metadata ()
   "Display all available metadata in a separate buffer."

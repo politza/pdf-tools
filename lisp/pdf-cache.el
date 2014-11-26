@@ -26,8 +26,6 @@
 (require 'pdf-info)
 (require 'pdf-util)
 
-(defvar pdf-annot-modified-functions)
-
 
 ;; * ================================================================== *
 ;; * Customiazations
@@ -56,94 +54,100 @@ be prefetched and their order."
 
 
 ;; * ================================================================== *
-;; * Value cache
+;; * Simple Value cache
 ;; * ================================================================== *
 
-(defvar-local pdf-cache--cache nil)
+(defvar-local pdf-cache--data nil)
 
-(defmacro define-cacheable-epdfinfo-command (command page-argument)
-  "Define a cached version of COMMAND.
+(defvar pdf-annot-modified-functions)
 
-COMMAND should be unquoted and needs to have a corresponding
-`pdf-info-COMMAND' function.  Defines a function with the same
-signature, except for the `file-or-buffer' argument, which will
-always be nil \(i.e. the current buffer\).
-
-PAGE-ARGUMENT should be the number of the commands single-page
-argument.  It may also be nil, meaning that command is page
-independent or t, meaning that command may apply to multiple
-pages.  This is used for keeping the cache up-to-date.
-
-This function will cache the results corresponding to the
-arguments, as compared with equal.  The values remain in memory
-at most until the buffer is killed or reverted."
-
-  (let ((fn (intern (format "pdf-info-%s" command)))
-        (defn (intern (format "pdf-cache-%s" command))))
-    (unless (fboundp fn)
-      (error "Invalid command: %s" command))
-    (let ((args (butlast (help-function-arglist fn))))
-      (when (memq '&rest args)
-        (error "&rest arguments are not supported by this macro"))
-      (when (eq (car (last args)) '&optional)
-        (setq args (butlast args)))
-      (unless (or (null page-argument)
-                  (eq page-argument t)
-                  (and (integerp page-argument)
-                       (>= page-argument 0)
-                       (< page-argument
-                          (length (remq '&optional args)))))
-        (error "Invalid page-argument argument."))
-      `(defun ,defn (,@args)
-         ,(format "Cached version of `%s', which see.
-Make shure, not to modify it's return value.\n" fn)
-         (pdf-cache--retrieve
-          ,page-argument
-          ,@(cons (list 'quote command)
-                  (cons (list 'quote fn)
-                        (remove '&optional args))))))))
-
-(defun pdf-cache--retrieve (page-argument command fn &rest args)
-  (unless pdf-cache--cache
-    (setq pdf-cache--cache (make-hash-table))
-    (add-hook 'pdf-info-close-document-hook 'pdf-cache-clear nil t)
+(defun pdf-cache--initialize ()
+  (unless pdf-cache--data
+    (setq pdf-cache--data (make-hash-table))
+    (add-hook 'pdf-info-close-document-hook 'pdf-cache-clear-data nil t)
     (add-hook 'pdf-annot-modified-functions
-              'pdf-cache--clear-annotations-pages))  
-  (let* ((page (if (numberp page-argument)
-                   (or (nth page-argument args) t)
-                 page-argument))
-         (alist (gethash page pdf-cache--cache))
-         (key (cons command args)))
-    (or (cdr (assoc key alist))
-        (let ((value (apply fn args)))
-          (puthash page (cons (cons key value)
-                              alist)
-                   pdf-cache--cache)
-          value))))
+              'pdf-cache--clear-data-of-annotations
+              nil t)))
 
-(defun pdf-cache-clear ()
+(defun pdf-cache--clear-data-of-annotations (fn)
+  (apply 'pdf-cache-clear-data-of-pages
+         (mapcar (lambda (a)
+                   (cdr (assq 'page a)))
+                 (funcall fn t))))
+
+(defun pdf-cache--data-put (key value &optional page)
+  "Put KEY with VALUE in the cache of PAGE, return value."
+  (pdf-cache--initialize)
+  (puthash page (cons (cons key value)
+                      (assq-delete-all
+                       key
+                       (gethash page pdf-cache--data)))
+           pdf-cache--data)
+  value)
+
+(defun pdf-cache--data-get (key &optional page)
+  "Get value of KEY in the cache of PAGE.
+
+Returns a cons \(HIT . VALUE\), where HIT is non-nil if KEY was
+stored previously for PAGE and VALUE it's value.  Otherwise HIt
+is nil and VALUE undefined."
+  (pdf-cache--initialize)
+  (let ((elt (assq key (gethash page pdf-cache--data))))
+    (if elt
+        (cons t (cdr elt))
+      (cons nil nil))))
+
+(defun pdf-cache--data-clear (key &optional page)
+  (pdf-cache--initialize)
+  (puthash page
+           (assq-delete-all key (gethash page pdf-cache--data))
+           pdf-cache--data)
+  nil)
+
+(defun pdf-cache-clear-data-of-pages (&rest pages)
+  (dolist (page pages)
+    (remhash page pdf-cache--data)))
+    
+(defun pdf-cache-clear-data ()
   (interactive)
-  (clrhash pdf-cache--cache))
+  (clrhash pdf-cache--data))
 
-(defun pdf-cache-clear-pages (pages)
-  (dolist (page (cons t pages))
-    (remhash page pdf-cache--cache)))
+(defmacro define-pdf-cache-function (command &optional page-arg-p)
+  "Define a simple data cache function.
 
-(declare-function pdf-annot-get "pdf-annot")
+COMMAND is the name of the command, e.g. number-of-pages.  It
+should have a corresponding pdf-info function.  If PAGE-ARG-P is
+non-nil, define a one-dimensional cache indexed by the page
+number. Otherwise the value is constant for each document, like
+e.g. number-of-pages.
 
-(defun pdf-cache--clear-annotations-pages (fn)
-  "Hook function for `pdf-annot-modified-functions'."
-  (pdf-cache-clear-pages
-   (delq nil (mapcar (lambda (a)
-                       (pdf-annot-get a 'page))
-                     (funcall fn t)))))
+Both args are unevaluated."
 
-(define-cacheable-epdfinfo-command number-of-pages nil)
-(define-cacheable-epdfinfo-command pagelinks 0)
-(define-cacheable-epdfinfo-command boundingbox 0)
-(define-cacheable-epdfinfo-command pagesize 0)
-(define-cacheable-epdfinfo-command textlayout 0)
+  (let ((args (if page-arg-p (list 'page)))
+        (fn (intern (format "pdf-cache-%s" command)))
+        (ifn (intern (format "pdf-info-%s" command)))
+        (doc (format "Cached version of `pdf-info-%s', which see.
 
+Make shure, not to modify it's return value." command)))
+    `(defun ,fn ,args
+       ,doc
+       (let ((hit-value (pdf-cache--data-get ',command ,(if page-arg-p 'page))))
+         (if (car hit-value)
+             (cdr hit-value)
+           (pdf-cache--data-put
+            ',command
+            ,(if page-arg-p
+                 (list ifn 'page)
+               (list ifn))
+            ,(if page-arg-p 'page)))))))
+
+(define-pdf-cache-function pagelinks t)
+(define-pdf-cache-function number-of-pages)
+;; The boundingbox may change if annotations change.
+(define-pdf-cache-function boundingbox t)
+(define-pdf-cache-function textlayout t)
+(define-pdf-cache-function pagesize t)
+  
 
 ;; * ================================================================== *
 ;; * PNG image LRU cache
@@ -229,7 +233,7 @@ This function always returns nil."
   (unless pdf-cache--image-cache
     (add-hook 'pdf-info-close-document-hook 'pdf-cache-clear-images nil t)
     (add-hook 'pdf-annot-modified-functions
-              'pdf-cache--clear-images-from-annotations nil t))
+              'pdf-cache--clear-images-of-annotations nil t))
   (push (pdf-cache--make-image page width data hash)
         pdf-cache--image-cache)
   ;; Forget old image(s).
@@ -246,7 +250,7 @@ This function always returns nil."
   "Clear the image cache."
   (setq pdf-cache--image-cache nil))
 
-(defun pdf-cache-remove-image-if (fn)
+(defun pdf-cache-clear-images-if (fn)
   "Remove images from the cache according to FN.
 
 FN should be function accepting 4 Arguments \(PAGE WIDTH DATA
@@ -263,13 +267,16 @@ from the cache."
             (pdf-cache--image/hash image)))
          pdf-cache--image-cache)))
 
-(defun pdf-cache--clear-images-from-annotations (fn)
-  (let ((pages (delq nil (mapcar (lambda (a)
-                                   (pdf-annot-get a 'page))
-                                 (funcall fn t)))))
-    (pdf-cache-remove-image-if
-     (lambda (page &rest _)
-       (memq page pages)))))
+
+(defun pdf-cache--clear-images-of-annotations (fn)
+  (apply 'pdf-cache-clear-images-of-pages
+         (mapcar (lambda (a)
+                   (cdr (assq 'page a)))
+                 (funcall fn t))))
+
+(defun pdf-cache-clear-images-of-pages (&rest pages)
+  (pdf-cache-clear-images-if
+   (lambda (page &rest _) (memq page pages))))
 
 (defun pdf-cache-renderpage (page min-width &optional max-width)
   "Render PAGE according to MIN-WIDTH and MAX-WIDTH.
@@ -337,8 +344,6 @@ See also `pdf-info-renderpage-text-regions' and
   nil nil t
   (pdf-util-assert-pdf-buffer)
   (pdf-cache--prefetch-cancel)
-  (add-hook 'after-change-major-mode-hook
-            'pdf-cache--prefetch-cancel nil t)            
   (cond
    (pdf-cache-prefetch-minor-mode
     (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
@@ -369,14 +374,15 @@ See also `pdf-info-renderpage-text-regions' and
        (list 1 (pdf-cache-number-of-pages))
        ;; Links
        (mapcar
-        'cadddr
+        'cl-cadddr
         (cl-remove-if-not
          (lambda (link) (eq (cadr link) 'goto-dest))
          (pdf-cache-pagelinks
           (pdf-view-current-page)))))))))
 
 (defun pdf-cache--prefetch-pages (window image-width)
-  (when (eq window (selected-window))
+  (when (and (eq window (selected-window))
+             (pdf-util-pdf-buffer-p))
     (let ((page (pop pdf-cache--prefetch-pages)))
       (while (and page
                   (pdf-cache-lookup-image
@@ -386,9 +392,9 @@ See also `pdf-info-renderpage-text-regions' and
                        image-width
                      (* 2 image-width))))
         (setq page (pop pdf-cache--prefetch-pages)))
-      (when (null page)
-        ;; (pdf-tools-debug "Prefetching done.")
-        )
+      (pdf-util-debug
+        (when (null page)
+          (message  "Prefetching done.")))
       (when page
         (let ((pdf-info-asynchronous
                (lambda (status data)
@@ -399,7 +405,8 @@ See also `pdf-info-renderpage-text-regions' and
                      (pdf-cache-put-image
                       page image-width data)
                      (image-size (pdf-view-create-page page))
-                     ;; (pdf-tools-debug "Prefetched Page %s." page)
+                     (pdf-util-debug
+                       (message "Prefetched page %s." page))
                      ;; Avoid max-lisp-eval-depth
                      (run-with-timer
                          0.001 nil 'pdf-cache--prefetch-pages window image-width))))))
@@ -408,6 +415,7 @@ See also `pdf-info-renderpage-text-regions' and
 (defun pdf-cache--prefetch-start (buffer)
   "Start prefetching images in BUFFER."
   (when (and pdf-cache-prefetch-minor-mode
+             (pdf-util-pdf-buffer-p)
              (not isearch-mode)
              (null pdf-cache--prefetch-pages)
              (eq (window-buffer) buffer)

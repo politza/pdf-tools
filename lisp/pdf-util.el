@@ -109,7 +109,7 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-pixel-edges
    (pdf-view-image-size displayed-p window)
-   (pdf-cache-pagesize)
+   (pdf-cache-pagesize (pdf-view-current-page window))
    rounding-fn))
 
 (defun pdf-util-scale-points-to-pixel (list-of-points-edges
@@ -121,7 +121,7 @@ See also `pdf-util-scale'."
   (pdf-util-assert-pdf-window window)
   (pdf-util-scale-to
    list-of-points-edges
-   (pdf-cache-pagesize)
+   (pdf-cache-pagesize (pdf-view-current-page window))
    (pdf-view-image-size displayed-p window)
    rounding-fn))
 
@@ -135,7 +135,7 @@ See also `pdf-util-scale'."
   (pdf-util-scale-to
    list-of-relative-edges
    '(1.0 . 1.0)
-   (pdf-cache-pagesize)
+   (pdf-cache-pagesize (pdf-view-current-page window))
    rounding-fn))
 
 (defun pdf-util-scale-points-to-relative (list-of-points-edges
@@ -146,7 +146,7 @@ See also `pdf-util-scale'."
   (pdf-util-assert-pdf-window window)
   (pdf-util-scale-to
    list-of-points-edges
-   (pdf-cache-pagesize)
+   (pdf-cache-pagesize (pdf-view-current-page window))
    '(1.0 . 1.0)
    rounding-fn))
 
@@ -435,6 +435,12 @@ See `make-temp-file' for the arguments."
 ;; * Various 
 ;; * ================================================================== *
 
+(defmacro pdf-util-debug (&rest body)
+  "Execute BODY only if debugging is enabled."
+  (declare (indent 0) (debug t))
+  `(when (bound-and-true-p pdf-tools-debug)
+     ,@body))
+
 (defun pdf-util-pdf-buffer-p (&optional buffer)
   (and (or (null buffer)
            (buffer-live-p buffer))
@@ -581,7 +587,7 @@ colors, otherwise light."
 This has the following effect.  Whenever WINDOW, defaulting to
 the selected window, stops displaying the buffer it currently
 displays (e.g., by switching buffers or because it was deleted)
-AWINDOW is deleted also."
+AWINDOW is deleted."
   (unless window (setq window (selected-window)))
   (let ((buffer (window-buffer window))
         (hook (make-symbol "window-attach-hook")))
@@ -900,7 +906,7 @@ Return the event position object."
        'pdf-util-image-map-mouse-event-proxy))))
 
 (defmacro pdf-util-do-events (event-resolution-unread-p condition &rest body)
-  "Read EVENTs tracking mouse while CONDITION executing BODY.
+  "Read EVENTs while CONDITION executing BODY.
 
 Process at most 1/RESOLUTION events per second.  If UNREAD-p is
 non-nil, unread the final non-processed event.
@@ -940,13 +946,23 @@ non-nil, unread the final non-processed event.
                  (append unread-command-events
                          (list ,event))))))))
 
-(defmacro pdf-util-track-mouse-dragging (event-resolution condition &rest body)
-  (declare (indent 2) (debug ((symbolp) form body)))
+(defmacro pdf-util-track-mouse-dragging (event-resolution &rest body)
+  "Read mouse movement events executing BODY.
+
+See also `pdf-util-do-events'.
+
+This macro should be used inside a command bound to a down-mouse
+event.  It evaluates to t, if at least one event was processed in
+BODY, otherwise nil.  In the latter case, the only event (usually
+a mouse click event) is unread.
+
+\(FN (EVENT RESOLUTION) CONDITION &rest BODY\)"
+  (declare (indent 1) (debug ((symbolp form) body)))
   (let ((ran-once-p (make-symbol "ran-once-p")))
     `(let (,ran-once-p)
        (track-mouse
          (pdf-util-do-events (,@event-resolution t)
-             ,condition
+             (mouse-movement-p ,(car event-resolution))
            (setq ,ran-once-p t)
            ,@body))
        (when (and ,ran-once-p

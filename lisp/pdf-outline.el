@@ -420,7 +420,6 @@ Then quit the outline window."
   
 
 ;;;###autoload
-;; FIXME: Use existing menu entry ?
 (defun pdf-outline-imenu-enable ()
   "Enable imenu in the current PDF buffer."
   (interactive)

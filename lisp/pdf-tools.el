@@ -20,46 +20,8 @@
 
 ;;; Commentary:
 ;;
-;; * Installation:
-;;
-;; Assuming the epdfinfo server build correctly, a Emacs package was
-;; created and installed.
-;;
-;; Put (pdf-tools-install) in your .emacs, that's it.
-;;
-;; * Usage (in a nutshell):
-;;
-;; + Isearch
-;;
-;; Press C-s to enter isearch, try it.  While in isearch mode, C-v and
-;; C-M-v turn pages, C-b enters batch mode (try it), C-d enters dark
-;; mode (try it).
-;;
-;; + Outline
-;;
-;; Press o to enter the outline buffer, assuming the PDF has one.  Or
-;; use the menu-bar item 'PDF Outline', the tool bar or the imenu
-;; command.
-;;
-;; + Links and the History
-;;
-;; After DocView has converted the document, you should start to see
-;; links underlined by some red pixel. (This is purely a visual cue.)
-;; Click on such a link to activate it, or press f and select it by
-;; the keyboard.  Then press B to return to the original page and N to
-;; again move to the page of the just followed link.
-;; 
-;; + Miscellanous
-;;
-;; Drag the mouse over a region, this kills the selected text.  Press
-;; C-w to copy the whole page.  M-s o invokes pdf-occur (but no
-;; regexp). I displays some metainformation about the document, s p
-;; and s w optimize the display to the page, respectively
-;; window-width. C-c C-d enters dark mode, which influences the color
-;; choices made (but not retroactively).
-;; 
+;; See README.org
 
-(require 'doc-view)
 (require 'pdf-util)
 (require 'cus-edit)
 
@@ -91,11 +53,10 @@ In order to customize dark and light colors use
     pdf-outline-minor-mode
     pdf-misc-size-indication-minor-mode
     pdf-misc-menu-bar-minor-mode
-    pdf-misc-tool-bar-minor-mode
     pdf-annot-minor-mode
     pdf-sync-minor-mode
     pdf-misc-context-menu-minor-mode
-    pdf-info-auto-revert-minor-mode))
+    pdf-cache-prefetch-minor-mode))
     
 (defcustom pdf-tools-enabled-modes pdf-tools-modes 
   "A list of automatically enabled minor-modes.
@@ -114,6 +75,12 @@ PDF buffers."
   :group 'pdf-tools
   :type 'hook)
 
+(defcustom pdf-tools-auto-mode-alist-entry
+  '("\\.[pP][dD][fF]\\'" . pdf-view-mode)
+  "The entry to use for `auto-mode-alist'."
+  :group 'pdf-tools
+  :type '(cons regexp (const pdf-view-mode)))
+  
 (defun pdf-tools-customize ()
   "Customize Pdf Tools."
   (interactive)
@@ -149,59 +116,55 @@ PDF buffers."
   (unless (pdf-tools-pdf-buffer-p buffer)
     (error "Buffer does not contain a PDF document")))
   
-(defun pdf-tools-set-modes-enabled (enabled-p &optional modes)
+(defun pdf-tools-set-modes-enabled (enable &optional modes)
   (dolist (m (or modes pdf-tools-enabled-modes))
-    (unless (or (and m enabled-p)
-                (and (not m) (not enabled-p)))
-      (funcall m (if enabled-p 1 -1)))))
+    (let ((enabled-p (and (boundp m)
+                          (symbol-value m))))
+      (unless (or (and enabled-p enable)
+                  (and (not enabled-p) (not enable)))
+        (funcall m (if enable 1 -1))))))
 
 ;;;###autoload
-(defun pdf-tools-enable (&optional modes)
+(defun pdf-tools-enable-minor-modes (&optional modes)
   "Enable MODES in the current buffer.
 
 MODES defaults to `pdf-tools-enabled-modes'."
   (interactive)
-  (pdf-tools-assert-pdf-buffer)
+  (pdf-util-assert-pdf-buffer)
   (pdf-tools-set-modes-enabled t modes)
   (run-hooks 'pdf-tools-enabled-hook))
 
-(defun pdf-tools-disable (&optional modes)
+(defun pdf-tools-disable-minor-modes (&optional modes)
   "Disable MODES in the current buffer.
 
 MODES defaults to `pdf-tools-enabled-modes'."
   (interactive)
   (pdf-tools-set-modes-enabled nil modes))
 
-(defun pdf-tools-enable-maybe (&optional modes)
-  "Maybe enable MODES in the current buffer.
-
-MODES defaults to `pdf-tools-enabled-modes'.
-
-Does nothing, if current buffer is not in DocViewPDF Mode."
-  (interactive)
-  (when (pdf-tools-pdf-buffer-p)
-    (pdf-tools-enable modes)))
-
 ;;;###autoload
 (defun pdf-tools-install ()
   "Install PDF-Tools in all current and future PDF buffers.
 
-See `pdf-tools-enabled-modes'."
+See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
+  (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
+  (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
     (with-current-buffer buf
-      (when (pdf-util-pdf-buffer-p buf)
-        (pdf-tools-enable))))
-  (add-hook 'doc-view-mode-hook 'pdf-tools-enable-maybe))
+      (when (pdf-tools-pdf-buffer-p)
+        (pdf-view-mode)))))
 
 (defun pdf-tools-uninstall ()
   "Uninstall PDF-Tools in all current and future PDF buffers."
   (interactive)
+  (setq-default auto-mode-alist
+    (remove pdf-tools-auto-mode-alist-entry auto-mode-alist))
+  (remove-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
     (with-current-buffer buf
       (when (pdf-util-pdf-buffer-p buf)
-        (pdf-tools-disable pdf-tools-modes))))
-  (remove-hook 'doc-view-mode-hook 'pdf-tools-enable-maybe))
+        (pdf-tools-disable-minor-modes pdf-tools-modes)
+        (normal-mode)))))
 
 ;;;###autoload
 (defun pdf-tools-help ()
@@ -230,11 +193,6 @@ See `pdf-tools-enabled-modes'."
   (setq pdf-tools-debug (not pdf-tools-debug))
   (when (called-interactively-p 'any)
     (message "Toggled debugging %s" (if pdf-tools-debug "on" "off"))))
-
-(defun pdf-tools-debug (fmt &rest args)
-  "If debugging like `message' with a DEBUG prefix, else does nothing."
-  (when pdf-tools-debug
-    (apply 'message (concat "DEBUG:" fmt) args)))
 
 (provide 'pdf-tools)
 

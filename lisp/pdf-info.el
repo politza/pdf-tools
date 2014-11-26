@@ -86,7 +86,10 @@ will be logged to the buffer \"*pdf-info-log*\"."
 This should be one of
 nil -- do nothing,
 t   -- automatically restart it or
-ask -- ask whether to restart or not."
+ask -- ask whether to restart or not.
+
+If it is `ask', ther servers and you answer no, this variable is
+set to nil."
   :group 'pdf-info
   :type '(choice (const :tag "Do nothing" nil)
                  (const :tag "Restart silently" t)
@@ -181,6 +184,8 @@ error."
                 (and pdf-info-restart-process-p
                      (not (eq pdf-info-restart-process-p 'ask))))
       
+      (when (eq pdf-info-restart-process-p 'ask)
+        (setq pdf-info-restart-process-p nil))
       (error "The epdfinfo server quit"))
     (unless (and pdf-info-epdfinfo-program
                  (file-executable-p pdf-info-epdfinfo-program))
@@ -188,9 +193,7 @@ error."
              pdf-info-epdfinfo-program))
     (let* ((process-connection-type)    ;Avoid 4096 Byte bug #12440.
            (proc (start-process
-                  "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program
-                  ;; FIXME: Hardcoded filename.
-                  "/tmp/epdfinfo.log")))
+                  "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
       (with-current-buffer " *epdfinfo*"
         (erase-buffer))
       (set-process-query-on-exit-flag proc nil)
@@ -282,9 +285,11 @@ error."
 (defun pdf-info-query--escape (arg)
   "Escape ARG for transmision to the server."
   (if (null arg)
-      ""
-    (with-temp-buffer
-      (save-excursion (insert (format "%s" arg)))
+      (string)
+    (with-current-buffer (get-buffer-create " *pdf-info-query--escape*")
+      (erase-buffer)
+      (insert (format "%s" arg))
+      (goto-char 1)
       (while (not (eobp))
         (cond
          ((memq (char-after) '(?\\ ?:))
@@ -294,8 +299,28 @@ error."
           (insert ?\\ ?n)
           (backward-char)))
         (forward-char))
-      (buffer-string))))
+      (buffer-substring-no-properties 1 (point-max)))))
   
+(defmacro pdf-info-query--read-record ()
+  "Read a single record of the response in current buffer."
+  `(let (records done (beg (point)))
+     (while (not done)
+       (cl-case (char-after)
+         (?\\
+          (delete-char 1)
+          (if (not (eq (char-after) ?n))
+              (forward-char)
+            (delete-char 1)
+            (insert ?\n)))
+         ((?: ?\n)
+          (push (buffer-substring-no-properties
+                 beg (point)) records)
+          (forward-char)
+          (setq beg (point)
+                done (bolp)))
+         (t (forward-char))))
+     (nreverse records)))
+
 (defun pdf-info-query--parse-response (cmd response)
   "Parse one epdfinfo RESPONSE to CMD.
 
@@ -303,8 +328,11 @@ Returns a cons \(STATUS . RESULT\), where STATUS is one of nil
 for a regular response, error for an error \(RESULT contains the
 error message\) or interrupted, i.e. the command was
 interrupted."
-  (with-temp-buffer
-    (save-excursion (insert response))
+  (with-current-buffer
+      (get-buffer-create " *pdf-info-query--parse-response*")
+    (erase-buffer)
+    (insert response)
+    (goto-char 1)
     (cond
      ((looking-at "ERR\n")
       (forward-line)
@@ -316,7 +344,8 @@ interrupted."
      ((looking-at "OK\n")
       (let (result)
         (forward-line)
-        (while (not (looking-at "^\\.\n"))
+        (while (not (and (= (char-after) ?.)
+                         (= (char-after (1+ (point))) ?\n)))
           (push (pdf-info-query--read-record) result))
         (cons nil (pdf-info-query--transform-response
                    cmd (nreverse result)))))
@@ -324,26 +353,6 @@ interrupted."
       (cons 'interrupted nil))
      (t
       (cons 'error "Invalid server response")))))
-
-(defun pdf-info-query--read-record ()
-  "Read a single record of the response in current buffer."
-  (let (records done (beg (point)))
-    (while (not done)
-      (cl-case (char-after)
-        (?\\
-         (delete-char 1)
-         (if (not (eq (char-after) ?n))
-             (forward-char)
-           (delete-char 1)
-           (insert ?\n)))
-        ((?: ?\n)
-         (push (buffer-substring-no-properties
-                beg (point)) records)
-         (forward-char)
-         (setq beg (point)
-               done (bolp)))
-        (t (forward-char))))
-    (nreverse records)))
 
 (defun pdf-info-query--transform-response (cmd response)
   "Transform a RESPONSE to CMD into a Lisp form."
@@ -429,7 +438,7 @@ interrupted."
 
 (defun pdf-info-query--transform-action (action)
   "Transform ACTION response into a Lisp form."
-(let ((type (intern (pop action))))
+  (let ((type (intern (pop action))))
     (cons type
           (cons (pop action)
                 (cl-case type
@@ -585,14 +594,17 @@ or a PDF file."
 
 (defun pdf-info-valid-page-spec-p (pages)
   "The type predicate for a valid page-spec."
-  (not (not (ignore-errors (pdf-info-normalize-pages pages)))))
+  (not (not (ignore-errors (pdf-info-normalize-page-range pages)))))
 
-(defun pdf-info-normalize-pages (pages)
+(defun pdf-info-normalize-page-range (pages)
   "Normalize PAGES for sending to the server.
 
 PAGES may be a single page number, a cons \(FIRST . LAST\), a
 cons \(FIRST . t\), which represents all pages from FIRST to the
-end of the document or nil, which stands for all pages."
+end of the document or nil, which stands for all pages.
+
+The result is a cons \(FIRST . LAST\), where LAST may be 0
+representing the final page."
   (cond
    ((null pages)
     (cons 1 0))
@@ -602,10 +614,12 @@ end of the document or nil, which stands for all pages."
     (cond
      ((null (cdr pages))
       (cons (car pages) (car pages)))
-     ((eq (cdr pages) t)
-      (cons (car pages) 0))
+     ((eq (cdr pages) 0)
+      pages)
      ((natnump (cdr pages))
-      pages)))
+      pages)
+     (t (signal 'wrong-type-argument
+                (list 'pdf-info-valid-page-spec-p pages)))))
    (t
     (signal 'wrong-type-argument
             (list 'pdf-info-valid-page-spec-p pages)))))
@@ -715,7 +729,7 @@ document."
 (defun pdf-info-search (string &optional file-or-buffer pages)
   "Search for STRING in PAGES of docüment FILE-OR-BUFFER.
 
-See `pdf-info-normalize-pages' for valid PAGES formats.
+See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
@@ -724,7 +738,7 @@ coordinates of the match as a list of four values \(LEFT TOP
 RIGHT BOTTOM\). TEXT is the matched text and may be empty, if
 extracting text is not available in the server."
 
-  (let ((pages (pdf-info-normalize-pages pages)))
+  (let ((pages (pdf-info-normalize-page-range pages)))
     (pdf-info-query
      'search
      (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -735,8 +749,6 @@ extracting text is not available in the server."
 
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
-
-See `pdf-info-normalize-pages' for valid PAGES formats.
 
 This function returns a list \(\(EDGES . ACTION\) ... \), where
 EDGES has the same form as in `pdf-info-search'.  ACTION
@@ -851,7 +863,7 @@ The size is in pixel."
 (defun pdf-info-getannots (&optional pages file-or-buffer)
   "Return the annotations on PAGE.
 
-See `pdf-info-normalize-pages' for valid PAGES formats.
+See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns the annotations for PAGES as a list of
 alists.  Each element of this list describes one annotation and
@@ -882,7 +894,7 @@ contains the following keys.
 text-icon  - A string describing the purpose of this annotation.
 text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
   
-  (let ((pages (pdf-info-normalize-pages pages)))
+  (let ((pages (pdf-info-normalize-page-range pages)))
     (pdf-info-query
      'getannots
      (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -903,7 +915,7 @@ function."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    id))
 
-(defun pdf-info-addannot (page edges &optional type file-or-buffer &rest markup-edges)
+(defun pdf-info-addannot (page edges type &optional file-or-buffer &rest markup-edges)
   "Add a new annotation to PAGE with EDGES of TYPE.
 
 FIXME: TYPE may be one of `text', `markup-highlight', ... .
