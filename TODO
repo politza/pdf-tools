@@ -7,3 +7,7 @@
    input-methods, while editing the search string.
 * PDF Forms
   Recent poppler versions have some support for editing forms.
+* pdf-annot
+** Updating the list buffer is too slow
+   + Update it incrementally.
+   + Possibly skip the update if the buffer is not visible. 
