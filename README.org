@@ -75,12 +75,12 @@
     the following table for what they are and what version they
     require.
 
-    | You want to ...                                 | Required version |
-    |-------------------------------------------------+------------------|
-    | ... modify text annotations.                    | \ge 0.19.4       |
-    | ... search case-sensitive.                      | \ge 0.22         |
-    | ... create markup (e.g. underline) annotations. | \ge 0.26         |
-    |-------------------------------------------------+------------------|
+    | You want to ...                           | Required version |
+    |-------------------------------------------+------------------|
+    | ... create and modify text annotations.   | \ge 0.19.4       |
+    | ... search case-sensitive.                | \ge 0.22         |
+    | ... create and modify markup annotations. | \ge 0.26         |
+    |-------------------------------------------+------------------|
 
     In case you decide to install libpoppler from source, make shure
     to run it's configure script with the ~--enable-xpdf-headers~
