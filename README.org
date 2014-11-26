@@ -54,8 +54,8 @@
     The following instructions assume a Debian-based system.  
 
     First make shure a suitable build-system is installed.  We need at
-    least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~ and
-    ~automake~.
+    least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~, ~automake~
+    and ~autoconf~.
 
     Next we need to install a few libraries PDF Tools depends on, some
     of which are probably already on your system.
