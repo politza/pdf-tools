@@ -22,6 +22,7 @@
 ;;
 ;; See README.org
 
+(require 'pdf-view)
 (require 'pdf-util)
 (require 'cus-edit)
 

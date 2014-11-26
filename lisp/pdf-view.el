@@ -26,6 +26,7 @@
 (require 'image-mode)
 (require 'pdf-util)
 (require 'pdf-info)
+(require 'pdf-cache)
 (require 'jka-compr)
 
 

@@ -35,7 +35,7 @@
 (declare-function pdf-view-image-offset "pdf-view")
 (declare-function pdf-view-current-image "pdf-view")
 (declare-function pdf-view-current-overlay "pdf-view")
-
+(declare-function pdf-cache-pagesize "pdf-cache")
 
 ;; * ================================================================== *
 ;; * Transforming coordinates 
