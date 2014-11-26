@@ -53,6 +53,7 @@
 (require 'tabulated-list)
 (require 'dired)
 (require 'tablist-filter)
+(require 'pdf-util)
 
 ;;
 ;; *Mode Maps
@@ -284,18 +285,28 @@ as argument for the function `completion-in-region'.")
          'tablist-selection-changed-functions
          tablist-selected-id)))))
 
+(defvar tablist-context-window-update--timer nil)
+  
 (defun tablist-context-window-update (&optional id)
   (when (and tablist-context-window-function
              (window-live-p tablist-context-window)
              (not tablist-edit-column-minor-mode))
     (unless id
       (setq id (tabulated-list-get-id)))
-    (let ((fn tablist-context-window-function))
-      (with-selected-window tablist-context-window
-        (set-window-dedicated-p nil nil)
-        (save-selected-window (funcall fn id))
-        (when (window-live-p (selected-window))
-          (set-window-dedicated-p nil t))))))
+    (when (timerp tablist-context-window-update--timer)
+      (cancel-timer tablist-context-window-update--timer))
+    (setq tablist-context-window-update--timer
+          (run-with-idle-timer 0.1 nil
+            (lambda (fn window)
+              (when (window-live-p window)
+                (with-selected-window window
+                  (set-window-dedicated-p nil nil)
+                  (save-selected-window
+                    (funcall fn id))
+                  (when (window-live-p (selected-window))
+                    (set-window-dedicated-p nil t)))))
+            tablist-context-window-function
+            tablist-context-window))))
 
 (defun tablist-display-context-window ()
   (interactive)
@@ -317,6 +328,13 @@ as argument for the function `completion-in-region'.")
       (delete-window tablist-context-window)))
   (setq tablist-context-window nil))
 
+(defun tablist-toggle-context-window ()
+  (interactive)
+  (if (window-live-p tablist-context-window)
+      (tablist-hide-context-window)
+    (tablist-display-context-window)))
+  
+  
 ;;
 ;; *Marking
 ;;
@@ -1599,10 +1617,10 @@ FILTER defaults to `tablist-current-filter'."
            `(and ,x1 ,x2))
           (`(and ,x1 ,x2)
            `(or ,x1 ,x2))
-          (else else)))
+          (`(not ,x) x)
+          (x `(not ,x))))
   (tablist-apply-filter)
-  (when (called-interactively-p 'any)
-    (tablist-display-filter-temporarily)))
+  (tablist-display-filter-temporarily))
 
 (defun tablist-suspend-filter (&optional flag)
   "Temporarily disable filtering according to FLAG.

@@ -21,15 +21,20 @@
 ;;; Commentary:
 ;; 
 
-(require 'doc-view)
+(require 'pdf-view)
 (require 'pdf-util)
 
 ;;; Code:
 
+(defgroup pdf-history nil
+  "A simple stack-based history."
+  :group 'pdf-tools)
+
 (defvar-local pdf-history-stack nil
   "The stack of history items.")
+
 (defvar-local pdf-history-index nil
-  "The current index into ther `pdf-history-stack'.")
+  "The current index into the `pdf-history-stack'.")
 
 (defvar pdf-history-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
@@ -53,16 +58,16 @@ may be naviagted with the following keys.
   (cond
    (pdf-history-minor-mode
     (pdf-history-push)
-    (add-hook 'pdf-util-after-change-page-hook
-              'pdf-history-after-change-page-hook nil t))
+    (add-hook 'pdf-view-after-change-page-hook
+              'pdf-history-before-change-page-hook nil t))
    (t
-    (remove-hook 'pdf-util-after-change-page-hook
-                 'pdf-history-after-change-page-hook t))))
+    (remove-hook 'pdf-view-after-change-page-hook
+                 'pdf-history-before-change-page-hook t))))
 
-(defun pdf-history-after-change-page-hook ()
+(defun pdf-history-before-change-page-hook ()
   "Push a history item, before leaving this page."
   (when (and pdf-history-minor-mode
-             (doc-view-current-page))
+             (pdf-view-current-page))
     (pdf-history-push)))
 
 (defun pdf-history-push ()
@@ -86,12 +91,13 @@ represents the current page."
   "Remove all history items."
   (interactive)
   (setq pdf-history-stack nil
-        pdf-history-index 0))
+        pdf-history-index 0)
+  (pdf-history-push))
 
 (defun pdf-history-create-item ()
   "Create a history item representing the current page."
   (list
-   (doc-view-current-page)))
+   (pdf-view-current-page)))
 
 (defun pdf-history-beginning-of-history-p ()
   "Return t, if at the beginning of the history."
@@ -137,7 +143,7 @@ represents the current page."
     (error "Beginning of history"))
    (t
     (setq pdf-history-index n)
-    (doc-view-goto-page
+    (pdf-view-goto-page
      (car (nth n pdf-history-stack))))))
 
 (defun pdf-history-debug ()

@@ -22,151 +22,208 @@
 ;;
 ;;; Todo:
 ;; 
-;; * Handle remote and locally cached documents.
 
 ;;; Code:
+
 (require 'cl-lib)
-(require 'doc-view)
 (require 'format-spec)
-(require 'gnus-range)
-         
-;; Compatibility aliases for recent renaming in bzr doc-view.el .
-(when (fboundp 'doc-view--current-cache-dir)
-  (defalias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
-  (defvaralias 'doc-view-current-cache-dir 'doc-view--current-cache-dir)
-  (defvaralias 'doc-view-current-converter-processes 'doc-view--current-converter-processes)
-  (defvaralias 'doc-view-buffer-file-name 'doc-view--buffer-file-name))
+(require 'faces)
 
-(eval-when-compile
-  (declare-function doc-view-current-cache-dir "pdf-util.el" nil t)
-  (defvar doc-view-buffer-file-name)
-  (defvar doc-view-current-converter-processes)
-  (defvar doc-view-buffer-file-name))
+;; These functions are only used after a PdfView window was asserted,
+;; which won't succeed, if pdf-view.el isn't loaded.
+(declare-function pdf-view-image-size "pdf-view")
+(declare-function pdf-view-image-offset "pdf-view")
+(declare-function pdf-view-current-image "pdf-view")
+(declare-function pdf-view-current-overlay "pdf-view")
 
-;;
-;; Variables
-;;
+
+;; * ================================================================== *
+;; * Transforming coordinates 
+;; * ================================================================== *
 
-(defvar pdf-util-convert-program (executable-find "convert"))
 
-(defvar-local pdf-util-png-image-size-alist nil
-  "Alist of cached png image sizes.")
+(defun pdf-util-scale (list-of-edges-or-pos scale &optional rounding-fn)
+  "Scale LIST-OF-EDGES-OR-POS by SCALE.
 
-(defvar pdf-util-after-change-page-hook nil
-  "A hook ran after turning the page.")
+SCALE is a cons (SX . SY), by which edges/positions are scaled.
+If ROUNDING-FN is non-nil, it should be a function of one
+argument, a real value, returning a rounded
+value (e.g. `ceiling').
 
-(defvar pdf-util-after-reconvert-hook nil
-  "A hook ran after the document was reconverted.")
+The elements in LIST-OF-EDGES-OR-POS should be either a list
+\(LEFT TOP RIGHT BOT\) or a position \(X . Y\).
 
-;;
-;; Doc View Buffers
-;; 
+LIST-OF-EDGES-OR-POS may also be a single such element.
 
-(defun pdf-util-docview-buffer-p (&optional buffer)
-  (and (or (null buffer)
-           (buffer-live-p buffer))
-       (save-current-buffer
-         (and buffer (set-buffer buffer))
-         (derived-mode-p 'doc-view-mode))))
+Return scaled list of edges if LIST-OF-EDGES-OR-POS was indeed a list,
+else return the scaled singleton."
 
-(defun pdf-util-assert-docview-buffer ()
-  (unless (pdf-util-docview-buffer-p)
-    (error "Buffer is not in DocView mode")))
+  (let ((have-list-p (listp (car list-of-edges-or-pos))))
+    (unless have-list-p
+      (setq list-of-edges-or-pos (list list-of-edges-or-pos)))
+    (let* ((sx (car scale))
+           (sy (cdr scale))
+           (result
+            (mapcar
+             (lambda (edges)
+               (cond
+                ((consp (cdr edges))
+                 (let ((e (list (* (nth 0 edges) sx)
+                                (* (nth 1 edges) sy)
+                                (* (nth 2 edges) sx)
+                                (* (nth 3 edges) sy))))
+                   (if rounding-fn
+                       (mapcar rounding-fn e)
+                     e)))
+                (rounding-fn
+                 (cons (funcall rounding-fn (* (car edges) sx))
+                       (funcall rounding-fn (* (cdr edges) sy))))
+                (t
+                 (cons (* (car edges) sx)
+                       (* (cdr edges) sy)))))
+             list-of-edges-or-pos)))
+      (if have-list-p
+          result
+        (car result)))))
 
-(defun pdf-util-pdf-buffer-p (&optional buffer)
-  (and (or (null buffer)
-           (buffer-live-p buffer))
-       (save-current-buffer
-         (and buffer (set-buffer buffer))
-         (and (derived-mode-p 'doc-view-mode)
-              (eq 'pdf doc-view-doc-type)))))
+(defun pdf-util-scale-to (list-of-edges from to &optional rounding-fn)
+  "Scale LIST-OF-EDGES in FROM basis to TO.
 
-(defun pdf-util-assert-pdf-buffer (&optional buffer)
-  (unless (pdf-util-pdf-buffer-p buffer)
-    (error "Buffer is not in DocView PDF mode")))
+FROM and TO should both be a cons \(WIDTH . HEIGTH\).  See also
+`pdf-util-scale'."
 
-(defun pdf-util-docview-window-p (&optional window)
-  (save-selected-window
-    (and window (select-window window))
-    (pdf-util-docview-buffer-p)))
+  (pdf-util-scale list-of-edges
+                  (cons (/ (float (car to))
+                           (float (car from)))
+                        (/ (float (cdr to))
+                           (float (cdr from))))
+                  rounding-fn))
 
-(defun pdf-util-assert-docview-window (&optional window)
-  (unless (pdf-util-docview-window-p window)
-    (error "Window's buffer is not in DocView mode")))
+(defun pdf-util-scale-pixel-to-points (list-of-pixel-edges
+                                       &optional rounding-fn displayed-p window)
+  "Scale LIST-OF-PIXEL-EDGES to point values.
 
-(defun pdf-util-pdf-window-p (&optional window)
-  (save-selected-window
-    (and window (select-window window))
-    (pdf-util-pdf-buffer-p)))
-  
-(defun pdf-util-assert-pdf-window (&optional window)
-  (unless (pdf-util-pdf-window-p window)
-    (error "Window's buffer is not in DocView PDF mode")))
+The result depends on the currently displayed page in WINDOW.
+See also `pdf-util-scale'."
+  (pdf-util-assert-pdf-window window)
+  (pdf-util-scale-to
+   list-of-pixel-edges
+   (pdf-view-image-size displayed-p window)
+   (pdf-cache-pagesize (pdf-view-current-page window))
+   rounding-fn))
 
-(defun pdf-util-doc-view-windows (&optional buffer)
-  (unless buffer (setq buffer (current-buffer)))
-  (with-current-buffer buffer
-    (pdf-util-assert-docview-buffer))
-  (let (windows)
-    (walk-windows
-     (lambda (win)
-       (with-selected-window win
-         (when (eq (current-buffer) buffer)
-           (push win windows))))
-     'no-mini t)
-    windows))
+(defun pdf-util-scale-points-to-pixel (list-of-points-edges
+                                       &optional rounding-fn displayed-p window)
+  "Scale LIST-OF-POINTS-EDGES to point values.
 
-(defadvice doc-view-goto-page (around pdf-util activate)
-  "Run `pdf-util-after-change-page-hook'."
-  (let ((pdf-util-current-page (doc-view-current-page)))
-    ad-do-it
-    ;; Delete the annoying tooltip ,,Page x of y''.
-    (let ((ov (doc-view-current-overlay)))
-      (when (and ov (stringp (overlay-get ov 'help-echo)))
-        (overlay-put ov 'help-echo nil)))
-    (unless (eq pdf-util-current-page
-                (doc-view-current-page))
-      (run-hooks 'pdf-util-after-change-page-hook))))
+The result depends on the currently displayed page in WINDOW.
+See also `pdf-util-scale'."
+  (pdf-util-assert-pdf-window window)
+  (pdf-util-scale-to
+   list-of-points-edges
+   (pdf-cache-pagesize (pdf-view-current-page window))
+   (pdf-view-image-size displayed-p window)
+   rounding-fn))
 
-(defadvice doc-view-reconvert-doc (after pdf-links activate)
-  (run-hooks 'pdf-util-after-reconvert-hook))
+(defun pdf-util-scale-relative-to-points (list-of-relative-edges
+                                          &optional rounding-fn window)
+  "Scale LIST-OF-RELATIVE-EDGES to point values.
 
-;; 
+The result depends on the currently displayed page in WINDOW.
+See also `pdf-util-scale'."
+  (pdf-util-assert-pdf-window window)
+  (pdf-util-scale-to
+   list-of-relative-edges
+   '(1.0 . 1.0)
+   (pdf-cache-pagesize (pdf-view-current-page window))
+   rounding-fn))
 
-;;
-;; 
+(defun pdf-util-scale-points-to-relative (list-of-points-edges
+                                          &optional rounding-fn window)
+  "Scale LIST-OF-POINTS-EDGES to relative values.
 
-(defun pdf-util-assert-derived-mode (&rest modes)
-  (unless (apply 'derived-mode-p modes)
-    (error "Buffer is not derived from %s"
-           (concat (mapconcat 'symbol-name (butlast modes) ", ")
-                   (if (cdr modes) " or ")
-                   (symbol-name (car (last modes)))))))
+See also `pdf-util-scale'."
+  (pdf-util-assert-pdf-window window)
+  (pdf-util-scale-to
+   list-of-points-edges
+   (pdf-cache-pagesize (pdf-view-current-page window))
+   '(1.0 . 1.0)
+   rounding-fn))
 
-(defun pdf-util-page-displayed-p ()
-  (consp (ignore-errors
-           (doc-view-current-image))))
+(defun pdf-util-scale-pixel-to-relative (list-of-pixel-edges
+                                         &optional rounding-fn displayed-p window)
+  "Scale LIST-OF-PIXEL-EDGES to relative values.
 
-(defun pdf-util-page-displayable-p (&optional page)
-  (unless page (setq page (doc-view-current-page)))
-  (file-readable-p
-   (expand-file-name
-    (format "page-%d.png" page)
-    (doc-view-current-cache-dir))))
-  
+The result depends on the currently displayed page in WINDOW.
+See also `pdf-util-scale'."
+  (pdf-util-assert-pdf-window window)
+  (pdf-util-scale-to
+   list-of-pixel-edges
+   (pdf-view-image-size displayed-p window)
+   '(1.0 . 1.0)
+   rounding-fn))
 
-(defun pdf-util-current-image-file (&optional page)
-  (expand-file-name (format "page-%d.png"
-                            (or page (doc-view-current-page)))
-                    (doc-view-current-cache-dir)))
-;;
-;; Handling Edges
-;; 
+
+(defun pdf-util-scale-relative-to-pixel (list-of-relative-edges
+                                         &optional rounding-fn displayed-p window)
+  "Scale LIST-OF-EDGES to match SIZE.
+
+The result depends on the currently displayed page in WINDOW.
+See also `pdf-util-scale'."
+  (pdf-util-assert-pdf-window window)
+  (pdf-util-scale-to
+   list-of-relative-edges
+   '(1.0 . 1.0)
+   (pdf-view-image-size displayed-p window)
+   rounding-fn))
+
+(defun pdf-util-translate (list-of-edges-or-pos
+                           offset &optional opposite-direction-p)
+  "Translate LIST-OF-EDGES-OR-POS by OFFSET
+
+OFFSET should be a cons \(X . Y\), by which to translate
+LIST-OF-EDGES-OR-POS.  If OPPOSITE-DIRECTION-P is non-nil
+translate by \(-X . -Y\).
+
+See `pdf-util-scale' for the LIST-OF-EDGES-OR-POS argument."
+
+  (let ((have-list-p (listp (car list-of-edges-or-pos))))
+    (unless have-list-p
+      (setq list-of-edges-or-pos (list list-of-edges-or-pos)))
+    (let* ((ox (if opposite-direction-p
+                   (- (car offset))
+                 (car offset)))
+           (oy (if opposite-direction-p
+                   (- (cdr offset))
+                 (cdr offset)))
+           (result
+            (mapcar
+             (lambda (edges)
+               (cond
+                ((consp (cdr edges))
+                 (list (+ (nth 0 edges) ox)
+                       (+ (nth 1 edges) oy)
+                       (+ (nth 2 edges) ox)
+                       (+ (nth 3 edges) oy)))
+                (t
+                 (cons (+ (car edges) ox)
+                       (+ (cdr edges) oy)))))
+             list-of-edges-or-pos)))
+      (if have-list-p
+          result
+        (car result)))))
 
 (defmacro pdf-util-with-edges (list-of-edges &rest body)
+  "Provide some convenient macros for the edges in LIST-OF-EDGES.
+
+LIST-OF-EDGES should be a list of variables \(X ...\), each one
+holding a list of edges. Inside BODY the symbols X-left, X-top,
+X-right, X-bot, X-width and X-height expand to their respective
+values."
+
   (declare (indent 1) (debug (sexp &rest form)))
   (unless (cl-every 'symbolp list-of-edges)
-    (signal 'wrong-type-argument (list 'symbolp list-of-edges)))
+    (error "Argument should be a list of symbols"))
   (let ((list-of-syms
          (mapcar (lambda (edge)
                    (cons edge (mapcar
@@ -174,208 +231,37 @@
                                  (intern (format "%s-%s" edge kind)))
                                '(left top right bot width height))))
                  list-of-edges)))
-    (let ((lisp (macroexpand-all
-                 `(cl-symbol-macrolet
-                      ,(apply 'nconc
-                              (mapcar
-                               (lambda (edge-syms)
-                                 (let ((edge (nth 0 edge-syms))
-                                       (syms (cdr edge-syms)))
-                                   `((,(pop syms) (nth 0 ,edge))
-                                     (,(pop syms) (nth 1 ,edge))
-                                     (,(pop syms) (nth 2 ,edge))
-                                     (,(pop syms) (nth 3 ,edge))
-                                     (,(pop syms) (- (nth 2 ,edge)
-                                                     (nth 0 ,edge)))
-                                     (,(pop syms) (- (nth 3 ,edge)
-                                                     (nth 1 ,edge))))))
-                               list-of-syms))
-                    ,@body))))
-      ;; get rid of silly nested (progn (progn ...
-      (while (eq 'progn (car-safe (nth 1 lisp)))
-        (setq lisp (nth 1 lisp)))
-      lisp)))
+    (macroexpand-all
+     `(cl-symbol-macrolet
+          ,(apply 'nconc
+                  (mapcar
+                   (lambda (edge-syms)
+                     (let ((edge (nth 0 edge-syms))
+                           (syms (cdr edge-syms)))
+                       `((,(pop syms) (nth 0 ,edge))
+                         (,(pop syms) (nth 1 ,edge))
+                         (,(pop syms) (nth 2 ,edge))
+                         (,(pop syms) (nth 3 ,edge))
+                         (,(pop syms) (- (nth 2 ,edge)
+                                         (nth 0 ,edge)))
+                         (,(pop syms) (- (nth 3 ,edge)
+                                         (nth 1 ,edge))))))
+                   list-of-syms))
+        ,@body))))
 
-(defun pdf-util-scale-edges (list-of-edges scale)
-  "Scale LIST-OF-EDGES in both directions by SCALE.
+
+;; * ================================================================== *
+;; * Scrolling
+;; * ================================================================== *
 
-SCALE is a cons (SX . SY), by which edges are scaled and defaults
-to the scale of the image in the current window."
+(defun pdf-util-image-displayed-edges (&optional window)
+  "Return the visible region of the image in WINDOW.
 
-  (let ((have-list-p (listp (car list-of-edges))))
-    (unless have-list-p
-      (setq list-of-edges (list list-of-edges)))
-    (let* ((sx (car scale))
-           (sy (cdr scale))
-           (round-p (or (> sx 1) (> sy 1)))
-           (result (mapcar (lambda (edges)
-                             (let ((e (list (* (nth 0 edges) sx)
-                                            (* (nth 1 edges) sy)
-                                            (* (nth 2 edges) sx)
-                                            (* (nth 3 edges) sy))))
-                               (if round-p
-                                   (mapcar 'round e)
-                                 e)))
-                           list-of-edges)))
-      (if have-list-p
-          result
-        (car result)))))
-
-(defun pdf-util-translate-edges (list-of-edges offset &optional inverse-p)
-  (let ((have-list-p (listp (car list-of-edges))))
-    (if (equal offset '(0 . 0))
-        list-of-edges
-      (unless have-list-p
-        (setq list-of-edges (list list-of-edges)))
-      (let* ((ox (if inverse-p
-                     (- (car offset))
-                   (car offset)))
-             (oy (if inverse-p
-                     (- (cdr offset))
-                   (cdr offset)))
-             (result (mapcar (lambda (edges)
-                               (mapcar 'round
-                                       (list (+ (nth 0 edges) ox)
-                                             (+ (nth 1 edges) oy)
-                                             (+ (nth 2 edges) ox)
-                                             (+ (nth 3 edges) oy))))
-                             list-of-edges)))
-        (if have-list-p
-            result
-          (car result))))))
-
-(defun pdf-util-transform-edges (list-of-edges scale offset)
-  (pdf-util-translate-edges
-   (pdf-util-scale-edges list-of-edges scale)
-   offset))
-
-(defun pdf-util-enlarge-edges (list-of-edges dx dy)
-  (let ((have-list-p (listp (car list-of-edges))))
-    (unless have-list-p
-      (setq list-of-edges (list list-of-edges)))
-    (let ((result (mapcar (lambda (edges)
-                            (list (- (nth 0 edges) dx)
-                                  (- (nth 1 edges) dy)
-                                  (+ (nth 2 edges) dx)
-                                  (+ (nth 3 edges) dy)))
-                          list-of-edges)))
-      (if have-list-p
-          result
-        (car result)))))
-
-(defun pdf-utils-edges-inside-p (edges pos &optional epsilon)
-  (pdf-utils-edges-contained-p
-   edges
-   (list (car pos) (cdr pos) (car pos) (cdr pos))
-   epsilon))
-
-(defun pdf-utils-edges-contained-p (edges contained &optional epsilon)
-  (unless epsilon (setq epsilon 0))
-  (pdf-util-with-edges (edges contained)
-    (and (<= (- edges-left epsilon)
-             contained-left)
-         (>= (+ edges-right epsilon)
-             contained-right)
-         (<= (- edges-top epsilon)
-             contained-top)
-         (>= (+ edges-bot epsilon)
-             contained-bot))))
-
-(defun pdf-utils-edges-disjoint-p (edges1 edges2 &optional epsilon)
-  (unless epsilon (setq epsilon 0))
-  (pdf-util-with-edges (edges1 edges2)
-    (or (<= (- edges2-right epsilon)
-            edges1-left)
-        (<= (- edges2-bot epsilon)
-            edges1-top)
-        (>= (+ edges2-left epsilon)
-            edges1-right)
-        (>= (+ edges2-top epsilon)
-            edges1-bot))))
-
-(defun pdf-utils-edges-intersection (e1 e2)
-  (pdf-util-with-edges (edges1 e1 e2)
-    (let ((left (max e1-left e2-left))
-          (top (max e1-top e2-top))
-          (right (min e1-right e2-right))
-          (bot (min e1-bot e2-bot)))
-      (when (and (<= left right)
-                 (<= top bot))
-        (list left top right bot)))))
-
-(defun pdf-utils-edges-intersection-area (e1 e2)
-  (let ((inters (pdf-utils-edges-intersection e1 e2)))
-    (if (null inters)
-        0
-      (pdf-util-with-edges (inters)
-        (* inters-width inters-height)))))
-  
-
-;;
-;; Handling Images In Windows
-;; 
-
-(defcustom pdf-util-fast-image-format nil
-  "An image format appropriate for fast displaying.
-
-This should be the string of a file extension of a supported (by
-Emacs and convert) image format.  If nil, the value is determined
-automatically.
-
-Different formats have different properties, with respect to
-Emacs loading time, convert creation time and the file-size.  In
-general, uncompressed formats are faster, but may need a fair
-amount of (temporary) disk space."
-  :group 'pdf-tools)
-  
-(defun pdf-util-fast-image-format ()
-  "Return an image format appropriate for fast displaying.
-
-This function returns a file extension as a string, without the
-dot."
-  (or pdf-util-fast-image-format
-      (setq pdf-util-fast-image-format
-            (if (fboundp 'imagemagick-types)
-                (cond
-                 ((memq 'BMP2 (imagemagick-types))
-                  "bmp2")
-                 ((memq 'JPEG (imagemagick-types))
-                  "jpeg")
-                 (t
-                  "png"))
-              "png"))))
-  
-(defun pdf-util-image-size (&optional sliced-p)
-  (unless (with-current-buffer (window-buffer)
-            (pdf-util-docview-buffer-p))
-    (error "Selected window's buffer is not in DocView mode"))
-  (if sliced-p
-      (image-display-size (image-get-display-property) t)
-    (image-size (doc-view-current-image) t)))
-
-(defun pdf-util-image-offset ()
-  (let* ((slice (doc-view-current-slice)))
-    (if slice
-        (cons (nth 0 slice) (nth 1 slice))
-      (cons 0 0))))
-
-(defun pdf-util-set-window-pixel-vscroll (vscroll)
-  (setq vscroll (max (round vscroll) 0))
-  (set-window-vscroll (selected-window) vscroll t)
-  (setf (image-mode-window-get 'vscroll) (window-vscroll))
-  nil)
-
-(defun pdf-util-set-window-pixel-hscroll (hscroll)
-  (setq hscroll (max 0 (round (/ hscroll (float (frame-char-width))))))
-  (setf (image-mode-window-get 'hscroll) hscroll)
-  (set-window-hscroll nil hscroll)
-  nil)
-
-(defun pdf-util-image-edges-in-window (&optional window)
-  "Return the visible edges of some image in WINDOW."
+Returns a list of pixel edges."
+  (pdf-util-assert-pdf-window)
   (let* ((edges (window-inside-pixel-edges window))
-         (isize (pdf-util-image-size))
-         (offset (pdf-util-image-offset))
+         (isize (pdf-view-image-size window))
+         (offset (pdf-view-image-offset window))
          (hscroll (* (window-hscroll window)
                      (frame-char-width (window-frame window))))
          (vscroll (window-vscroll window t))
@@ -387,393 +273,234 @@ dot."
                   (+ y0 (- (nth 3 edges) (nth 1 edges))))))
     (list x0 y0 x1 y1)))
 
-
 (defun pdf-util-required-hscroll (edges &optional eager-p context-pixel)
-  (unless context-pixel (setq context-pixel 0;; (frame-char-width)
-                              ))
+  "Return the amount of scrolling nescessary, to make image EDGES visible.
+
+Scroll as little as necessary.  Unless EAGER-P is non-nil, in
+which case scroll as much as possible.
+
+Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
+top of the window.  CONTEXT-PIXEL defaults to 0.
+
+Return the require hscroll in columns or nil, if scrolling is not
+needed."
+
+  (pdf-util-assert-pdf-window)
+  (unless context-pixel
+    (setq context-pixel 0))
   (let* ((win (window-inside-pixel-edges))
-         (image-width (car (pdf-util-image-size t)))
+         (image-width (car (pdf-view-image-size t)))
          (image-left (* (frame-char-width)
                         (window-hscroll)))
-         (edges (pdf-util-translate-edges
+         (edges (pdf-util-translate
                  edges
-                 (pdf-util-image-offset) t)))
+                 (pdf-view-image-offset) t)))
     (pdf-util-with-edges (win edges)
       (let* ((edges-left (- edges-left context-pixel))
              (edges-right (+ edges-right context-pixel)))
         (if (< edges-left image-left)
-            (max 0 (if eager-p
-                       (- edges-right win-width)
-                     edges-left))
+            (/ (max 0 (if eager-p
+                          (- edges-right win-width)
+                        edges-left))
+               (frame-char-width))
           (if (> (min image-width
                       edges-right)
                  (+ image-left win-width))
-              (min (- image-width win-width)
-                   (if eager-p
-                       edges-left
-                     (- edges-right win-width)))))))))
+              (/ (min (- image-width win-width)
+                      (if eager-p
+                          edges-left
+                        (- edges-right win-width)))
+                 (frame-char-width))))))))
 
 (defun pdf-util-required-vscroll (edges &optional eager-p context-pixel)
+  "Return the amount of scrolling nescessary, to make image EDGES visible.
+
+Scroll as little as necessary.  Unless EAGER-P is non-nil, in
+which case scroll as much as possible.
+
+Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
+top of the window.  CONTEXT-PIXEL defaults to an equivalent pixel
+value of `next-screen-context-lines'.
+
+Return the require vscroll in lines or nil, if scrolling is not
+needed."
+  
+  (pdf-util-assert-pdf-window)
   (let* ((win (window-inside-pixel-edges))
-         (image-height (cdr (pdf-util-image-size t)))
+         (image-height (cdr (pdf-view-image-size t)))
          (image-top (window-vscroll nil t))
-         (edges (pdf-util-translate-edges
+         (edges (pdf-util-translate
                  edges
-                 (pdf-util-image-offset) t)))
+                 (pdf-view-image-offset) t)))
     (pdf-util-with-edges (win edges)
       (let* ((context-pixel (or context-pixel
                                 (* next-screen-context-lines
-                                   edges-height)))
+                                   (frame-char-height))))
              ;;Be careful not to modify edges.
              (edges-top (- edges-top context-pixel))
              (edges-bot (+ edges-bot context-pixel)))
         (if (< edges-top image-top)
-            (max 0 (if eager-p
-                       (- edges-bot win-height)
-                     edges-top))
+            (/ (max 0 (if eager-p
+                          (- edges-bot win-height)
+                        edges-top))
+               (float (frame-char-height)))
           (if (> (min image-height
                       edges-bot)
                  (+ image-top win-height))
-              (min (- image-height win-height)
-                   (if eager-p
-                       edges-top
-                     (- edges-bot win-height)))))))))
+              (/ (min (- image-height win-height)
+                      (if eager-p
+                          edges-top
+                        (- edges-bot win-height)))
+                 (float (frame-char-height)))))))))
 
 (defun pdf-util-scroll-to-edges (edges &optional eager-p)
-  (pdf-util-assert-pdf-window)
+  "Scroll window such that image EDGES are visible.
+
+Scroll as little as necessary.  Unless EAGER-P is non-nil, in
+which case scroll as much as possible."
+ 
   (let ((vscroll (pdf-util-required-vscroll edges eager-p))
         (hscroll (pdf-util-required-hscroll edges eager-p)))
     (when vscroll
-      (pdf-util-set-window-pixel-vscroll vscroll))
+      (image-set-window-vscroll vscroll))
     (when hscroll
-      (pdf-util-set-window-pixel-hscroll hscroll))))
-    
-(defmacro pdf-util-save-window-scroll (&rest body)
+      (image-set-window-hscroll hscroll))))
+
+
+
+;; * ================================================================== *
+;; * Temporary files
+;; * ================================================================== *
+
+(defvar pdf-util--base-directory nil
+  "Base directory for temporary files.")
+
+(defvar-local pdf-util--dedicated-directory nil
+  "The relative name of buffer's dedicated directory.")
+
+(defun pdf-util-dedicated-directory ()
+  "Return the name of a existing dedicated directory.
+
+The directory is exclusive to the current buffer.  It will be
+automatically deleted, if Emacs or the current buffer are
+killed."
+  (with-file-modes #o0700
+    (unless (and pdf-util--base-directory
+                 (file-directory-p
+                  pdf-util--base-directory)
+                 (not (file-symlink-p
+                       pdf-util--base-directory)))
+      (add-hook 'kill-emacs-hook
+                (lambda nil
+                  (when (and pdf-util--base-directory
+                             (file-directory-p pdf-util--base-directory))
+                    (delete-directory pdf-util--base-directory t))))
+      (setq pdf-util--base-directory
+            (make-temp-file "pdf-tools-" t)))
+    (unless (and pdf-util--dedicated-directory
+                 (file-directory-p pdf-util--dedicated-directory)
+                 (not (file-symlink-p
+                       pdf-util--base-directory)))
+      (let ((temporary-file-directory
+             pdf-util--base-directory))
+        (setq pdf-util--dedicated-directory
+              (make-temp-file (concat (if buffer-file-name
+                                          (file-name-nondirectory
+                                           buffer-file-name)
+                                        (buffer-name))
+                                      "-")
+                              t))
+        (add-hook 'kill-buffer-hook 'pdf-util-delete-dedicated-directory
+                  nil t)))
+    pdf-util--dedicated-directory))
+
+(defun pdf-util-delete-dedicated-directory ()
+  "Delete current buffer's dedicated directory."
+  (delete-directory (pdf-util-dedicated-directory) t))
+  
+(defun pdf-util-expand-file-name (name)
+  "Expand filename against current buffer's dedicated directory."
+  (expand-file-name name (pdf-util-dedicated-directory)))
+
+(defun pdf-util-make-temp-file (prefix &optional dir-flag suffix)
+  "Create a temporary file in current buffer's dedicated directory.
+
+See `make-temp-file' for the arguments."
+  (let ((temporary-file-directory
+         (pdf-util-dedicated-directory)))
+    (make-temp-file prefix dir-flag suffix)))
+
+
+;; * ================================================================== *
+;; * Various 
+;; * ================================================================== *
+
+(defmacro pdf-util-debug (&rest body)
+  "Execute BODY only if debugging is enabled."
   (declare (indent 0) (debug t))
-  (let ((hscroll (make-symbol "hscroll"))
-        (vscroll (make-symbol "vscroll")))
-    `(let ((,hscroll (window-hscroll))
-           (,vscroll (window-vscroll)))
-       (unwind-protect
-           (progn ,@body)
-         (image-set-window-hscroll ,hscroll)
-         (image-set-window-vscroll ,vscroll)))))
+  `(when (bound-and-true-p pdf-tools-debug)
+     ,@body))
 
-(defun pdf-util-read-image-position (prompt)
-  (pdf-util-assert-pdf-window)
-  (save-selected-window
-    (let ((ev (read-event
-               (propertize prompt 'face 'minibuffer-prompt)))
-          (buffer (current-buffer)))
-      (unless (mouse-event-p ev)
-        (error "Not a mouse event"))
-      (let ((posn (event-start ev)))
-        (unless (and (eq (window-buffer
-                          (posn-window posn))
-                         buffer)
-                     (eq 'image (car-safe (posn-object posn))))
-          (error "Invalid image position"))
-        (posn-object-x-y posn)))))
+(defun pdf-util-pdf-buffer-p (&optional buffer)
+  (and (or (null buffer)
+           (buffer-live-p buffer))
+       (save-current-buffer
+         (and buffer (set-buffer buffer))
+         (derived-mode-p 'pdf-view-mode))))
 
-(defun pdf-util-image-map-mouse-event-proxy (event)
-  "Remove the POS-OR-AREA symbol from EVENT and restuff it."
-  (interactive "e")
-  (setcar (cdr (cadr event)) 1)
-  (setq unread-command-events (list event)))
+(defun pdf-util-assert-pdf-buffer (&optional buffer)
+  (unless (pdf-util-pdf-buffer-p buffer)
+    (error "Buffer is not in PDFView mode")))
 
-(defun pdf-util-image-map-divert-mouse-clicks (id &optional buttons)
-  (dolist (kind '("" "down-" "drag-"))
-    (dolist (b (or buttons '(2 3 4 5 6)))
-      (local-set-key
-       (vector id (intern (format "%smouse-%d" kind b)))
-       'pdf-util-image-map-mouse-event-proxy))))
+(defun pdf-util-pdf-window-p (&optional window)
+  (unless (or (null window)
+              (window-live-p window))
+    (signal 'wrong-type-argument (list 'window-live-p window)))
+  (unless window (setq window (selected-window)))
+  (and (window-live-p window)
+       (with-selected-window window
+         (pdf-util-pdf-buffer-p))))
   
-  
-  
-;;
-;; Converting Images
-;;
+(defun pdf-util-assert-pdf-window (&optional window)
+  (unless (pdf-util-pdf-window-p window)
+    (error "Window's buffer is not in PdfView mode")))
 
-(defun pdf-util-assert-convert-program ()
-  (unless (and pdf-util-convert-program
-               (file-executable-p pdf-util-convert-program))
-    (error "The pdf-util-convert-program is unset or non-executable")))
+(defun pdf-util-munch-file (filename &optional multibyte-p)
+  "Read contents from FILENAME and delete it.
 
-(defvar-local pdf-util-png-image-size-resolution nil
-  "Saved resolution of the current conversion.
-
-Used to determine whether cached image-file sizes are still
-valid.")
-
-(defun pdf-util-png-image-size (&optional page)
-  "Return the image size of the image file of the current PAGE.
-
-This returns a cons \(WIDTH . HEIGHT\) or nil, if not
-available (e.g. because it does not exist or is currently written
-to)."
-
-  (unless page (setq page (ignore-errors
-                            (doc-view-current-page))))
-  (when page
-    (unless (eq doc-view-resolution
-                pdf-util-png-image-size-resolution)
-      (setq pdf-util-png-image-size-resolution doc-view-resolution
-            pdf-util-png-image-size-alist nil))
-    (let ((entry
-           (cl-assoc page pdf-util-png-image-size-alist
-                     :test 'gnus-member-of-range)))
-      (if entry
-          (nth 2 entry)
-        (let ((page-size (pdf-info-pagesize page)))
-          (setq entry (car (cl-member page-size
-                                      pdf-util-png-image-size-alist
-                                      :key 'cadr :test 'equal)))
-          (unless entry
-            (let ((size (pdf-util-image-file-size
-                         (pdf-util-current-image-file page))))
-              (when size
-                (setq entry
-                      (list nil page-size size))
-                (push entry pdf-util-png-image-size-alist))))
-          (when entry
-            (setcar entry (gnus-range-add
-                           (car entry) (list page)))
-            (nth 2 entry)))))))
-        
-
-(defun pdf-util-image-file-size (image-file)
-  (pdf-util-assert-convert-program)
-  (with-temp-buffer
-    (when (save-excursion
-            (= 0 (call-process
-                  pdf-util-convert-program
-                  nil (current-buffer) nil
-                  image-file "-format" "%w %h" "info:")))
-      (let ((standard-input (current-buffer)))
-        (cons (read) (read))))))
-
-(defun pdf-util-convert-asynch (in-file out-file &rest spec-and-callback)
-  (pdf-util-assert-convert-program)
-  (let ((callback (car (last spec-and-callback)))
-        spec)
-    (if (functionp callback)
-        (setq spec (butlast spec-and-callback))
-      (setq spec spec-and-callback
-            callback nil))
-    (let* ((cmds (pdf-util-convert--create-commands
-                  (pdf-util-png-image-size)
-                  spec))
-           (proc
-            (apply 'start-process "pdf-util-convert"
-                   (get-buffer-create "*pdf-util-convert-output*")
-                   pdf-util-convert-program
-                   `(,in-file ,@cmds ,out-file))))
-      (when callback
-        (set-process-sentinel proc callback))
-      proc)))
-
-(defun pdf-util-convert (in-file out-file &rest spec)
-  (pdf-util-assert-convert-program)
-  (let* ((cmds (pdf-util-convert--create-commands
-                (pdf-util-png-image-size)
-                spec))
-         (status (apply 'call-process
-                        pdf-util-convert-program nil
-                        (get-buffer-create "*pdf-util-convert-output*")
-                        nil
-                        `(,in-file ,@cmds ,out-file))))
-    (unless (and (numberp status) (= 0 status))
-      (error "The convert program exited with error status: %s" status))
-    out-file))
-
-(defun pdf-util-convert--create-commands (image-size spec)
-  (let ((fg "red")
-        (bg "red")
-        formats result cmds s)
-    (while (setq s (pop spec))
-      (unless spec
-        (error "Missing value in convert spec:%s" (cons s spec)))
-      (cl-case s
-        (:foreground
-         (setq fg (pop spec)))
-        (:background
-         (setq bg (pop spec)))
-        (:commands
-         (setq cmds (pop spec))
-         (if (and cmds (listp (car cmds)))
-             (setq formats (cdr cmds)
-                   cmds (car cmds))
-           (setq formats nil)))
-        (:apply
-         (dolist (m (pop spec))
-           (pdf-util-with-edges (m)
-             (let ((alist (append
-                           (mapcar (lambda (f)
-                                     (cons (car f)
-                                           (if (stringp (cdr f))
-                                               (cdr f)
-                                             (funcall (cdr f) m))))
-                                   formats)
-                           `((?g . ,(format "%dx%d+%d+%d"
-                                            m-width m-height
-                                            m-left m-top))
-                             (?x . ,m-left)
-                             (?X . ,m-right)
-                             (?y . ,m-top)
-                             (?Y . ,m-bot)
-                             (?w . ,(- m-right m-left))
-                             (?h . ,(- m-bot m-top))
-                             (?f . ,fg)
-                             (?b . ,bg)
-                             (?W . ,(nth 0 image-size))
-                             (?H . ,(cdr image-size))))))
-               (dolist (fmt cmds)
-                 (push (format-spec fmt alist) result))))))))
-    (nreverse result)))
-        
-;;
-;; Caching Converted Images
-;;
-
-(defvar pdf-util-cache-directories nil)
-
-(defun pdf-util-cache-make-filename (dir &optional extension &rest keys)
-  (when (symbolp dir)
-    (setq dir (symbol-name dir)))
-  (let ((root (pdf-util-cache--get-root-dir)))
-    (unless root
-      (error "The DocView cache directory is n/a"))
-    (let ((file (format "%s.%s" (sha1 (format "%S" keys))
-                        (or extension "png")))
-          (dir  (file-name-as-directory
-                 (expand-file-name
-                  dir
-                  root))))
-      (unless (file-exists-p dir)
-        (make-directory dir)
-        (push dir pdf-util-cache-directories))
-      (setq file (expand-file-name file dir))
-      (when (file-exists-p file)
-        (set-file-times file))
-      file)))
-
-(defun pdf-util-cache-files (dir)
-  (when (symbolp dir)
-    (setq dir (symbol-name dir)))
-  (let ((root (pdf-util-cache--get-root-dir)))
-    (when root
-      (let ((dir (file-name-as-directory
-                  (expand-file-name
-                   dir
-                   root))))
-        (when (file-exists-p dir)
-          (directory-files
-           dir t directory-files-no-dot-files-regexp))))))
-
-(defun pdf-util-cache-clear (dir)
-  (when (symbolp dir)
-    (setq dir (symbol-name dir)))
-  (let ((root (pdf-util-cache--get-root-dir)))
-    (when root
-      (let ((dir (file-name-as-directory
-                  (expand-file-name
-                   dir
-                   root))))
-        (when (file-exists-p dir)
-          (mapc 'clear-image-cache
-                (directory-files
-                 dir t directory-files-no-dot-files-regexp t))
-          (delete-directory dir t))))))
-
-(defun pdf-util-cache-clear-all ()
-  (interactive)
-  (let ((dir (pdf-util-cache--get-root-dir)))
-    (when (and dir
-               (file-exists-p dir))
+Return the file's content as a unibyte string, unless MULTIBYTE-P
+is non-nil."
+  (unwind-protect
       (with-temp-buffer
-        ;; Switch to multibyte buffer, because delete-directory has a
-        ;; filename encoding bug when deleting recursively from
-        ;; unibyte buffer.
-        (delete-directory dir t)))))
+        (set-buffer-multibyte multibyte-p)
+        (insert-file-contents-literally filename)
+        (buffer-substring-no-properties
+         (point-min)
+         (point-max)))
+    (when (and filename
+               (file-exists-p filename))
+      (delete-file filename))))
 
-(defun pdf-util-cache--get-root-dir ()
-  (when (and (pdf-util-docview-buffer-p)
-             (doc-view-current-cache-dir)
-             (file-exists-p (doc-view-current-cache-dir)))
-    (let ((dir (file-name-as-directory
-                (expand-file-name
-                 ".pdf-util-cache"
-                 (doc-view-current-cache-dir)))))
-      (unless (file-exists-p dir)
-        (make-directory dir))
-      (add-hook 'kill-buffer-hook 'pdf-util-cache-clear-all nil t)
-      dir)))
+(defun pdf-util-hexcolor (color)
+  "Return COLOR in hex-format.
 
-(defun pdf-util-cache-clean-globally ()
-  "Remove all not recently used cached images."
-  (let ((dvcd (expand-file-name doc-view-cache-directory)))
-    (setq pdf-util-cache-directories
-          (cl-remove-if-not
-           (lambda (d)
-             (and (file-readable-p d)
-                  (string-prefix-p dvcd d)))
-           pdf-util-cache-directories)))
-  (let ((now (current-time)))
-    (dolist (dir pdf-util-cache-directories)
-      (when (file-readable-p dir)
-        (dolist (file (directory-files
-                       dir t directory-files-no-dot-files-regexp t))
-          (let ((mtime (nth 5 (file-attributes file))))
-            (when (and (time-less-p
-                        (time-add mtime (seconds-to-time (* 5 60)))
-                        now)
-                       (not (pdf-util-image-in-use-p file)))
-              (if (file-directory-p file)
-                  (let ((pdf-util-cache-directories
-                         (list file)))
-                    (pdf-util-cache-clean-globally))
-                (clear-image-cache file)
-                (delete-file file)))))
-        (when (and (file-readable-p dir)
-                   (null (directory-files
-                          dir t directory-files-no-dot-files-regexp t)))
-          (delete-directory dir))))))
+Singal an error, if color is invalid." 
+  (let ((values (color-values color)))
+    (unless values
+      (signal 'wrong-type-argument (list 'color-defined-p color)))
+    (apply 'format "#%02x%02x%02x"
+           (mapcar (lambda (c) (lsh c -8))
+                   values))))
 
-;;(run-with-timer 0 (* 5 60) 'pdf-util-cache-clean-globally)
-    
-(defun pdf-util-image-in-use-p (file)
-  "Return t if image FILE is displayed in some window."
-  (cl-labels
-    ((check-buffer (buffer &optional window)
-       ;; Deleting a used image-file with imagemagick may crash Emacs,
-       ;; be thorough.
-       (with-current-buffer buffer
-         (save-excursion
-           (goto-char (point-min))
-           (catch 'found
-             (while (not (eobp))
-               (let ((display (get-char-property
-                               (point) 'display window))
-                     image-file)
-                 (when (and (consp display)
-                            (eq 'image (car display))
-                            (setq image-file (plist-get (cdr display) :file))
-                            image-file
-                            (file-equal-p image-file file))
-                   (throw 'found t)))
-               (goto-char (next-single-char-property-change
-                           (point) 'display nil (point-max)))))))))
-    (or (get-window-with-predicate
-         (lambda (win)
-           (check-buffer (window-buffer win) win))
-         'no-mini t)
-        (let ((tip  (get-buffer " *tip*")))
-          (and (buffer-live-p tip)
-               (check-buffer tip))))))
-
-;;
-;; Various Functions
-;; 
+(defun pdf-util-color-completions ()
+  "Return a fontified list of defined colors."
+  (let ((color-list (list-colors-duplicates))
+        colors)
+    (dolist (cl color-list)
+      (dolist (c (reverse cl))
+        (push (propertize c 'face `(:background ,c))
+              colors)))
+    (nreverse colors)))
 
 (defun pdf-util-tooltip-in-window (text x y &optional window)
   (let* ((we (window-inside-absolute-pixel-edges window))
@@ -787,11 +514,9 @@ to)."
 
 (defun pdf-util-tooltip-arrow (image-top &optional timeout)
   (pdf-util-assert-pdf-window)
-  (unless (pdf-util-page-displayed-p)
-    (error "No page displayed in this window"))
   (when (floatp image-top)
     (setq image-top
-          (round (* image-top (cdr (pdf-util-image-size))))))
+          (round (* image-top (cdr (pdf-view-image-size))))))
   (let* (x-gtk-use-system-tooltips ;allow for display property in tooltip
          (dx (+ (or (car (window-margins)) 0)
                 (car (window-fringes))))
@@ -805,14 +530,14 @@ to)."
             ,@tooltip-frame-parameters))
          (tooltip-hide-delay (or timeout 3)))
     (when vscroll
-      (pdf-util-set-window-pixel-vscroll vscroll))
+      (image-set-window-vscroll vscroll))
     (setq dy (max 0 (- dy
-                       (cdr (pdf-util-image-offset))
+                       (cdr (pdf-view-image-offset))
                        (window-vscroll nil t))))
-    (when (overlay-get (doc-view-current-overlay) 'before-string)
+    (when (overlay-get (pdf-view-current-overlay) 'before-string)
       (let* ((e (window-inside-pixel-edges))
              (xw (pdf-util-with-edges (e) e-width)))
-        (cl-incf dx (/ (- xw (car (pdf-util-image-size))) 2))))
+        (cl-incf dx (/ (- xw (car (pdf-view-image-size t))) 2))))
     (pdf-util-tooltip-in-window
      (propertize
       " " 'display (propertize
@@ -823,7 +548,7 @@ to)."
                             :background "white")))
      dx dy)))
 
-(defvar pdf-util-face-colors--cache (make-hash-table))
+(defvar pdf-util--face-colors-cache (make-hash-table))
   
 (defun pdf-util-face-colors (face &optional dark-p)
   "Return both colors of FACE as a cons.
@@ -834,7 +559,7 @@ colors, otherwise light."
          (spec (list (get face 'face-defface-spec)
                      (get face 'theme-face)
                      (get face 'customized-face)))
-         (cached (gethash face pdf-util-face-colors--cache)))
+         (cached (gethash face pdf-util--face-colors-cache)))
     (cl-destructuring-bind (&optional cspec color-alist)
         cached
       (or (and color-alist
@@ -851,7 +576,7 @@ colors, otherwise light."
                                (face-attribute face :background nil 'default))))
                     (puthash face `(,(mapcar 'copy-sequence spec)
                                     ((,bg . ,colors) ,@color-alist))
-                             pdf-util-face-colors--cache)
+                             pdf-util--face-colors-cache)
                     colors)
                 (when (and f (frame-live-p f))
                   (delete-frame f)))))))))
@@ -872,7 +597,7 @@ AWINDOW is deleted."
                       (not (eq buffer (window-buffer window))))
               (remove-hook 'window-configuration-change-hook
                            hook)
-              ;; Deleting windows inside wcch leads to errors in
+              ;; Deleting windows inside wcch may cause errors in
               ;; windows.el .
               (run-with-timer
                0 nil (lambda (win)
@@ -883,6 +608,7 @@ AWINDOW is deleted."
     (add-hook 'window-configuration-change-hook hook)))
 
 (defun display-buffer-split-below-and-attach (buf alist)
+  "Display buffer action using `pdf-util-window-attach'."
   (let ((window (selected-window))
         (height (cdr (assq 'window-height alist)))
         newwin)
@@ -897,6 +623,369 @@ AWINDOW is deleted."
     (pdf-util-window-attach newwin window)
     newwin))
 
+
+;; * ================================================================== *
+;; * Imagemagick's convert
+;; * ================================================================== *
+
+(defcustom pdf-util-convert-program (executable-find "convert")
+  "Absolute path to the convert program."
+  :group 'pdf-tools
+  :type 'executable)
+
+(defcustom pdf-util-fast-image-format nil
+  "An image format appropriate for fast displaying.
+
+This should be a cons \(TYPE . EXT\) where type is the Emacs
+image-type and EXT the appropriate file extension starting with a
+dot. If nil, the value is determined automatically.
+
+Different formats have different properties, with respect to
+Emacs loading time, convert creation time and the file-size.  In
+general, uncompressed formats are faster, but may need a fair
+amount of (temporary) disk space."
+  :group 'pdf-tools)
+
+(defun pdf-util-assert-convert-program ()
+  (unless (and pdf-util-convert-program
+               (file-executable-p pdf-util-convert-program))
+    (error "The pdf-util-convert-program is unset or non-executable")))
+
+(defun pdf-util-image-file-size (image-file)
+  "Determine the size of the image in IMAGE-FILE.
+
+Returns a cons \(WIDTH . HEIGHT\)."
+  (pdf-util-assert-convert-program)
+  (with-temp-buffer
+    (when (save-excursion
+            (= 0 (call-process
+                  pdf-util-convert-program
+                  nil (current-buffer) nil
+                  image-file "-format" "%w %h" "info:")))
+      (let ((standard-input (current-buffer)))
+        (cons (read) (read))))))
+
+(defun pdf-util-convert (in-file out-file &rest spec)
+  "Convert image IN-FILE to OUT-FILE according to SPEC.
+
+IN-FILE should be the name of a file containing an image.  Write
+the result to OUT-FILE.  The extension of this filename ususally
+determines the resulting image-type.
+
+SPEC is a property list, specifying what the convert programm
+should do with the image.  All manipulations operate on a
+rectangle, see below.
+
+SPEC may contain the following keys, respectively values.
+
+`:foreground' Set foreground color for all following operations.
+
+`:background' Dito, for the background color.
+
+`:commands' A list of strings representing arguments to convert
+for image manipulations.  It may contain %-escape characters, as
+follows.  
+
+%f -- Expands to the foreground color.
+%b -- Expands to the background color.
+%g -- Expands to the geometry of the current rectangle, i.e. WxH+X+Y.
+%x -- Expands to the left edge of rectangle.
+%X -- Expands to the right edge of rectangle.
+%y -- Expands to the top edge of rectangle.
+%Y -- Expands to the bottom edge of rectangle.
+%w -- Expands to the width of rectangle.
+%h -- Expands to the height of rectangle.
+
+Keep in mind, that every element of this list is seen by convert
+as a single argument.
+
+`:formats' An alist of additional %-escapes.  Every element
+should be a cons \(CHAR . STRING\) or \(CHAR . FUNCTION\).  In
+the first case, all occurences of %-CHAR in the above commands
+will be replaced by STRING.  In the second case FUNCTION is
+called with the current rectangle and it should return the
+replacement string.
+
+`:apply' A list of rectangles \(\(LEFT TOP RIGHT BOT\) ...\) in
+IN-FILE coordinates. Each such rectangle triggers one execution
+of the last commands given earlier in SPEC. E.g. a call like
+
+\(pdf-util-convert
+       image-file out-file
+       :foreground \"black\"
+       :background \"white\"
+       :commands '\(\"-fill\" \"%f\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :apply '\(\(0 0 10 10\) \(10 10 20 20\)\)
+       :commands '\(\"-fill\" \"%b\" \"-draw\" \"rectangle %x,%y,%X,%Y\"\)
+       :apply '\(\(10 0 20 10\) \(0 10 10 20\)\)\)
+
+would draw a 4x4 checkerboard pattern in the left corner of the
+image, while leaving the rest of it as it was.
+
+Returns OUT-FILE.
+
+See url `http://www.imagemagick.org/script/convert.php'."
+  (pdf-util-assert-convert-program)
+  (let* ((cmds (pdf-util-convert--create-commands spec))
+         (status (apply 'call-process
+                        pdf-util-convert-program nil
+                        (get-buffer-create "*pdf-util-convert-output*")
+                        nil
+                        `(,in-file ,@cmds ,out-file))))
+    (unless (and (numberp status) (= 0 status))
+      (error "The convert program exited with error status: %s" status))
+    out-file))
+
+(defun pdf-util-convert-asynch (in-file out-file &rest spec-and-callback)
+  "Like `pdf-util-convert', but asynchronous.
+
+If the last argument is a function, it is installed as the
+process sentinel.
+
+Returns the convert process."
+  (pdf-util-assert-convert-program)
+  (let ((callback (car (last spec-and-callback)))
+        spec)
+    (if (functionp callback)
+        (setq spec (butlast spec-and-callback))
+      (setq spec spec-and-callback
+            callback nil))
+    (let* ((cmds (pdf-util-convert--create-commands spec))
+           (proc
+            (apply 'start-process "pdf-util-convert"
+                   (get-buffer-create "*pdf-util-convert-output*")
+                   pdf-util-convert-program
+                   `(,in-file ,@cmds ,out-file))))
+      (when callback
+        (set-process-sentinel proc callback))
+      proc)))
+
+(defun pdf-util-convert-page (&rest specs)
+  "Convert image of current page according to SPECS.
+
+Return the converted PNG image as a string.  See also
+`pdf-util-convert'."
+
+  (pdf-util-assert-pdf-window)
+  (let ((in-file (make-temp-file "pdf-util-convert" nil ".png"))
+        (out-file (make-temp-file "pdf-util-convert" nil ".png")))
+    (unwind-protect
+        (let ((image-data
+               (plist-get (cdr (pdf-view-current-image)) :data)))
+          (with-temp-file in-file
+            (set-buffer-multibyte nil)
+            (insert image-data))
+          (pdf-util-munch-file
+           (apply 'pdf-util-convert
+                  in-file out-file specs)))
+      (when (file-exists-p in-file)
+        (delete-file in-file))
+      (when (file-exists-p out-file)
+        (delete-file out-file)))))
+        
+
+(defun pdf-util-convert--create-commands (spec)
+  (let ((fg "red")
+        (bg "red")
+        formats result cmds s)
+    (while (setq s (pop spec))
+      (unless spec
+        (error "Missing value in convert spec:%s" (cons s spec)))
+      (cl-case s
+        (:foreground
+         (setq fg (pop spec)))
+        (:background
+         (setq bg (pop spec)))
+        (:commands
+         (setq cmds (pop spec)))
+        (:formats
+         (setq formats (append formats (pop spec) nil)))
+        (:apply
+         (dolist (m (pop spec))
+           (pdf-util-with-edges (m)
+             (let ((alist (append
+                           (mapcar (lambda (f)
+                                     (cons (car f)
+                                           (if (stringp (cdr f))
+                                               (cdr f)
+                                             (funcall (cdr f) m))))
+                                   formats)
+                           `((?g . ,(format "%dx%d+%d+%d"
+                                            m-width m-height
+                                            m-left m-top))
+                             (?x . ,m-left)
+                             (?X . ,m-right)
+                             (?y . ,m-top)
+                             (?Y . ,m-bot)
+                             (?w . ,(- m-right m-left))
+                             (?h . ,(- m-bot m-top))
+                             (?f . ,fg)
+                             (?b . ,bg)))))
+               (dolist (fmt cmds)
+                 (push (format-spec fmt alist) result))))))))
+    (nreverse result)))
+
+;; FIXME: Check code below and document.
+
+(defun pdf-util-edges-empty-p (edges)
+  "Return non-nil, if EDGES area is empty." 
+  (pdf-util-with-edges (edges)
+    (or (<= edges-width 0)
+        (<= edges-height 0))))
+
+(defun pdf-util-edges-inside-p (edges pos &optional epsilon)
+  (pdf-util-edges-contained-p
+   edges
+   (list (car pos) (cdr pos) (car pos) (cdr pos))
+   epsilon))
+
+(defun pdf-util-edges-contained-p (edges contained &optional epsilon)
+  (unless epsilon (setq epsilon 0))
+  (pdf-util-with-edges (edges contained)
+    (and (<= (- edges-left epsilon)
+             contained-left)
+         (>= (+ edges-right epsilon)
+             contained-right)
+         (<= (- edges-top epsilon)
+             contained-top)
+         (>= (+ edges-bot epsilon)
+             contained-bot))))
+
+(defun pdf-util-edges-intersection (e1 e2)
+  (pdf-util-with-edges (edges1 e1 e2)
+    (let ((left (max e1-left e2-left))
+          (top (max e1-top e2-top))
+          (right (min e1-right e2-right))
+          (bot (min e1-bot e2-bot)))
+      (when (and (<= left right)
+                 (<= top bot))
+        (list left top right bot)))))
+
+(defun pdf-util-edges-union (&rest edges)
+  (list (apply 'min (mapcar 'car edges))
+        (apply 'min (mapcar 'cadr edges))
+        (apply 'max (mapcar 'cl-caddr edges))
+        (apply 'max (mapcar 'cl-cadddr edges))))
+
+(defun pdf-util-edges-intersection-area (e1 e2)
+  (let ((inters (pdf-util-edges-intersection e1 e2)))
+    (if (null inters)
+        0
+      (pdf-util-with-edges (inters)
+        (* inters-width inters-height)))))
+
+(defun pdf-util-read-image-position (prompt)
+  "Read a image position using prompt.
+
+Return the event position object."
+  (save-selected-window
+    (let ((ev (pdf-util-read-click-event
+               (propertize prompt 'face 'minibuffer-prompt)))
+          (buffer (current-buffer)))
+      (unless (mouse-event-p ev)
+        (error "Not a mouse event"))
+      (let ((posn (event-start ev)))
+        (unless (and (eq (window-buffer
+                          (posn-window posn))
+                         buffer)
+                     (eq 'image (car-safe (posn-object posn))))
+          (error "Invalid image position"))
+        posn))))
+
+(defun pdf-util-read-click-event (&optional prompt seconds)
+  (let ((down (read-event prompt seconds)))
+    (unless (and (mouse-event-p down)
+                 (equal (event-modifiers down)
+                        '(down)))
+      (error "No a mouse click event"))
+    (let ((up (read-event prompt seconds)))
+      (unless (and (mouse-event-p up)
+                   (equal (event-modifiers up)
+                          '(click)))
+        (error "No a mouse click event"))
+      up)))
+      
+    
+(defun pdf-util-image-map-mouse-event-proxy (event)
+  "Set POS-OR-AREA in EVENT to 1 and unread it."
+  (interactive "e")
+  (setcar (cdr (cadr event)) 1)
+  (setq unread-command-events (list event)))
+
+(defun pdf-util-image-map-divert-mouse-clicks (id &optional buttons)
+  (dolist (kind '("" "down-" "drag-"))
+    (dolist (b (or buttons '(2 3 4 5 6)))
+      (local-set-key
+       (vector id (intern (format "%smouse-%d" kind b)))
+       'pdf-util-image-map-mouse-event-proxy))))
+
+(defmacro pdf-util-do-events (event-resolution-unread-p condition &rest body)
+  "Read EVENTs while CONDITION executing BODY.
+
+Process at most 1/RESOLUTION events per second.  If UNREAD-p is
+non-nil, unread the final non-processed event.
+
+\(FN (EVENT RESOLUTION &optional UNREAD-p) CONDITION &rest BODY\)"
+  (declare (indent 2) (debug ((symbolp form &optional form) form body)))
+  (cl-destructuring-bind (event resolution &optional unread-p)
+      event-resolution-unread-p
+    (let ((*seconds (make-symbol "seconds"))
+          (*timestamp (make-symbol "timestamp"))
+          (*clock (make-symbol "clock"))
+          (*unread-p (make-symbol "unread-p"))
+          (*resolution (make-symbol "resolution")))
+      `(let* ((,*unread-p ,unread-p)
+              (,*resolution ,resolution)
+              (,*seconds 0)
+              (,*timestamp (float-time))
+              (,*clock (lambda (&optional secs)
+                         (when secs
+                           (setq ,*seconds secs
+                                 ,*timestamp (float-time)))
+                         (- (+ ,*timestamp ,*seconds)
+                            (float-time))))
+              (,event (read-event)))
+         (while ,condition
+           (when (<= (funcall ,*clock) 0)
+             (progn ,@body)
+             (setq ,event nil)
+             (funcall ,*clock ,*resolution))
+           (setq ,event
+                 (or (read-event nil nil
+                                 (and ,event
+                                      (max 0 (funcall ,*clock))))
+                     ,event)))
+         (when (and ,*unread-p ,event)
+           (setq unread-command-events
+                 (append unread-command-events
+                         (list ,event))))))))
+
+(defmacro pdf-util-track-mouse-dragging (event-resolution &rest body)
+  "Read mouse movement events executing BODY.
+
+See also `pdf-util-do-events'.
+
+This macro should be used inside a command bound to a down-mouse
+event.  It evaluates to t, if at least one event was processed in
+BODY, otherwise nil.  In the latter case, the only event (usually
+a mouse click event) is unread.
+
+\(FN (EVENT RESOLUTION) CONDITION &rest BODY\)"
+  (declare (indent 1) (debug ((symbolp form) body)))
+  (let ((ran-once-p (make-symbol "ran-once-p")))
+    `(let (,ran-once-p)
+       (track-mouse
+         (pdf-util-do-events (,@event-resolution t)
+             (mouse-movement-p ,(car event-resolution))
+           (setq ,ran-once-p t)
+           ,@body))
+       (when (and ,ran-once-p
+                  unread-command-events)
+         (setq unread-command-events
+               (butlast unread-command-events)))
+       ,ran-once-p)))
+     
+                                
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([pdf-tools], [0.30], [politza@fh-trier.de])
+AC_INIT([pdf-tools], [0.40], [politza@fh-trier.de])
 AM_INIT_AUTOMAKE([-Wall -Wno-override foreign])
 AC_CONFIG_SRCDIR([src/epdfinfo.h])
 AC_CONFIG_HEADERS([src/config.h])
@@ -16,14 +16,15 @@ AM_PATH_LISPDIR                 dnl Sets EMACS
 # Checks for libraries.
 HAVE_POPPLER_FIND_OPTS="no   (requires poppler-glib >= 0.22)"
 HAVE_POPPLER_ANNOT_WRITE="no   (requires poppler-glib >= 0.19.4)"
-HAVE_POPPLER_ANNOT_SET_RECTANGLE="no"
+HAVE_POPPLER_ANNOT_MARKUP="no (requires poppler-glib >= 0.26)"
 
+PKG_CHECK_MODULES([png], [libpng])
 PKG_CHECK_MODULES([glib], [glib-2.0])
 PKG_CHECK_MODULES([poppler], [poppler])
 PKG_CHECK_MODULES([poppler_glib], [poppler-glib >= 0.16.0])
 PKG_CHECK_EXISTS([poppler-glib >= 0.19.4], [HAVE_POPPLER_ANNOT_WRITE=yes])
 PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
-PKG_CHECK_EXISTS([poppler-glib >= 0.26], [HAVE_POPPLER_ANNOT_SET_RECTANGLE=yes])
+PKG_CHECK_EXISTS([poppler-glib >= 0.26], [HAVE_POPPLER_ANNOT_MARKUP=yes])
 PKG_CHECK_MODULES([zlib], [zlib])
 
 # Check for private poppler header.
@@ -46,10 +47,9 @@ if test "$HAVE_POPPLER_ANNOT_WRITE" = yes; then
     [Define to 1 to enable writing of annotations (requires poppler-glib >= 0.19.4).])
 fi
 
-if test "$HAVE_POPPLER_ANNOT_SET_RECTANGLE" = yes; then
-  AC_DEFINE([HAVE_POPPLER_ANNOT_SET_RECTANGLE],1,
-    [Define to 1 if poppler-glib defines poppler_annot_set_rectangle \
-            (requires poppler-glib >= 0.26).])
+if test "$HAVE_POPPLER_ANNOT_MARKUP" = yes; then
+  AC_DEFINE([HAVE_POPPLER_ANNOT_MARKUP],1,
+    [Define to 1 to enable adding of markup annotations (requires poppler-glib >= 0.19.4).])
 fi
 
 # Checks for header files.
@@ -59,6 +59,7 @@ AC_CHECK_HEADERS([stdlib.h string.h strings.h])
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
 AC_CHECK_TYPES([ptrdiff_t])
+AC_C_BIGENDIAN
 
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE
@@ -69,6 +70,7 @@ AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
 AC_OUTPUT
 
 echo
-echo "Is case-sensitive searching enabled ? ${HAVE_POPPLER_FIND_OPTS}"
-echo "Is writing annotations enabled ?      ${HAVE_POPPLER_ANNOT_WRITE}"
+echo "Is case-sensitive searching enabled ?  ${HAVE_POPPLER_FIND_OPTS}"
+echo "Is modifying annotations enabled ?     ${HAVE_POPPLER_ANNOT_WRITE}"
+echo "Is adding markup annotations enabled ? ${HAVE_POPPLER_ANNOT_MARKUP}"
 echo

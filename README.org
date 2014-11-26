@@ -2,75 +2,38 @@
 #+AUTHOR:    Andreas Politz
 #+EMAIL:     politza@fh-trier.de
 
-** Prerequisites
-   + GNU/Linux OS
-   + convert 
+** About this package
+   PDF Tools is, among other things, a replacement of DocView for PDF
+   files.  The key difference is, that pages are not prerendered by
+   e.g. ghostscript and stored in the file-system, but rather created
+   on-demand and stored in memory.
 
-     See http://www.imagemagick.org .
-   + GNU Emacs 24 
-
-     Preferably with imagemagick support.  
-   + poppler-glib (>= 0.16)
-
-     Some features require a more recent version.
-     - >= 0.19.4 :: Creating and modifying text-annotations.
-     - >= 0.22 :: Searching case-sensitive.
-   + poppler-private
-     
-     This library contains some needed private poppler headers.
-     Depending on the way poppler is installed on your system, this
-     may or may not be included.
-     
-     - Debian :: Install libpoppler-private-dev.
-     - From source :: Configure with --enable-xpdf-headers .
-
-** Building
-  First run autogen.sh, then
-#+begin_src sh
-  ./configure && make
-#+end_src
-  which compiles the c source and creates a ELP package.
-** Installation
-  Assuming the epdfinfo server build correctly and a Emacs package was
-  created.  The next step is to install this package, with make
-  via
-#+begin_src sh
-  make install-package
-#+end_src
-  or
-#+begin_src sh
-  make EMACS=/path/to/emacs install-package
-#+end_src
-  
-  Alternatively from within Emacs via
-#+begin_src elisp
-  M-x package-install-file RET pdf-tools-${VERSION}.tar RET
-#+end_src
-  Finally put
-#+begin_src elisp
-  (pdf-tools-install)
-#+end_src
-  somewhere in your .emacs.  Try
-#+begin_src elisp
-  M-x pdf-tools-help RET
-#+end_src
-  for a overview of most features.
+   This rendering is performed by a special library named, for
+   whatever reason, poppler, running inside a server programm.  This
+   programm is called ~epdfinfo~ and it's job is it to successively
+   read requests from Emacs and produce the proper results, i.e. the
+   PNG image of a PDF page.  
+   
+   Actually, displaying PDF files is just one part of PDF Tools.
+   Since poppler can provide us with all kinds of informations about a
+   document and is also able to modify it, there is a lot more we can
+   do with it.
 
 ** Features
-*** Render
-    Display search results, links and annotations directly on the page,
-    with customizeable styles.
+*** View
+    View PDF documents in a buffer with DocView-like bindings.
 *** Isearch 
-    Interactively search PDF documents like any other buffer, though
-    there is currently no regexp support. 
-*** Following links
+    Interactively search PDF documents like any other buffer. (Though
+    there is currently no regexp support.)
+*** Follow links
     Click on highlighted links, moving to some part of a different
     page, some external file, a website or any other URI.  Links may
     also be followed by keyboard commands.
 *** Annotations
-    Display and list text-annotations, edit their contents and some
-    attributes, move them around, delete them or create new ones and
-    then save the modifications back to the PDF file.
+    Display and list text and markup annotations (like underline),
+    edit their contents and attributes (e.g. color), move them around,
+    delete them or create new ones and then save the modifications
+    back to the PDF file. 
 *** Attachments
     Save files attached to the PDF-file or list them in a dired buffer.
 *** Outline
@@ -80,13 +43,103 @@
     Jump from a position on a page directly to the TeX source and
     vice-versa.
 *** Misc
-   + Display PDF's meta-data.
-   + Select and copy text from the PDF.
+   + Display PDF's metadata.
+   + Mark a region and kill the text from the PDF.
    + Search for occurrences of a string.
    + Keep track of visited pages via a history.
-   + Auto-fit pages to the current window size.
-   + View multiple pages in multiple windows.
+** Installation
+*** Prerequisites
+    You'll need GNU Emacs 24 and some form of a GNU/Linux OS.  Other
+    operating systems are currently not supported (patches welcome).
+    The following instructions assume a Debian-based system.  
 
+    First make shure a suitable build-system is installed.  We need at
+    least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~ and
+    ~automake~.
+
+    Next we need to install a few libraries PDF Tools depends on, some
+    of which are probably already on your system.
+#+begin_src sh
+  $ sudo aptitude install libpng-dev libz-dev 
+  $ sudo aptitude install libpoppler-glib-dev 
+  $ sudo aptitude install libpoppler-private-dev 
+#+end_src
+    If you are doing this on a recent Ubuntu system, the final command
+    will probably give an error.  This should be no problem, since the
+    Ubuntu people merged this package into the main ~libpoppler-dev~
+    package.
+
+    Debian wheezy comes with libpoppler version 0.18, which is pretty
+    old.  The minimally required version is 0.16, but some features of
+    PDF Tools depend on a more recent version of this library.  See
+    the following table for what they are and what version they
+    require.
+
+    | You want to ...                                 | Required version |
+    |-------------------------------------------------+------------------|
+    | ... modify text annotations.                    | \ge 0.19.4       |
+    | ... search case-insensitive.                    | \ge 0.22         |
+    | ... create markup (e.g. underline) annotations. | \ge 0.26         |
+    |-------------------------------------------------+------------------|
+
+    In case you decide to install libpoppler from source, make shure
+    to run it's configure script with the ~--enable-xpdf-headers~
+    option.
+
+    Finally there is one feature (following links of a PDF document by
+    plain keystrokes) which requires imagemagick's convert utility.
+    This requirement is optional and you may install it like so:
+#+begin_src sh
+  $ sudo aptitude install imagemagick
+#+end_src
+*** Compilation
+    Now it's time to compile the source.  Since we are building from
+    the git repository, we have to initialize the build-system first.
+    There is a tiny script in the root directory doing this for us.
+    
+#+begin_src sh
+    $ cd /path/to/pdf-tools
+    $ ./autogen.sh
+#+end_src
+
+    Now comes the familiar
+#+begin_src sh
+  ./configure && make
+#+end_src
+    which should compile the source code and create a Emacs Lisp
+    Package in the root directory. The configure script also tells you
+    at the very end, which features, depending on the libpoppler
+    version, will be available.  These commands should give no error,
+    otherwise you are in trouble.
+
+*** Installing
+    If ~make~ produced the ELP file ~pdf-tools-0.40.tar~ you are fine.
+    This package contains all the nescessary files for Emacs and may
+    be installed via
+#+begin_src sh
+  $ make install-package
+#+end_src
+    Alternatively start the one true Editor from the same directory
+    and execute the command
+#+begin_src elisp
+  M-x package-install-file RET pdf-tools-0.40.tar RET
+#+end_src
+  
+  To complete the installation process, you need to activate the
+  package by putting
+#+begin_src elisp
+  (pdf-tools-install)
+#+end_src
+  somewhere in your ~.emacs~. Next you probably might want to take a
+  look at the various features of what you've just installed.  The
+  following two commands might be of help for doing so.
+#+begin_src elisp
+  M-x pdf-tools-help RET
+  M-x pdf-tools-customize RET
+#+end_src
+  
 # Local Variables:
 # mode: org
 # End:
+
+

@@ -7,3 +7,6 @@ HAVE_POPPLER_FIND_OPTS
 
 HAVE_POPPLER_ANNOT_SET_RECT
 0.26 Adds function poppler_annot_set_rectangle
+
+HAVE_POPPLER_ANNOT_MARKUP
+0.26 poppler_annot_text_markup_new_{highlight,squiggly,strikeout,underline}

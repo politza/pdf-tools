@@ -23,6 +23,7 @@
 
 (require 'outline)
 (require 'pdf-links)
+(require 'pdf-view)
 (require 'cl-lib)
 (require 'imenu)
 
@@ -210,8 +211,7 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
     (and buffer (set-buffer buffer))
     (pdf-util-assert-pdf-buffer)
     (let* ((pdf-buffer (current-buffer))
-           (pdf-file (or doc-view-buffer-file-name
-                         (buffer-file-name)))
+           (pdf-file (pdf-view-buffer-file-name))
            (pdf-window (and (eq pdf-buffer (window-buffer))
                             (selected-window)))
            (bname (pdf-outline-buffer-name))
@@ -290,7 +290,7 @@ Open nodes as necessary."
   (interactive)
   (let (page)
     (with-selected-window (pdf-outline-get-pdf-window)
-      (setq page (doc-view-current-page)))
+      (setq page (pdf-view-current-page)))
     (pdf-outline-move-to-page page)))
 
 (defun pdf-outline-quit-and-kill ()
@@ -341,7 +341,7 @@ Open nodes as necessary."
     (unless link
       (error "Nothing to follow here"))
     (select-window (pdf-outline-get-pdf-window))
-    (pdf-links-do-action link)))
+    (pdf-links-action-perform link)))
 
 (defun pdf-outline-follow-link-and-quit (&optional pos)
   "Select PDF window and move to the page corresponding to POS.
@@ -352,7 +352,7 @@ Then quit the outline window."
     (pdf-outline-quit)
     (unless link
       (error "Nothing to follow here"))
-    (pdf-links-do-action link)))
+    (pdf-links-action-perform link)))
   
 (defun pdf-outline-display-link (&optional pos)
   "Display the page corresponding to the link at POS."
@@ -362,7 +362,7 @@ Then quit the outline window."
     (unless link
       (error "Nothing to follow here"))
     (with-selected-window (pdf-outline-get-pdf-window)
-      (pdf-links-do-action link))))
+      (pdf-links-action-perform link))))
 
 (defun pdf-outline-mouse-display-link (event)
   "Display the page corresponding to the position of EVENT."
@@ -420,7 +420,6 @@ Then quit the outline window."
   
 
 ;;;###autoload
-;; FIXME: Use existing menu entry ?
 (defun pdf-outline-imenu-enable ()
   "Enable imenu in the current PDF buffer."
   (interactive)
@@ -437,7 +436,7 @@ Then quit the outline window."
   (pdf-util-assert-pdf-buffer)
   (setq-local imenu-create-index-function nil)
   (local-set-key [menu-bar index] nil)
-  (when (eq doc-view-mode-map
+  (when (eq pdf-view-mode-map
             (keymap-parent (current-local-map)))
     (use-local-map (keymap-parent (current-local-map)))))
   
@@ -454,7 +453,7 @@ Then quit the outline window."
   (let ((outline (cl-remove-if-not
                   (lambda (type)
                     (eq type 'goto-dest))
-                  (pdf-info-outline doc-view-buffer-file-name)
+                  (pdf-info-outline (pdf-view-buffer-file-name))
                   :key 'cadr))
         index)
     (dolist (o outline)
@@ -470,7 +469,7 @@ Then quit the outline window."
     (cl-remove-if-not
      (lambda (type)
        (eq type 'goto-dest))
-     (pdf-info-outline doc-view-buffer-file-name)
+     (pdf-info-outline (pdf-view-buffer-file-name))
      :key 'cadr))))
 
 (defun pdf-outline-imenu-create-index-tree-1 (nodes)
@@ -514,7 +513,7 @@ Then quit the outline window."
   ;; bug #14029
   (when (eq (nth 2 args) 'pdf-outline-imenu-activate-link)
     (setq args (cdr args)))
-  (pdf-links-do-action (nth 2 args)))
+  (pdf-links-action-perform (nth 2 args)))
 
 (defadvice imenu--split-menu (around pdf-outline activate)
   "Advice to keep the original outline order.
