@@ -1134,7 +1134,7 @@ Offer `pdf-annot-color-history' as default values."
          (current-completing-read-function completing-read-function)
          (completing-read-function
           (lambda (prompt collection &optional predicate require-match
-                          initial-input hist _def inherit-input-method)
+                          initial-input _hist _def inherit-input-method)
             (funcall current-completing-read-function
                      prompt collection predicate require-match
                      initial-input 'pdf-annot-color-history
