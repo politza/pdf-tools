@@ -139,8 +139,8 @@ annoyed while reading the annotations."
 
 (defcustom pdf-annot-list-listed-types
   (if (pdf-info-markup-annotations-p)
-      (list 'text 'squiggly 'highlight 'underline 'strike-out)
-    (list 'text))
+      (list 'text 'file 'squiggly 'highlight 'underline 'strike-out)
+    (list 'text 'file))
   "A list of annotation types displayed in the list buffer."
   :group 'pdf-annot
   :type `(set ,@(mapcar (lambda (type)
