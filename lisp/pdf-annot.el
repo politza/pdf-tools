@@ -130,9 +130,16 @@ annoyed while reading the annotations."
   :group 'pdf-annot
   :type display-buffer--action-custom-type)
 
+(defconst pdf-annot-annotation-types
+  '(3d caret circle file
+       free-text highlight ink line link movie poly-line polygon popup
+       printer-mark screen sound square squiggly stamp strike-out text
+       trap-net underline unknown watermark widget)
+  "Complete list of annotation types.")
+
 (defcustom pdf-annot-list-listed-types
   (if (pdf-info-markup-annotations-p)
-      (list 'text 'squiggly 'highlight 'underline 'strikeout)
+      (list 'text 'squiggly 'highlight 'underline 'strike-out)
     (list 'text))
   "A list of annotation types displayed in the list buffer."
   :group 'pdf-annot
@@ -176,17 +183,10 @@ These values are hard-coded in poppler.  And while the size of
 these annotations may be changed, i.e. the edges property, it has
 no effect on the rendering.")
 
-(defconst pdf-annot-annotation-types
-  '(3d caret circle file
-       free-text highlight ink line link movie poly-line polygon popup
-       printer-mark screen sound square squiggly stamp strikeout text
-       trap-net underline unknown watermark widget)
-  "Complete list of annotation types.")
-  
 (defconst pdf-annot-markup-annotation-types
   '(text link free-text line square
          circle polygon poly-line highlight underline squiggly
-         strikeout stamp caret ink file sound)
+         strike-out stamp caret ink file sound)
   "List of defined markup annotation types.")
 
 (defconst pdf-annot-standard-text-icons
@@ -925,7 +925,7 @@ other annotations."
   "Creates and adds a new annotation of type TYPE to the document.
 
 TYPE determines the kind of annotation to add and maybe one of
-`text', `squiggly', `underline', `strikeout' or `highlight'.
+`text', `squiggly', `underline', `strike-out' or `highlight'.
 
 EDGES determines where the annotation will appear on the page.
 If type is `text', this should be a single list of \(LEFT TOP
@@ -1054,7 +1054,7 @@ Return the new annotation."
 LIST-OF-EDGES determines the marked up area and should be a list
 of \(LEFT TOP RIGHT BOT\), each value a image coordinate.
 
-TYPE should be one of `squiggly', `underline', `strikeout' or
+TYPE should be one of `squiggly', `underline', `strike-out' or
 `highlight'.
 
 Merge COLOR as a color property with PROPERTY-ALIST and
@@ -1067,7 +1067,7 @@ Return the new annotation."
   (interactive
    (list (pdf-view-active-region t)
          (let ((type (completing-read "Markup type (default highlight): "
-                                      '(squiggly highlight underline strikeout)
+                                      '(squiggly highlight underline strike-out)
                                       nil t)))
            (if (equal type "") 'highlight (intern type)))
          (pdf-annot-read-color)))
@@ -1092,7 +1092,7 @@ See also `pdf-annot-add-markup-annotation'."
   (pdf-annot-add-markup-annotation list-of-edges 'squiggly color property-alist))
 
 (defun pdf-annot-add-underline-markup-annotation (list-of-edges
-                                                 &optional color property-alist)
+                                                  &optional color property-alist)
   "Add a new underline annotation in the selected window.
 
 See also `pdf-annot-add-markup-annotation'."
@@ -1101,11 +1101,11 @@ See also `pdf-annot-add-markup-annotation'."
 
 (defun pdf-annot-add-strikeout-markup-annotation (list-of-edges
                                                  &optional color property-alist)
-  "Add a new strikeout annotation in the selected window.
+  "Add a new strike-out annotation in the selected window.
 
 See also `pdf-annot-add-markup-annotation'."
   (interactive (list (pdf-view-active-region t)))
-  (pdf-annot-add-markup-annotation list-of-edges 'strikeout color property-alist))
+  (pdf-annot-add-markup-annotation list-of-edges 'strike-out color property-alist))
 
 (defun pdf-annot-add-highlight-markup-annotation (list-of-edges
                                                  &optional color property-alist)

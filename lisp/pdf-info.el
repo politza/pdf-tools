@@ -494,7 +494,7 @@ interrupted."
                         (state . ,(not-empty state))
                         (is-open . ,(equal is-open "1"))))))
              ((memq (cdr (assoc 'type a1))
-                    '(squiggly highlight underline strikeout))
+                    '(squiggly highlight underline strike-out))
               (setq a3 `((markup-edges
                           . ,(mapcar (lambda (r)
                                        (mapcar 'string-to-number
@@ -686,7 +686,7 @@ representing the final page."
     (cond
      ((not (memq 'writable-annotations features)) nil)
      ((memq 'markup-annotations features)
-      (list 'text 'squiggly 'underline 'strikeout 'highlight))
+      (list 'text 'squiggly 'underline 'strike-out 'highlight))
      (t (list 'text)))))
 
 (defun pdf-info-open (&optional file-or-buffer password)

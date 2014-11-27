@@ -1199,7 +1199,7 @@ annotation_new (const epdfinfo_t *ctx, document_t *doc, PopplerPage *page,
     a = poppler_annot_text_markup_new_highlight (doc->pdf, r, garray);
   else if (! strcmp (type, "squiggly"))
     a = poppler_annot_text_markup_new_squiggly (doc->pdf, r, garray);
-  else if (! strcmp (type, "strikeout"))
+  else if (! strcmp (type, "strike-out"))
     a = poppler_annot_text_markup_new_strikeout (doc->pdf, r, garray);
   else if (! strcmp (type, "underline"))
     a = poppler_annot_text_markup_new_underline (doc->pdf, r, garray);
