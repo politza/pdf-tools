@@ -167,16 +167,16 @@ these annotations may be changed, i.e. the edges property, it has
 no effect on the rendering.")
 
 (defconst pdf-annot-annotation-types
-  '(unknown text link free-text line square
-            circle polygon poly-line highlight underline squiggly
-            strike-out stamp caret ink popup file sound movie widget screen
-            printer-mark trap-net watermark 3d )
+  '(3d caret circle file
+       free-text highlight ink line link movie poly-line polygon popup
+       printer-mark screen sound square squiggly stamp strikeout text
+       trap-net underline unknown watermark widget)
   "Complete list of annotation types.")
   
 (defconst pdf-annot-markup-annotation-types
   '(text link free-text line square
          circle polygon poly-line highlight underline squiggly
-         strike-out stamp caret ink file sound)
+         strikeout stamp caret ink file sound)
   "List of defined markup annotation types.")
 
 (defconst pdf-annot-standard-text-icons
@@ -1450,11 +1450,23 @@ A2."
                      (and (= e1-top e2-top)
                           (<= e1-left e2-left)))))))))
 
+(defcustom pdf-annot-list-listed-types
+  (if (pdf-info-markup-annotations-p)
+      (list 'text 'squiggly 'highlight 'underline 'strikeout)
+    (list 'text))
+  "A list of annotation types displayed in the list buffer."
+  :group 'pdf-annot
+  :type `(set ,@(mapcar (lambda (type)
+                          (list 'const type))
+                        pdf-annot-annotation-types)))
+                         
+  
 (defun pdf-annot-list-entries ()
   (unless (buffer-live-p pdf-annot-list-document-buffer)
     (error "No PDF document associated with this buffer"))
   (mapcar 'pdf-annot-list-create-entry
-          (sort (pdf-annot-getannots nil nil pdf-annot-list-document-buffer)
+          (sort (pdf-annot-getannots nil pdf-annot-list-listed-types
+                                     pdf-annot-list-document-buffer)
                 'pdf-annot-compare-annotations)))
 
 (defun pdf-annot-list-create-entry (a)
