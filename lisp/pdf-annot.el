@@ -130,6 +130,16 @@ annoyed while reading the annotations."
   :group 'pdf-annot
   :type display-buffer--action-custom-type)
 
+(defcustom pdf-annot-list-listed-types
+  (if (pdf-info-markup-annotations-p)
+      (list 'text 'squiggly 'highlight 'underline 'strikeout)
+    (list 'text))
+  "A list of annotation types displayed in the list buffer."
+  :group 'pdf-annot
+  :type `(set ,@(mapcar (lambda (type)
+                          (list 'const type))
+                        pdf-annot-annotation-types)))
+
 
 ;; * ================================================================== *
 ;; * Variables and Macros
@@ -1450,17 +1460,6 @@ A2."
                      (and (= e1-top e2-top)
                           (<= e1-left e2-left)))))))))
 
-(defcustom pdf-annot-list-listed-types
-  (if (pdf-info-markup-annotations-p)
-      (list 'text 'squiggly 'highlight 'underline 'strikeout)
-    (list 'text))
-  "A list of annotation types displayed in the list buffer."
-  :group 'pdf-annot
-  :type `(set ,@(mapcar (lambda (type)
-                          (list 'const type))
-                        pdf-annot-annotation-types)))
-                         
-  
 (defun pdf-annot-list-entries ()
   (unless (buffer-live-p pdf-annot-list-document-buffer)
     (error "No PDF document associated with this buffer"))
