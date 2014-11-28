@@ -443,20 +443,20 @@ the variable is nil and this function is called again."
   (when (and (null operation) annotations)
     (error "Missing operation argument"))
   
-  (cl-symbol-macrolet ((plist pdf-annot-delayed-modified-annotations))
-    (when operation
-      (let ((list (plist-get plist operation)))
-        (dolist (a annotations)
-          (cl-pushnew a list :test 'pdf-annot-equal))
-        (setq plist
-              (plist-put plist
-                         operation list))))
-    (let* ((changed (plist-get plist :change))
+  (when operation
+    (let ((list (plist-get pdf-annot-delayed-modified-annotations operation)))
+      (dolist (a annotations)
+        (cl-pushnew a list :test 'pdf-annot-equal))
+      (setq pdf-annot-delayed-modified-annotations
+            (plist-put pdf-annot-delayed-modified-annotations
+                       operation list))))
+  (unless pdf-annot-inhibit-modification-hooks
+    (let* ((changed (plist-get pdf-annot-delayed-modified-annotations :change))
            (inserted (mapcar (lambda (a)
-                               (let ((ac (cl-member a changed :test 'pdf-annot-equal)))
-                                 (or ac a)))
-                             (plist-get plist :insert)))
-           (deleted (plist-get plist :delete))
+                               (or (car (cl-member a changed :test 'pdf-annot-equal))
+                                   a))
+                             (plist-get pdf-annot-delayed-modified-annotations :insert)))
+           (deleted (plist-get pdf-annot-delayed-modified-annotations :delete))
            (union (cl-union (cl-union changed inserted :test 'pdf-annot-equal)
                             deleted :test 'pdf-annot-equal))
            (closure (lambda (arg)
@@ -467,8 +467,7 @@ the variable is nil and this function is called again."
                         (t (copy-sequence union))
                         (nil nil))))
            (pages (mapcar (lambda (a) (pdf-annot-get a 'page)) union)))
-      (unless (or pdf-annot-inhibit-modification-hooks
-                  (null union))
+      (when union               
         (unwind-protect
             (run-hook-with-args
              'pdf-annot-modified-functions closure)
