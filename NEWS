@@ -1,0 +1,32 @@
+-*- org -*-
+
+* Version 0.40
+  I basically reimplemented the whole thing. (Not really, but a lot
+  has changed.)
+** Displaying PDF Files.
+   Rendering is now done almost completely in libpoppler (no convert
+   anymore), while PNG images are kept in memory and files are solely
+   used as a means of exchange between Emacs and epdfinfo.  In
+   essence, display should be much faster.
+*** New Major Mode pdf-view
+    Hacking up doc-view.el to support a server-based ,,rendering
+    engine'' would have been to awkward. So a new major-mode was
+    needed : pdf-view-mode . Both are very similar regarding
+    user-interface.  Some differences are:
+    + Setting the width to `fit-width', `fit-height' or `fit-page'
+      keeps up with window-size changes.
+    + The values of the slice are relative, i.e. independant of the
+      image-size.
+*** PNG Image Cache
+    Image data is cached, in order to keep the time it needs to
+    display a page low.  Some pages are preloaded for the same reason,
+    while idleing.  The number of cached images per buffer may be
+    customized using `pdf-cache-image-limit'.
+** Annotations
+*** New supported types
+    Provided epdfinfo was build with a recent version of libpoppler,
+    you may now create and modify the following markup annotation
+    types: highlight, squiggly, underline and strike-out.
+** Various
+*** You may now select extended regions with C-mouse-1.
+*** Numerous other changes
