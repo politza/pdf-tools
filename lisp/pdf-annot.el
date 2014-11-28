@@ -420,7 +420,7 @@ Returns the modified annotation."
     (with-current-buffer (pdf-annot-get-buffer a)
       (setq a (pdf-annot-create
                (pdf-info-editannot
-                (pdf-annot-get a 'id)
+                (pdf-annot-get-id a)
                 `((,property . ,value)))))
       (set-buffer-modified-p t)
       (pdf-annot-run-modified-hooks :change a)))
@@ -482,16 +482,29 @@ Two annotations are equal, if they belong to the same buffer and
 have identical id properties."
   (and (eq (pdf-annot-get-buffer a1)
            (pdf-annot-get-buffer a2))
-       (eq (pdf-annot-get a1 'id)
-           (pdf-annot-get a2 'id))))
+       (eq (pdf-annot-get-id a1)
+           (pdf-annot-get-id a2))))
   
 (defun pdf-annot-get-buffer (a)
   "Return annotation A's buffer."
   (pdf-annot-get a 'buffer))
 
 (defun pdf-annot-get-id (a)
-  "Return id property of A."
+  "Return id property of annotation A."
   (pdf-annot-get a 'id))
+
+(defun pdf-annot-get-type (a)
+  "Return type property of annotation A."
+  (pdf-annot-get a 'type))
+
+(defun pdf-annot-get-display-edges (a)
+  "Return a list of EDGES used for display for annotation A.
+
+This returns a list of \(LEFT TOP RIGHT BOT\) demarking the
+rectangles of the page where A is rendered."
+
+  (or (pdf-annot-get a 'markup-edges)
+      (list (pdf-annot-get a 'edges))))
 
 (defun pdf-annot-delete (a)
   "Delete annotation A.
@@ -505,7 +518,7 @@ This function alwasy returns nil."
           "Click on the annotation you wish to delete")))
   (with-current-buffer (pdf-annot-get-buffer a)
     (pdf-info-delannot
-     (pdf-annot-get a 'id))
+     (pdf-annot-get-id a))
     (set-buffer-modified-p t)
     (pdf-annot-run-modified-hooks :delete a))
   (when (called-interactively-p 'any)
@@ -780,9 +793,10 @@ Return nil, if no annotation was found."
                     (cdr offset)))
              (rpos (cons rx ry)))
         (or (cl-some (lambda (a)
-                       (and (pdf-util-edges-inside-p
-                             (pdf-annot-get a 'edges)
-                             rpos)
+                       (and (cl-some
+                             (lambda (e)
+                               (pdf-util-edges-inside-p e rpos))
+                             (pdf-annot-get-display-edges a))
                             a))
                      annots)
             (error "No annotation at this position"))))))
@@ -836,10 +850,9 @@ i.e. a non mouse-movement event is read."
   
 (defun pdf-annot-create-hotspots (a size) 
   "Return a list of image hotspots for annotation A."
-  (let ((id (pdf-annot-get a 'id))
+  (let ((id (pdf-annot-get-id a))
         (edges (pdf-util-scale
-                (or (pdf-annot-get a 'markup-edges)
-                    (list (pdf-annot-get a 'edges)))
+                (pdf-annot-get-display-edges a)
                 size 'round))
         (moveable-p (memq (pdf-annot-get a 'type)
                           '(file text)))
@@ -897,8 +910,7 @@ other annotations."
           (size (pdf-view-image-size)))
       (unless (= page (pdf-view-current-page))
         (pdf-view-goto-page page))
-      (let ((edges (or (pdf-annot-get a 'markup-edges)
-                       (list (pdf-annot-get a 'edges)))))
+      (let ((edges (pdf-annot-get-display-edges a)))
         (when highlight-p
           (pdf-view-display-image
            (pdf-view-create-image
@@ -969,7 +981,7 @@ Return the new annotation."
                    type
                    nil
                    (if (not (eq type 'text)) edges)))
-         (id (pdf-annot-get a 'id)))
+         (id (pdf-annot-get-id a)))
     (when property-alist
       (condition-case err
           (setq a (pdf-info-editannot id property-alist))
@@ -1441,19 +1453,16 @@ Return nil, if not available."
   "Compare annotations A1 and A2.
 
 Return non-nil if A1's page is less than A2's one or if they
-belong to the same page and A1 is displayed above and/or right of
-A2."
+belong to the same page and A1 is displayed above/left of A2."
   (let ((p1 (pdf-annot-get a1 'page))
         (p2 (pdf-annot-get a2 'page)))
     (or (< p1 p2)
         (and (= p1 p2)
              (let ((e1 (pdf-util-scale
-                        (or (car (pdf-annot-get a1 'markup-edges))
-                            (pdf-annot-get a1 'edges))
+                        (car (pdf-annot-get-display-edges a1))
                         '(1000 . 1000)))
                    (e2 (pdf-util-scale
-                        (or (car (pdf-annot-get a2 'markup-edges))
-                            (pdf-annot-get a2 'edges))
+                        (car (pdf-annot-get-display-edges a2))
                         '(1000 . 1000))))
                (pdf-util-with-edges (e1 e2)
                  (or (< e1-top e2-top)
@@ -1470,7 +1479,7 @@ A2."
 
 (defun pdf-annot-list-create-entry (a)
   "Create a `tabulated-list-entries' entry for annotation A."
-  (list (pdf-annot-get a 'id)
+  (list (pdf-annot-get-id a)
         (vector
          (pdf-annot-print-property a 'page)
          (pdf-annot-print-property a 'type)
@@ -1535,7 +1544,7 @@ A2."
       (pdf-annot-list-annotations))
     (with-selected-window (get-buffer-window pdf-annot-list-buffer)
       (goto-char (point-min))
-      (let ((id (pdf-annot-get a 'id)))
+      (let ((id (pdf-annot-get-id a)))
         (while (and (not (eobp))
                     (not (eq id (tabulated-list-get-id))))
           (forward-line))
