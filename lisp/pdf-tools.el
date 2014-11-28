@@ -152,7 +152,8 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
     (with-current-buffer buf
-      (when (pdf-tools-pdf-buffer-p)
+      (when (and (pdf-tools-pdf-buffer-p)
+                 (buffer-file-name))
         (pdf-view-mode)))))
 
 (defun pdf-tools-uninstall ()
