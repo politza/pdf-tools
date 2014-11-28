@@ -1610,22 +1610,23 @@ belong to the same page and A1 is displayed above/left of A2."
 
 (defun pdf-annot-list-display-annotation-from-id (id)
   (interactive (list (tabulated-list-get-id)))
-  (unless (buffer-live-p pdf-annot-list-document-buffer)
-    (error "PDF buffer was killed"))
-  (when (timerp pdf-annot-list-display-annotation--timer)
-    (cancel-timer pdf-annot-list-display-annotation--timer))
-  (setq pdf-annot-list-display-annotation--timer
-        (run-with-idle-timer 0.1 nil
-          (lambda (buffer a)
-            (when (buffer-live-p buffer)
-              (with-selected-window
-                  (or (get-buffer-window buffer)
-                      (display-buffer
-                       buffer
-                       '(nil (inhibit-same-window . t))))
-                (pdf-annot-show-annotation a t))))
-          pdf-annot-list-document-buffer
-          (pdf-annot-getannot id pdf-annot-list-document-buffer))))
+  (when id
+    (unless (buffer-live-p pdf-annot-list-document-buffer)
+      (error "PDF buffer was killed"))
+    (when (timerp pdf-annot-list-display-annotation--timer)
+      (cancel-timer pdf-annot-list-display-annotation--timer))
+    (setq pdf-annot-list-display-annotation--timer
+          (run-with-idle-timer 0.1 nil
+            (lambda (buffer a)
+              (when (buffer-live-p buffer)
+                (with-selected-window
+                    (or (get-buffer-window buffer)
+                        (display-buffer
+                         buffer
+                         '(nil (inhibit-same-window . t))))
+                  (pdf-annot-show-annotation a t))))
+            pdf-annot-list-document-buffer
+            (pdf-annot-getannot id pdf-annot-list-document-buffer)))))
 
 (define-minor-mode pdf-annot-list-follow-minor-mode
   "" nil nil nil
