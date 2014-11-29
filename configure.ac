@@ -70,7 +70,7 @@ AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
 AC_OUTPUT
 
 echo
-echo "Is case-sensitive searching enabled ?  ${HAVE_POPPLER_FIND_OPTS}"
-echo "Is modifying annotations enabled ?     ${HAVE_POPPLER_ANNOT_WRITE}"
-echo "Is adding markup annotations enabled ? ${HAVE_POPPLER_ANNOT_MARKUP}"
+echo "Is case-sensitive searching enabled ?     ${HAVE_POPPLER_FIND_OPTS}"
+echo "Is modifying text annotations enabled ?   ${HAVE_POPPLER_ANNOT_WRITE}"
+echo "Is modifying markup annotations enabled ? ${HAVE_POPPLER_ANNOT_MARKUP}"
 echo
