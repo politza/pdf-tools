@@ -195,6 +195,8 @@ Edge values are image coordinates.")
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
+(defvar bookmark-make-record-function)
+
 (defun pdf-view-mode ()
   "Major mode in PDF buffers.
 
