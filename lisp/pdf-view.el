@@ -946,7 +946,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
     (kill-new (mapconcat 'identity txt "\n"))))
 
 (defun pdf-view-mark-whole-page ()
-  "Copy the whole page to the `kill-ring'."
+  "Mark the whole page."
   (interactive)
   (pdf-view-deactivate-region)
   (let ((size (pdf-view-image-size)))
