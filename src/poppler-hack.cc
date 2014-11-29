@@ -15,14 +15,12 @@
 
 #include <config.h>
 #include <PDFDocEncoding.h>
-#ifdef HAVE_POPPLER_ANNOT_WRITE
 #include <Annot.h>
-#endif
+#include <glib.h>
+#include <glib-object.h>
 
 extern "C"
 {
-#ifdef HAVE_POPPLER_ANNOT_WRITE
-#include <glib-object.h>
   
 GType poppler_annot_get_type (void) G_GNUC_CONST;
 GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
@@ -53,7 +51,6 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
     double y2;
   };
 
-#endif
   char *_xpoppler_goo_string_to_utf8(GooString *s)
   {
     char *result;
@@ -84,7 +81,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
 
     return result;
   }
-#if HAVE_POPPLER_ANNOT_WRITE
+#ifdef HAVE_POPPLER_ANNOT_WRITE
   // Set the rectangle of an annotation.  It was first added in v0.26.
   void xpoppler_annot_set_rectangle (PopplerAnnot *a, PopplerRectangle *rectangle)
   {
