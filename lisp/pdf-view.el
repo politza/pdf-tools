@@ -252,6 +252,8 @@ PNG images in Emacs buffers.
   (setq-local major-mode 'pdf-view-mode)
   (setq-local buffer-read-only t)
   (setq-local view-read-only nil)
+  (setq-local bookmark-make-record-function
+              'pdf-view-bookmark-make-record)
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
   (use-local-map pdf-view-mode-map)
@@ -966,8 +968,36 @@ Deactivate the region if DEACTIVATE-P is non-nil."
 
 
 ;; * ================================================================== *
-;; * Display a text cursor
+;; * Bookmark Integration
 ;; * ================================================================== *
+
+(declare-function bookmark-make-record-default
+                  "bookmark" (&optional no-file no-context posn))
+(declare-function bookmark-prop-get "bookmark" (bookmark prop))
+(declare-function bookmark-default-handler "bookmark" (bmk))
+
+(defun pdf-view-bookmark-make-record ()
+  (nconc (bookmark-make-record-default)
+         `((page     . ,(pdf-view-current-page))
+           (handler  . pdf-view-bookmark-jump))))
+
+;;;###autoload
+(defun pdf-view-bookmark-jump (bmk)
+  ;; This implements the `handler' function interface for record type
+  ;; returned by `pdf-view-bookmark-make-record', which see.
+  (let ((page (bookmark-prop-get bmk 'page))
+	(show-fn-sym (make-symbol "pdf-view-bookmark-after-jump-hook")))
+    (fset show-fn-sym
+	  (lambda ()
+	    (remove-hook 'bookmark-after-jump-hook show-fn-sym)
+	    (when (not (eq major-mode 'pdf-view-mode))
+	      (pdf-view-mode))
+	    (with-selected-window
+		(or (get-buffer-window (current-buffer) 0)
+		    (selected-window))
+	      (pdf-view-goto-page page))))
+    (add-hook 'bookmark-after-jump-hook show-fn-sym)
+    (bookmark-default-handler bmk)))
 
 (provide 'pdf-view)
 
