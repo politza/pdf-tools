@@ -137,7 +137,7 @@ If EVENT is nil, use occurrence at current line."
   (when (or (null string) (= (length string) 0))
     (error "Not searching for the empty string"))
   (unless buffer (setq buffer (current-buffer)))
-  (let ((matches (pdf-info-search string buffer)))
+  (let ((matches (pdf-info-search-string string buffer)))
     (when (null matches)
       (error "No match for %s in buffer %s" string (buffer-name buffer)))
     (with-current-buffer (get-buffer-create "*PDF-Occur*")

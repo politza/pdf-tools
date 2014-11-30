@@ -726,7 +726,7 @@ document."
    'metadata
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
                
-(defun pdf-info-search (string &optional file-or-buffer pages)
+(defun pdf-info-search-string (string &optional file-or-buffer pages)
   "Search for STRING in PAGES of docüment FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats.
@@ -749,7 +749,7 @@ searching case-sensitive is supported by the server."
      string
      (if case-fold-search 1 0))))
 
-(defun pdf-info-re-search (regexp &optional file-or-buffer pages
+(defun pdf-info-search-regexp (regexp &optional file-or-buffer pages
                                   extended-regexp-p
                                   dont-treat-newline-p)
   "Search for REGEXP in PAGES of docüment FILE-OR-BUFFER.
@@ -790,7 +790,7 @@ searching case-sensitive is supported by the server."
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
 
 This function returns a list \(\(EDGES . ACTION\) ... \), where
-EDGES has the same form as in `pdf-info-search'.  ACTION
+EDGES has the same form as in `pdf-info-search-string'.  ACTION
 represents a PDF Action and has the form \(TYPE TITLE . ARGS\),
 there TYPE is the type of the action, TITLE is a, possibly empty,
 name for this action and ARGS a list of the action's arguments.

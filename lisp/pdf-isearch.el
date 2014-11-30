@@ -397,7 +397,7 @@ coordinates, sorted top to bottom, then left to right."
   (unless page (setq page (pdf-view-current-page)))
   (let ((case-fold-search isearch-case-fold-search))
     (pdf-util-scale-relative-to-pixel
-     (mapcar 'car (cdar (pdf-info-search
+     (mapcar 'car (cdar (pdf-info-search-string
                          string nil page))))))
 
 (defun pdf-isearch-find-next-matching-page (string page &optional
@@ -424,7 +424,7 @@ is no such page."
                     (and (not forward-p)
                          (>= (cdr pages) 1))))
       (let* ((case-fold-search isearch-case-fold-search)
-             (matches (pdf-info-search string nil pages)))
+             (matches (pdf-info-search-string string nil pages)))
         (setq matched-page (if forward-p
                                (caar matches)
                              (caar (last matches)))))
