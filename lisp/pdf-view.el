@@ -191,7 +191,7 @@ Edge values are image coordinates.")
     (define-key map [remap kill-ring-save] 'pdf-view-kill-ring-save)
     (define-key map [remap mark-whole-buffer] 'pdf-view-mark-whole-page)
     ;; Other
-    (define-key map (kbd "C-c C-d") 'pdf-view-dark-mode)
+    (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
