@@ -733,19 +733,59 @@ See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
-has a form of \(EDGES TEXT\), where EDGES represent the
-coordinates of the match as a list of four values \(LEFT TOP
-RIGHT BOTTOM\). TEXT is the matched text and may be empty, if
-extracting text is not available in the server."
+looks like \(EDGES TEXT\), where EDGES represent the coordinates
+of the match as a list of four relative values \(LEFT TOP RIGHT
+BOTTOM\). TEXT is the complete line where STRING was found.
+
+Search is case-insensitive, unless `case-fold-search' is nil and
+searching case-sensitive is supported by the server."
 
   (let ((pages (pdf-info-normalize-page-range pages)))
     (pdf-info-query
-     'search
+     'search-string
      (pdf-info--normalize-file-or-buffer file-or-buffer)
-     (if case-fold-search 1 0)
      (car pages)
      (cdr pages)
-     string)))
+     string
+     (if case-fold-search 1 0))))
+
+(defun pdf-info-re-search (regexp &optional file-or-buffer pages
+                                  extended-regexp-p
+                                  treat-newline-p)
+  "Search for REGEXP in PAGES of docüment FILE-OR-BUFFER.
+
+See `pdf-info-normalize-page-range' for valid PAGES formats.
+
+This function returns a list \(\((PAGE . MATCHES\) ... \), where
+MATCHES represents a list of matches on PAGE.  Each MATCHES item
+looks like \(EDGES EDGES ... TEXT\), where the EDGES elements
+represent the coordinates of the match, each one beeing a list of
+four relative values \(LEFT TOP RIGHT BOTTOM\). TEXT is the
+matched text.
+
+Treat REGEXP as a extended regular expression, lese REGEXP should
+be a POSIX regular expression.
+
+If TREAT-NEWLINE-P is non-nil, the text is divided into multiple
+lines, so that `^' and `$' match before and after a newline.
+Also, `.' and `[^...]' don't match a newline character.
+
+Otherwise `^' and `$' match at the beginning resp. end of a page
+and `.' and `[^...]' do match newlines.
+
+Search is case-insensitive, unless `case-fold-search' is nil and
+searching case-sensitive is supported by the server."
+
+  (let ((pages (pdf-info-normalize-page-range pages)))
+    (pdf-info-query
+     'search-regexp
+     (pdf-info--normalize-file-or-buffer file-or-buffer)
+     (car pages)
+     (cdr pages)
+     string
+     (if case-fold-search 1 0)
+     (if extended-regexp-p 1 0)
+     (if treat-newline-p 1 0))))
 
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.

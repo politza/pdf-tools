@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <png.h>
 #include <math.h>
+#include <regex.h>
 #include "synctex_parser.h"
 #include "epdfinfo.h"
 #include "config.h"
@@ -487,6 +488,25 @@ image_write_print_response(cairo_surface_t *surface, enum image_type type)
   free (filename);
  error:
   return;
+}
+
+static void
+region_print (cairo_region_t *region, double width, double height)
+{
+  int i;
+  for (i = 0; i < cairo_region_num_rectangles (region); ++i)
+    {
+      cairo_rectangle_int_t r;
+
+      cairo_region_get_rectangle (region, i, &r);
+      printf ("%f %f %f %f",
+              r.x / width,
+              r.y / height,
+              (r.x + r.width) / width,
+              (r.y + r.height) / height);
+      if (i < cairo_region_num_rectangles (region) - 1)
+        putchar (':');
+    }
 }
 
 /** 
@@ -1437,22 +1457,8 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
   else if (POPPLER_IS_ANNOT_TEXT_MARKUP (a))
     {
       /* >>> Markup Text Annotation >>> */
-      int i;
-      
       putchar (':');
-      for (i = 0; i < cairo_region_num_rectangles (region); ++i)
-        {
-          cairo_rectangle_int_t r;
-
-          cairo_region_get_rectangle (region, i, &r);
-          printf ("%f %f %f %f",
-                  r.x / width,
-                  r.y / height,
-                  (r.x + r.width) / width,
-                  (r.y + r.height) / height);
-          if (i < cairo_region_num_rectangles (region) - 1)
-            putchar (':');
-        }
+      region_print (region, width, height);
       /* <<< Markup Text Annotation <<< */
     }
 #endif
@@ -1642,23 +1648,140 @@ cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args)
 */
 
 
-const command_arg_type_t cmd_search_spec[] =
+const command_arg_type_t cmd_search_regexp_spec[] =
   {
     ARG_DOC,
-    ARG_BOOL,                   /* ignore-case */
     ARG_NATNUM,                 /* first page */
     ARG_NATNUM,                 /* last page */
-    ARG_NONEMPTY_STRING,        /* search string */
+    ARG_NONEMPTY_STRING,        /* regexp */
+    ARG_BOOL,                   /* ignore-case */
+    ARG_BOOL,                   /* extended regexp */
+    ARG_BOOL,                   /* REG_NEWLINE */
   };
 
 static void
-cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
+cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
 {
   PopplerDocument *doc = args[0].value.doc->pdf;
-  gboolean ignore_case = args[1].value.flag;
-  int first = args[2].value.natnum;
-  int last = args[3].value.natnum;
-  const char *string = args[4].value.string;
+  int first = args[1].value.natnum;
+  int last = args[2].value.natnum;
+  const char *regexp = args[3].value.string;
+  gboolean ignore_case = args[4].value.flag;
+  gboolean extended_regexp = args[5].value.flag;
+  gboolean treat_newline = args[6].value.flag;
+  double width, height;
+  int pn, re_error;
+  regex_t *re = g_malloc(sizeof (regex_t));
+  int cflags = 0;
+  char re_error_msg[256];
+  
+  NORMALIZE_PAGE_ARG (doc, &first, &last);
+  if (ignore_case)
+    cflags |= REG_ICASE;
+  if (extended_regexp)
+    cflags |= REG_EXTENDED;
+  if (treat_newline)
+    cflags |= REG_NEWLINE;
+  
+  re_error = regcomp (re, regexp, cflags);
+  perror_if_not (! re_error, "%s", (regerror (re_error, re, re_error_msg, 256), re_error_msg));
+
+  OK_BEGIN ();
+  for (pn = first; pn <= last; ++pn)
+    {
+      PopplerPage *page = poppler_document_get_page(doc, pn - 1);
+      char *text, *text_p;
+      PopplerRectangle *rectangles;
+      guint nrectangles;
+      regmatch_t match;
+      int roffset = 0;
+      int eflags = 0;
+      
+      if (! page)
+        continue;
+
+      text = poppler_page_get_text (page);
+      text_p = text;
+      poppler_page_get_text_layout (page, &rectangles, &nrectangles);
+      poppler_page_get_size (page, &width, &height);
+      
+      while (*text_p && ! regexec (re, text_p, 1, &match, eflags))
+        {
+          gint ustart = g_utf8_strlen (text_p, match.rm_so);
+          gint ulen = g_utf8_strlen (text_p + match.rm_so, match.rm_eo - match.rm_so);
+          cairo_region_t *region = cairo_region_create ();
+          int i;
+
+          /* Merge matched glyph rectangles. */
+          for (i = ustart + roffset; i < ustart + roffset + ulen; ++i)
+            {
+              PopplerRectangle *r;
+              cairo_region_t *s;
+
+              /* I don't trust this. */
+              if (i < 0 || i >= nrectangles)
+                {
+                  fprintf (stderr, "Internal error in cmd_search_regexp: "
+                           "Invalid match rectangle\n");
+                  continue;
+                }
+
+              r = rectangles + i;
+              s = poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, r);
+              cairo_region_union (region, s);
+              cairo_region_destroy (s);
+            }
+
+          if (ulen != 0)
+            {
+              printf ("%d:", pn);
+              region_print (region, width, height);
+              putchar (':');
+              fwrite (text_p + match.rm_so, 1, match.rm_eo - match.rm_so, stdout);
+              putchar ('\n');
+              roffset += ustart + ulen;
+              text_p = g_utf8_offset_to_pointer (text_p, ustart + ulen);
+            }
+          else               /* Empty match, advance one character. */
+            {
+              text_p = g_utf8_find_next_char (text_p + match.rm_eo, NULL);
+              roffset += ustart + 1;
+            }
+          if (treat_newline)
+            eflags = *(text_p - 1) == '\n' ? 0 : REG_NOTBOL;
+          cairo_region_destroy (region);
+        }
+      g_free (rectangles);
+      g_object_unref (page);
+      g_free (text);
+    }
+  OK_END ();
+ 
+ error:
+  if (re)
+    {
+      regfree (re);
+      g_free (re);
+    }
+}
+
+const command_arg_type_t cmd_search_string_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* first page */
+    ARG_NATNUM,                 /* last page */
+    ARG_NONEMPTY_STRING,        /* search string */
+    ARG_BOOL,                   /* ignore-case */
+  };
+
+static void
+cmd_search_string(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  PopplerDocument *doc = args[0].value.doc->pdf;
+  int first = args[1].value.natnum;
+  int last = args[2].value.natnum;
+  const char *string = args[3].value.string;
+  gboolean ignore_case = args[4].value.flag;
   GList *list, *item;
   double width, height;
   int pn;
@@ -1666,12 +1789,7 @@ cmd_search(const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerFindFlags flags = ignore_case ? 0 : POPPLER_FIND_CASE_SENSITIVE;
 #endif
 
-  first = MAX(1, first);
-  if (last <= 0)
-    last = poppler_document_get_n_pages (doc);
-  else
-    last = MIN(last, poppler_document_get_n_pages (doc));
-
+  NORMALIZE_PAGE_ARG (doc, &first, &last);
   OK_BEGIN ();
   for (pn = first; pn <= last; ++pn)
     {
@@ -3006,7 +3124,10 @@ static const command_t commands [] =
     {"quit", cmd_quit, cmd_quit_spec, G_N_ELEMENTS (cmd_quit_spec)},
 
     /* General Informations */
-    {"search", cmd_search, cmd_search_spec, G_N_ELEMENTS (cmd_search_spec)},
+    {"search-string", cmd_search_string,
+     cmd_search_string_spec, G_N_ELEMENTS (cmd_search_string_spec)},
+    {"search-regexp", cmd_search_regexp,
+     cmd_search_regexp_spec, G_N_ELEMENTS (cmd_search_regexp_spec)},
     {"metadata", cmd_metadata, cmd_metadata_spec, G_N_ELEMENTS (cmd_metadata_spec)},
     {"outline", cmd_outline, cmd_outline_spec, G_N_ELEMENTS (cmd_outline_spec)},
     {"number-of-pages", cmd_number_of_pages, cmd_number_of_pages_spec,
@@ -3083,7 +3204,7 @@ int main(int argc, char **argv)
 
       if (read <= 1 || line[read - 1] != '\n')
         {
-          fprintf (stderr, "Skipped parts of a line\n");
+          fprintf (stderr, "Skipped parts of a line: `%s'\n", line);
           goto next_line;
         }
       

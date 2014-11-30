@@ -86,6 +86,13 @@
    && argb1[2] == argb2[2])
 #endif
 
+#define NORMALIZE_PAGE_ARG(doc, first, last)                    \
+  *first = MAX(1, *first);                                      \
+  if (*last <= 0)                                               \
+    *last = poppler_document_get_n_pages (doc);                 \
+  else                                                          \
+    *last = MIN(*last, poppler_document_get_n_pages (doc));
+
 /* png_jmpbuf is supposed to be not available in older versions of
    libpng. */
 #ifndef png_jmpbuf
