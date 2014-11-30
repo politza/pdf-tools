@@ -1575,7 +1575,7 @@ belong to the same page and A1 is displayed above/left of A2."
 
 (defun pdf-annot-list-operation-function (op &rest args)
   (cl-ecase op
-    (supported-operations '(delete find-entry complete))
+    (supported-operations '(delete find-entry))
     (delete
      (cl-destructuring-bind (ids)
          args
