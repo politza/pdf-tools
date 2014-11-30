@@ -5,6 +5,9 @@
    The PDF buffer is in unibyte mode prohibiting the user from
    inserting multibyte characters in the minibuffer with some
    input-methods, while editing the search string.
+** Implement regexp search
+* pdf-occur
+** Implement regexp search
 * PDF Forms
   Recent poppler versions have some support for editing forms.
 * pdf-annot
