@@ -88,8 +88,8 @@ nil -- do nothing,
 t   -- automatically restart it or
 ask -- ask whether to restart or not.
 
-If it is `ask', ther servers and you answer no, this variable is
-set to nil."
+If it is `ask', the server quits and you answer no, this variable
+is set to nil."
   :group 'pdf-info
   :type '(choice (const :tag "Do nothing" nil)
                  (const :tag "Restart silently" t)
@@ -107,7 +107,20 @@ in a `with-temp-buffer' form.")
 ;; * Variables
 ;; * ================================================================== *
 
-(defvar pdf-info-asynchronous nil)
+(defvar pdf-info-asynchronous nil
+  "If non-nil process queries asynchronously.
+
+More specifically the value should be a function of two arguments
+\(fn STATUS RESPONSE\), where STATUS is either nil, for a
+successful query, or the symbol error.  RESPONSE is either the
+command's response or the error message.  This does not work
+recursive, i.e. if function wants to make another asynchronous
+query it has to rebind this variable.
+
+Also, all pdf-info functions normally returning a response return
+nil.
+
+This variable should only be let-bound.")
 
 (defconst pdf-info-pdf-date-regexp
   ;; Adobe PDF32000.book, 7.9.4 Dates
@@ -277,6 +290,7 @@ error."
         (error "internal error: invalid response status"))))))
 
 (defun pdf-info-interrupt ()
+  "FIXME: This command does currently nothing."
   (when (and (processp (pdf-info-process))
              (eq (process-status (pdf-info-process))
                  'run))
