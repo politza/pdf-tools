@@ -1671,9 +1671,8 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
   gboolean treat_newline = args[6].value.flag;
   double width, height;
   int pn, re_error;
-  regex_t *re = g_malloc(sizeof (regex_t));
+  regex_t *re = g_malloc0(sizeof (regex_t));
   int cflags = 0;
-  char re_error_msg[256];
 
   NORMALIZE_PAGE_ARG (doc, &first, &last);
   if (ignore_case)
@@ -1683,8 +1682,14 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
   if (treat_newline)
     cflags |= REG_NEWLINE;
 
-  re_error = regcomp (re, regexp, cflags);
-  perror_if_not (! re_error, "%s", (regerror (re_error, re, re_error_msg, 256), re_error_msg));
+  if ((re_error = regcomp (re, regexp, cflags)))
+    {
+      char *re_error_msg = g_malloc (sizeof (256));
+      regerror (re_error, re, re_error_msg, 256);
+      printf_error_response ("Invalid regexp: %s", re_error_msg);
+      g_free (re_error_msg);
+      goto error;
+    }
 
   OK_BEGIN ();
   for (pn = first; pn <= last; ++pn)
@@ -1694,7 +1699,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
       PopplerRectangle *rectangles;
       guint nrectangles;
       regmatch_t match;
-      int roffset = 0;
+      int offset = 0;
       int eflags = 0;
 
       if (! page)
@@ -1707,45 +1712,39 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
 
       while (*text_p && ! regexec (re, text_p, 1, &match, eflags))
         {
-          gint ustart = g_utf8_strlen (text_p, match.rm_so);
-          gint ulen = g_utf8_strlen (text_p + match.rm_so, match.rm_eo - match.rm_so);
+          gint start = g_utf8_strlen (text_p, match.rm_so);
+          gint len = g_utf8_strlen (text_p + match.rm_so, match.rm_eo - match.rm_so);
           cairo_region_t *region = cairo_region_create ();
           int i;
 
           /* Merge matched glyph rectangles. */
-          for (i = ustart + roffset; i < ustart + roffset + ulen; ++i)
+          assert (start + offset + len < nrectangles);
+          for (i = start + offset; i < start + offset + len; ++i)
             {
-              PopplerRectangle *r;
-              cairo_region_t *s;
+              PopplerRectangle *r = rectangles + i;
+              cairo_region_t *s =
+                poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, r);
 
-              /* I don't trust this. */
-              if (i < 0 || i >= nrectangles)
-                {
-                  fprintf (stderr, "Internal error in cmd_search_regexp: "
-                           "Invalid match rectangle\n");
-                  continue;
-                }
-
-              r = rectangles + i;
-              s = poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, r);
               cairo_region_union (region, s);
               cairo_region_destroy (s);
             }
 
-          if (ulen != 0)
+          if (len != 0)
             {
+              char endc = *(text_p + match.rm_eo);
               printf ("%d:", pn);
               region_print (region, width, height);
               putchar (':');
-              fwrite (text_p + match.rm_so, 1, match.rm_eo - match.rm_so, stdout);
-              putchar ('\n');
-              roffset += ustart + ulen;
-              text_p = g_utf8_offset_to_pointer (text_p, ustart + ulen);
+              *(text_p + match.rm_eo) = '\0';
+              print_response_string (text_p + match.rm_so, NEWLINE);
+              *(text_p + match.rm_eo) = endc;
+              offset += start + len;
+              text_p = g_utf8_offset_to_pointer (text_p, start + len);
             }
           else               /* Empty match, advance one character. */
             {
               text_p = g_utf8_find_next_char (text_p + match.rm_eo, NULL);
-              roffset += ustart + 1;
+              offset += start + 1;
             }
           if (treat_newline)
             eflags = *(text_p - 1) == '\n' ? 0 : REG_NOTBOL;
