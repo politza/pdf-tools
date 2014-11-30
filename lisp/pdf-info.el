@@ -751,7 +751,7 @@ searching case-sensitive is supported by the server."
 
 (defun pdf-info-re-search (regexp &optional file-or-buffer pages
                                   extended-regexp-p
-                                  treat-newline-p)
+                                  dont-treat-newline-p)
   "Search for REGEXP in PAGES of docüment FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats.
@@ -766,12 +766,11 @@ matched text.
 Treat REGEXP as a extended regular expression, lese REGEXP should
 be a POSIX regular expression.
 
-If TREAT-NEWLINE-P is non-nil, the text is divided into multiple
-lines, so that `^' and `$' match before and after a newline.
-Also, `.' and `[^...]' don't match a newline character.
-
-Otherwise `^' and `$' match at the beginning resp. end of a page
-and `.' and `[^...]' do match newlines.
+If DONT-TREAT-NEWLINE-P is non-nil, `^' and `$' match at the
+beginning resp. end of a page only and `.' and `[^...]' do match
+newlines.  Otherwise, the text is divided into multiple lines, so
+that `^' and `$' match before and after a newline.  Also, `.' and
+`[^...]'  don't match newlines in this case.
 
 Search is case-insensitive, unless `case-fold-search' is nil and
 searching case-sensitive is supported by the server."
@@ -785,7 +784,7 @@ searching case-sensitive is supported by the server."
      string
      (if case-fold-search 1 0)
      (if extended-regexp-p 1 0)
-     (if treat-newline-p 1 0))))
+     (if dont-treat-newline-p 0 1))))
 
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
