@@ -583,11 +583,14 @@ or a PDF file."
     (with-current-buffer file-or-buffer
       (unless (setq file-or-buffer
                     (cl-case major-mode
-                      (doc-view-mode doc-view-buffer-file-name)
+                      (doc-view-mode
+                       (cond ((boundp 'doc-view-buffer-file-name)
+                              doc-view-buffer-file-name)
+                             ((boundp 'doc-view--buffer-file-name)
+                              doc-view--buffer-file-name)))
                       (pdf-view-mode (pdf-view-buffer-file-name))
                       (t (buffer-file-name))))
-        (error "Buffer is not associated with any file :%s"
-               (buffer-name)))))
+        (error "Buffer is not associated with any file :%s" (buffer-name)))))
   (unless (stringp file-or-buffer)
     (signal 'wrong-type-argument
             (list 'stringp 'bufferp 'null file-or-buffer)))
