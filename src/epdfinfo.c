@@ -1,17 +1,17 @@
 /* Copyright (C) 2013, 2014  Andreas Politz
- * 
+ *
  * Author: Andreas Politz <politza@fh-trier.de>
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
@@ -42,9 +42,9 @@
  * Helper Functions
  * ================================================================== */
 
-/** 
+/**
  * Free a list of command arguments.
- * 
+ *
  * @param args An array of command arguments.
  * @param n The length of the array.
  */
@@ -57,9 +57,9 @@ free_command_args (command_arg_t *args, size_t n)
   g_free (args);
 }
 
-/** 
+/**
  * Free resources held by document.
- * 
+ *
  * @param doc The document to be freed.
  */
 static void
@@ -94,21 +94,21 @@ free_document (document_t *doc)
   g_free (doc);
 }
 
-/** 
+/**
  * Parse a list of whitespace separated double values.
- * 
+ *
  * @param str The input string.
- * @param values[out] Values are put here.  
- * @param nvalues How many values to parse. 
- * 
- * @return TRUE, if str contained exactly nvalues, else FALSE. 
+ * @param values[out] Values are put here.
+ * @param nvalues How many values to parse.
+ *
+ * @return TRUE, if str contained exactly nvalues, else FALSE.
  */
 static gboolean
 parse_double_list (const char *str, gdouble *values, size_t nvalues)
 {
   char *end;
   int i;
-  
+
   if (! str)
     return FALSE;
 
@@ -116,17 +116,17 @@ parse_double_list (const char *str, gdouble *values, size_t nvalues)
   for (i = 0; i < nvalues; ++i)
     {
       gdouble n = g_ascii_strtod (str, &end);
-      
+
       if (str == end || errno)
         return FALSE;
-     
+
       values[i] = n;
       str = end;
     }
 
   if (*end)
     return FALSE;
-  
+
   return TRUE;
 }
 
@@ -137,7 +137,7 @@ parse_rectangle (const char *str, PopplerRectangle *r)
 
   if (! r)
     return FALSE;
-  
+
   if (! parse_double_list (str, values, 4))
     return FALSE;
 
@@ -145,7 +145,7 @@ parse_rectangle (const char *str, PopplerRectangle *r)
   r->y1 = values[1];
   r->x2 = values[2];
   r->y2 = values[3];
-  
+
   return TRUE;
 }
 
@@ -169,9 +169,9 @@ parse_edges (const char *str, PopplerRectangle *r)
           && r->y2 >= 0 && r->y2 <= 1);
 }
 
-/** 
+/**
  * Print a string properly escaped for a response.
- * 
+ *
  * @param str The string to be printed.
  * @param suffix_char Append a newline if NEWLINE, a colon if COLON.
  */
@@ -213,9 +213,9 @@ print_response_string (const char *str, enum suffix_char suffix)
 }
 
 
-/** 
+/**
  * Print a formatted error response.
- * 
+ *
  * @param fmt The printf-like format string.
  */
 static void
@@ -230,22 +230,22 @@ printf_error_response (const char *fmt, ...)
   fflush (stdout);
 }
 
-/** 
+/**
  * Remove one trailing newline character.  Does nothing, if str does
  * not end with a newline.
- * 
+ *
  * @param str The string.
- * 
+ *
  * @return str with trailing newline removed.
  */
 static char*
 strchomp (char *str)
 {
   size_t length;
-  
+
   if (! str)
     return str;
-  
+
   length = strlen (str);
   if (str[length - 1] == '\n')
     str[length - 1] = '\0';
@@ -253,14 +253,14 @@ strchomp (char *str)
   return str;
 }
 
-/** 
+/**
  * Create a new, temporary file and returns it's name.
  *
  * @return The filename.
  */
 static char*
 mktempfile()
-{        
+{
   char *filename = NULL;
   int tries = 3;
   while (! filename && tries-- > 0)
@@ -284,13 +284,13 @@ mktempfile()
   return filename;
 }
 
-/** 
+/**
  * Render a PDF page.
- * 
+ *
  * @param pdf The PDF document.
  * @param page The page to be rendered.
  * @param width The desired width of the image.
- * 
+ *
  * @return A cairo_t context encapsulating the rendered image, or
  *         NULL, if rendering failed for some reason.
  */
@@ -303,20 +303,20 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   double pt_width, pt_height;
   int height;
   double scale = 1;
-  
+
   if (! page || ! pdf)
     return NULL;
 
   if (width < 1)
     width = 1;
-  
+
   poppler_page_get_size (page, &pt_width, &pt_height);
   scale = width / pt_width;
   height = (int) ((scale * pt_height) + 0.5);
-  
+
   surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
                                         width, height);
-  
+
   if (cairo_surface_status (surface) != CAIRO_STATUS_SUCCESS)
     {
       fprintf (stderr, "Failed to create cairo surface\n");
@@ -329,7 +329,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
       fprintf (stderr, "Failed to create cairo handle\n");
       goto error;
     }
-  
+
   cairo_translate (cr, 0, 0);
   cairo_scale (cr, scale, scale);
   /* Render w/o annotations. */
@@ -347,7 +347,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   /* This makes the colors look right. */
   cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
   cairo_set_source_rgb (cr, 1., 1., 1.);
-  
+
   cairo_paint (cr);
   cairo_destroy (cr);
 
@@ -361,25 +361,25 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   return NULL;
 }
 
-/** 
+/**
  * Write an image to a filename.
- * 
+ *
  * @param cr The cairo context encapsulating the image.
  * @param filename The filename to be written to.
  * @param type The desired image type.
- * 
+ *
  * @return 1 if the image was written successfully, else 0.
  */
 static gboolean
 image_write (cairo_surface_t *surface, const char *filename, enum image_type type)
 {
-  
+
   int i, j;
   unsigned char *data;
   int width, height;
   FILE *file = NULL;
   gboolean success = 0;
-  
+
   if (! surface ||
       cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
     {
@@ -407,7 +407,7 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
         for (i = 0; i < width * height; ++i, data += 4)
           {
             ARGB_TO_RGB (rgb, data);
-            fwrite (rgb, 1, 3, file); 
+            fwrite (rgb, 1, 3, file);
           }
         success = 1;
       }
@@ -417,7 +417,7 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
         png_infop info_ptr = NULL;
         png_structp png_ptr = NULL;
         unsigned char *row = NULL;
-        
+
         png_ptr = png_create_write_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
         if (!png_ptr)
           goto finalize;
@@ -428,7 +428,7 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
 
         if (setjmp(png_jmpbuf(png_ptr)))
           goto finalize;
-        
+
         png_init_io (png_ptr, file);
         png_set_compression_level (png_ptr, 1);
         png_set_IHDR (png_ptr, info_ptr, width, height,
@@ -473,7 +473,7 @@ static void
 image_write_print_response(cairo_surface_t *surface, enum image_type type)
 {
   char *filename = mktempfile ();
-  
+
   perror_if_not (filename, "Unable to create temporary file");
   if (image_write (surface, filename, type))
     {
@@ -509,11 +509,11 @@ region_print (cairo_region_t *region, double width, double height)
     }
 }
 
-/** 
+/**
  * Return a string representation of a PopplerActionType.
- * 
+ *
  * @param type The PopplerActionType.
- * 
+ *
  * @return It's string representation.
  */
 static const char *
@@ -536,11 +536,11 @@ xpoppler_action_type_string(PopplerActionType type)
     }
 }
 
-/** 
+/**
  * Return a string representation of a PopplerAnnotType.
- * 
+ *
  * @param type The PopplerAnnotType.
- * 
+ *
  * @return It's string representation.
  */
 static const char *
@@ -578,11 +578,11 @@ xpoppler_annot_type_string (PopplerAnnotType type)
     }
 }
 
-/** 
+/**
  * Return a string representation of a PopplerAnnotTextState.
- * 
+ *
  * @param type The PopplerAnnotTextState.
- * 
+ *
  * @return It's string representation.
  */
 static const char *
@@ -600,7 +600,7 @@ xpoppler_annot_text_state_string (PopplerAnnotTextState state)
     case POPPLER_ANNOT_TEXT_STATE_UNKNOWN:
     default: return "unknown";
     }
-};  
+};
 
 static document_t*
 document_open (const epdfinfo_t *ctx, const char *filename,
@@ -632,12 +632,12 @@ document_open (const epdfinfo_t *ctx, const char *filename,
   return doc;
 }
 
-/** 
- * Split command args into a list of strings. 
- * 
- * @param args The colon separated list of arguments.  
+/**
+ * Split command args into a list of strings.
+ *
+ * @param args The colon separated list of arguments.
  * @param nargs[out] The number of returned arguments.
- * 
+ *
  * @return The list of arguments, which should be freed by the caller.
  */
 static char **
@@ -648,7 +648,7 @@ command_arg_split (const char *args, int *nargs)
   size_t allocated = 16;
   char *buffer = NULL;
   gboolean last = FALSE;
-  
+
   if (! args)
     goto theend;
 
@@ -658,7 +658,7 @@ command_arg_split (const char *args, int *nargs)
     {
       gboolean esc = FALSE;
       char *buffer_p = buffer;
-      
+
       while (*args && (*args != ':' || esc))
         {
           if (esc)
@@ -693,7 +693,7 @@ command_arg_split (const char *args, int *nargs)
           list = g_realloc (list, sizeof (char*) * allocated);
         }
       list[i++] = g_strdup (buffer);
-      
+
       last = FALSE;
       if (*args)
         {
@@ -706,7 +706,7 @@ command_arg_split (const char *args, int *nargs)
  theend:
   g_free (buffer);
   *nargs = i;
-  
+
   return list;
 }
 
@@ -719,7 +719,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
 
   if (! arg || !cmd_arg)
     return FALSE;
-  
+
   switch (type)
     {
     case ARG_DOC:
@@ -805,7 +805,7 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
                         && 3 == sscanf (arg, "#%2x%2x%2x", &r, &g, &b)),
                        error_msg, "Invalid color: %s", arg);
         cmd_arg->value.color.red = r << 8;
-        cmd_arg->value.color.green = g << 8; 
+        cmd_arg->value.color.green = g << 8;
         cmd_arg->value.color.blue = b << 8;
       }
       break;
@@ -826,17 +826,17 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
   return FALSE;
 }
 
-/** 
+/**
  * Parse arguments for a command.
- * 
+ *
  * @param ctx The epdfinfo context.
  * @param args A string holding the arguments.  This is either empty
  *             or the suffix of the command starting at the first
  *             colon after the command name.
  * @param len The length of args.
  * @param cmd The command for which the arguments should be parsed.
- * 
- * @return 
+ *
+ * @return
  */
 static command_arg_t*
 command_arg_parse(epdfinfo_t *ctx, char **args, int nargs,
@@ -844,7 +844,7 @@ command_arg_parse(epdfinfo_t *ctx, char **args, int nargs,
 {
   command_arg_t *cmd_args = g_malloc0 (cmd->nargs * sizeof (command_arg_t));
   int i;
-  
+
   if (nargs < cmd->nargs - 1
       || (nargs == cmd->nargs - 1
           &&  cmd->args_spec[cmd->nargs - 1] != ARG_REST)
@@ -860,7 +860,7 @@ command_arg_parse(epdfinfo_t *ctx, char **args, int nargs,
         }
       goto failure;
     }
-    
+
   for (i = 0; i < cmd->nargs; ++i)
     {
       if (i == cmd->nargs - 1 && cmd->args_spec[i] == ARG_REST)
@@ -894,7 +894,7 @@ action_is_handled (PopplerAction *action)
 {
   if (! action)
     return FALSE;
-  
+
   switch (action->any.type)
     {
     case POPPLER_ACTION_GOTO_REMOTE:
@@ -903,7 +903,7 @@ action_is_handled (PopplerAction *action)
       /* case POPPLER_ACTION_LAUNCH: */
     case POPPLER_ACTION_URI:
       return TRUE;
-    default: ;      
+    default: ;
     }
   return FALSE;
 }
@@ -916,7 +916,7 @@ action_print_destination (PopplerDocument *doc, PopplerAction *action)
   double width, height, top;
   PopplerPage *page;
   int saved_stdin;
-    
+
   if (action->any.type == POPPLER_ACTION_GOTO_DEST
       && action->goto_dest.dest->type == POPPLER_DEST_NAMED)
     {
@@ -929,14 +929,14 @@ action_print_destination (PopplerDocument *doc, PopplerAction *action)
       free_dest = TRUE;
     }
   else if (action->any.type == POPPLER_ACTION_NAMED)
-      
+
     {
       DISCARD_STDOUT (saved_stdin);
       dest = poppler_document_find_dest (doc, action->named.named_dest);
       UNDISCARD_STDOUT (saved_stdin);
       free_dest = TRUE;
     }
-  
+
   else if (action->any.type == POPPLER_ACTION_GOTO_REMOTE)
     {
       print_response_string (action->goto_remote.file_name, COLON);
@@ -953,7 +953,7 @@ action_print_destination (PopplerDocument *doc, PopplerAction *action)
       printf (":");
       goto theend;
     }
-  
+
   printf ("%d:", dest->page_num);
 
   if (action->type == POPPLER_ACTION_GOTO_REMOTE
@@ -1030,7 +1030,7 @@ action_print (PopplerDocument *doc, PopplerAction *action)
  * {
  *   PopplerRectangle *e1 = &a1->amap->area;
  *   PopplerRectangle *e2 = &a2->amap->area;
- * 
+ *
  *   return (e1->y1 > e2->y1 ? -1
  *           : e1->y1 < e2->y1 ? 1
  *           : e1->x1 < e2->x1 ? -1
@@ -1054,14 +1054,14 @@ annoation_get_for_page (document_t *doc, gint pn)
 
   if (doc->annotations.pages[pn - 1])
     return doc->annotations.pages[pn - 1];
-  
+
   if (! doc->annotations.keys)
     doc->annotations.keys = g_hash_table_new (g_str_hash, g_str_equal);
 
   page = poppler_document_get_page (doc->pdf, pn - 1);
   if (NULL == page)
     return NULL;
-  
+
   annot_list = poppler_page_get_annot_mapping (page);
   for (item = annot_list; item; item = item->next)
     {
@@ -1100,12 +1100,12 @@ annotation_markup_get_text_regions (PopplerPage *page, PopplerAnnotTextMarkup *a
   gdouble height;
 
   poppler_page_get_size (page, NULL, &height);
-  
+
   for (i = 0; i < quads->len; ++i)
     {
       PopplerQuadrilateral *q = &g_array_index (quads, PopplerQuadrilateral, i);
       cairo_rectangle_int_t r;
-        
+
       q->p1.y = height - q->p1.y;
       q->p2.y = height - q->p2.y;
       q->p3.y = height - q->p3.y;
@@ -1124,9 +1124,9 @@ annotation_markup_get_text_regions (PopplerPage *page, PopplerAnnotTextMarkup *a
   return region;
 }
 
-/** 
- * Append quadrilaterals equivalent to region to an array. 
- * 
+/**
+ * Append quadrilaterals equivalent to region to an array.
+ *
  * @param page The page of the annotation.  This is used to get the
  *             text regions and pagesize.
  * @param region The region to add.
@@ -1150,11 +1150,11 @@ annotation_markup_append_text_region (PopplerPage *page, PopplerRectangle *regio
     {
       PopplerRectangle *r = item->data;
       PopplerQuadrilateral q;
-      
+
       q.p1.x = r->x1;
       q.p1.y = height - r->y1;
       q.p2.x = r->x2;
-      q.p2.y = height - r->y1;      
+      q.p2.y = height - r->y1;
       q.p4.x = r->x2;
       q.p4.y = height - r->y2;
       q.p3.x = r->x1;
@@ -1166,13 +1166,13 @@ annotation_markup_append_text_region (PopplerPage *page, PopplerRectangle *regio
 }
 
 #endif
-/** 
+/**
  * Create a new annotation.
- * 
+ *
  * @param doc The document for which to create it.
  * @param type The type of the annotation.
  * @param r The rectangle where annotation will end up on the page.
- * 
+ *
  * @return The new annotation, or NULL, if the annotation type is
  *         not available.
  */
@@ -1192,14 +1192,14 @@ annotation_new (const epdfinfo_t *ctx, document_t *doc, PopplerPage *page,
   double width, height;
   cairo_region_t *region = NULL;
 #endif
-  
+
   if (! strcmp (type, "text"))
     {
       cerror_if_not (nargs == 0, error_msg, "%s", "Too many arguments");
       return poppler_annot_text_new (doc->pdf, r);
     }
-  
-#ifdef HAVE_POPPLER_ANNOT_MARKUP  
+
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
   garray = g_array_new (FALSE, FALSE, sizeof (PopplerQuadrilateral));
   poppler_page_get_size (page, &width, &height);
   for (i = 0; i < nargs; ++i)
@@ -1207,14 +1207,14 @@ annotation_new (const epdfinfo_t *ctx, document_t *doc, PopplerPage *page,
       PopplerRectangle *rr = &carg.value.rectangle;
 
       error_if_not (command_arg_parse_arg (ctx, args[i], &carg,
-                                           ARG_EDGES, error_msg));            
+                                           ARG_EDGES, error_msg));
       rr->x1 *= width; rr->x2 *= width;
       rr->y1 *= height; rr->y2 *= height;
       annotation_markup_append_text_region (page, rr, garray);
     }
   cerror_if_not (garray->len > 0, error_msg, "%s",
                  "Unable to create empty markup annotation");
-  
+
   if (! strcmp (type, "highlight"))
     a = poppler_annot_text_markup_new_highlight (doc->pdf, r, garray);
   else if (! strcmp (type, "squiggly"))
@@ -1225,7 +1225,7 @@ annotation_new (const epdfinfo_t *ctx, document_t *doc, PopplerPage *page,
     a = poppler_annot_text_markup_new_underline (doc->pdf, r, garray);
   else
     cerror_if_not (0, error_msg, "Unknown annotation type: %s", type);
-    
+
 #endif
  error:
 #ifdef HAVE_POPPLER_ANNOT_MARKUP
@@ -1253,7 +1253,7 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
       const char *key = args[i++];
 
       cerror_if_not (i < nargs, error_msg, "Missing a value argument");
-      
+
       if (! strcmp (key, "flags"))
         atype = ARG_NATNUM;
       else if (! strcmp (key, "color"))
@@ -1309,7 +1309,7 @@ annotation_edit_validate (const epdfinfo_t *ctx, const command_arg_t *rest,
     }
 
   return TRUE;
-    
+
  error:
   return FALSE;
 }
@@ -1328,15 +1328,15 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
   gchar *text;
   gdouble opacity;
   cairo_region_t *region = NULL;
-  
+
   if (! annot || ! page)
     return;
-  
+
   m = annot->amap;
   key = annot->key;
   a = m->annot;
   poppler_page_get_size (page, &width, &height);
-      
+
   r.x1 = m->area.x1;
   r.x2 = m->area.x2;
   r.y1 = height - m->area.y2;
@@ -1349,14 +1349,14 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
       perror_if_not (region, "%s", "Unable to extract annotation's text regions");
     }
 #endif
-  
+
   /* >>> Any Annotation >>> */
   /* Page */
   printf ("%d:", poppler_page_get_index (page) + 1);
   /* Area */
   printf ("%f %f %f %f:", r.x1 / width, r.y1 / height
-          , r.x2 / width, r.y2 / height); 
-      
+          , r.x2 / width, r.y2 / height);
+
   /* Type */
   printf ("%s:", xpoppler_annot_type_string (poppler_annot_get_annot_type (a)));
   /* Internal Key */
@@ -1423,7 +1423,7 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
       printf ("%f %f %f %f:%d:", r.x1 / width, r.y1 / height
               , r.x2 / width, r.y2 / height
               , poppler_annot_markup_get_popup_is_open (ma) ? 1 : 0);
-          
+
     }
   else
     printf ("::");
@@ -1471,7 +1471,7 @@ static void
 attachment_print (PopplerAttachment *att, const char *id, gboolean do_save)
 {
   time_t time;
-  
+
   print_response_string (id, COLON);
   print_response_string (att->name, COLON);
   print_response_string (att->description, COLON);
@@ -1552,7 +1552,7 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
   putchar ('\n');
   OK_END ();
 }
-  
+
 
 /* Name: open
    Args: filename password
@@ -1573,10 +1573,10 @@ cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
   const char *passwd = args[1].value.string;
   GError *gerror = NULL;
   document_t *doc;
-  
+
   if (! *passwd)
     passwd = NULL;
-  
+
   perror_if_not (*filename == '/',
                 "Filename must be absolute:%s", filename);
   doc = document_open(ctx, filename, passwd, &gerror);
@@ -1638,10 +1638,10 @@ cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args)
 
 /* Name: search
    Args: filename ignorecase firstpage lastpage searchstring
-   
+
    firstpage and lastpage may be 0, in which they are taken to be the
    first, respc. last, page of the document.
-   
+
    Returns: A list of matches:
    page edges matched-text
    Errors:  None
@@ -1674,7 +1674,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
   regex_t *re = g_malloc(sizeof (regex_t));
   int cflags = 0;
   char re_error_msg[256];
-  
+
   NORMALIZE_PAGE_ARG (doc, &first, &last);
   if (ignore_case)
     cflags |= REG_ICASE;
@@ -1682,7 +1682,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
     cflags |= REG_EXTENDED;
   if (treat_newline)
     cflags |= REG_NEWLINE;
-  
+
   re_error = regcomp (re, regexp, cflags);
   perror_if_not (! re_error, "%s", (regerror (re_error, re, re_error_msg, 256), re_error_msg));
 
@@ -1696,7 +1696,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
       regmatch_t match;
       int roffset = 0;
       int eflags = 0;
-      
+
       if (! page)
         continue;
 
@@ -1704,7 +1704,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
       text_p = text;
       poppler_page_get_text_layout (page, &rectangles, &nrectangles);
       poppler_page_get_size (page, &width, &height);
-      
+
       while (*text_p && ! regexec (re, text_p, 1, &match, eflags))
         {
           gint ustart = g_utf8_strlen (text_p, match.rm_so);
@@ -1756,7 +1756,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
       g_free (text);
     }
   OK_END ();
- 
+
  error:
   if (re)
     {
@@ -1834,11 +1834,11 @@ cmd_search_string(const epdfinfo_t *ctx, const command_arg_t *args)
    Args: filename
    Returns: PDF's metadata
    Errors: None
-   
+
    title author subject keywords creator producer pdf-version create-date mod-date
 
    Dates are in seconds since the epoche.
-   
+
 */
 
 const command_arg_type_t cmd_metadata_spec[] =
@@ -1857,7 +1857,7 @@ cmd_metadata (const epdfinfo_t *ctx, const command_arg_t *args)
   char *time_str;
 
   OK_BEGIN ();
-  
+
   title = poppler_document_get_title (doc);
   print_response_string (title, COLON);
   g_free (title);
@@ -1868,7 +1868,7 @@ cmd_metadata (const epdfinfo_t *ctx, const command_arg_t *args)
   md[3] = poppler_document_get_creator (doc);
   md[4] = poppler_document_get_producer (doc);
   md[5] = poppler_document_get_pdf_version_string (doc);
-  
+
   for (i = 0; i < 6; ++i)
     {
       print_response_string (md[i], COLON);
@@ -1892,8 +1892,8 @@ cmd_metadata (const epdfinfo_t *ctx, const command_arg_t *args)
 
    tree-level ACTION
 
-   See cmd_pagelinks for how ACTION is constructed.  
-   
+   See cmd_pagelinks for how ACTION is constructed.
+
    Errors: None
 */
 
@@ -1906,8 +1906,8 @@ cmd_outline_walk (PopplerDocument *doc, PopplerIndexIter *iter, int depth)
       PopplerAction *action = poppler_index_iter_get_action (iter);
 
       if (! action)
-        continue; 
-      
+        continue;
+
       if (action_is_handled (action))
         {
           printf ("%d:", depth);
@@ -1996,7 +1996,7 @@ cmd_number_of_pages (const epdfinfo_t *ctx, const command_arg_t *args)
 
    top is desired vertical position, filename is the target PDF of the
    `goto-remote' link.
-   
+
    Errors: None
 */
 
@@ -2020,7 +2020,7 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &width, &height);
   link_map = poppler_page_get_link_mapping (page);
-  
+
   OK_BEGIN ();
   for (item = g_list_last (link_map); item; item = item->prev)
     {
@@ -2031,7 +2031,7 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
       /* LinkMappings have a different gravity. */
       r->y1 = height - r->y2;
       r->y2 = height - y1;
-        
+
       printf ("%f %f %f %f:",
               r->x1 / width, r->y1 / height,
               r->x2 / width, r->y2 / height);
@@ -2112,7 +2112,7 @@ cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
 	word is the minimum unit for selection
 
    2 (POPPLER_SELECTION_LINE)
-	line is the minimum unit for selection 
+	line is the minimum unit for selection
 */
 
 
@@ -2135,7 +2135,7 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
   cairo_region_t *region = NULL;
   PopplerPage *page = NULL;
   int i;
-  
+
   switch (selection_style)
     {
     case POPPLER_SELECTION_GLYPH: break;
@@ -2143,7 +2143,7 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
     case POPPLER_SELECTION_WORD: break;
     default: selection_style = POPPLER_SELECTION_GLYPH;
     }
-  
+
   page = poppler_document_get_page (doc, pn - 1);
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &width, &height);
@@ -2194,12 +2194,12 @@ cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args)
   int pn = args[1].value.natnum;
   PopplerPage *page = NULL;
   double width, height;
-  
-  
+
+
   page = poppler_document_get_page (doc, pn - 1);
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &width, &height);
-  
+
   OK_BEGIN ();
   printf ("%f:%f\n", width, height);
   OK_END ();
@@ -2215,25 +2215,25 @@ cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args)
    Returns: The list of annotations of this page.
 
    For all annotations
-   
+
    page edges type key flags color contents mod-date
 
    ,where
-       
+
    name is a document-unique name,
    flags is PopplerAnnotFlag bitmask,
    color is 3-byte RGB hex number and
 
    Then
 
-   label subject opacity popup-edges popup-is-open create-date 
+   label subject opacity popup-edges popup-is-open create-date
 
    if this is a markup annotation and additionally
 
    text-icon text-state
 
    for markup text annotations.
-   
+
    Errors: If page is out of range.
 */
 
@@ -2253,7 +2253,7 @@ cmd_getannots(const epdfinfo_t *ctx, const command_arg_t *args)
   gint last = args[2].value.natnum;
   GList *list;
   gint pn;
-  
+
   first = MAX(1, first);
   if (last <= 0)
     last = poppler_document_get_n_pages (doc);
@@ -2339,7 +2339,7 @@ cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerAttachment *att = NULL;
   annotation_t *a = annotation_get_by_key (doc, key);
   gchar *id = NULL;
-  
+
   perror_if_not (a, "No such annotation: %s", key);
   perror_if_not (POPPLER_IS_ANNOT_FILE_ATTACHMENT (a->amap->annot),
                 "Not a file annotation: %s", key);
@@ -2347,7 +2347,7 @@ cmd_getattachment_from_annot (const epdfinfo_t *ctx, const command_arg_t *args)
         (POPPLER_ANNOT_FILE_ATTACHMENT (a->amap->annot));
   perror_if_not (att, "Unable to get attachment: %s", key);
   id = g_strdup_printf ("attachment-%s", key);
-       
+
   OK_BEGIN ();
   attachment_print (att, id, do_save);
   OK_END ();
@@ -2373,13 +2373,13 @@ cmd_getattachments (const epdfinfo_t *ctx, const command_arg_t *args)
   GList *item;
   GList *attmnts = poppler_document_get_attachments (doc->pdf);
   int i;
-  
+
   OK_BEGIN ();
   for (item = attmnts, i = 0; item; item = item->next, ++i)
     {
       PopplerAttachment *att = (PopplerAttachment*) item->data;
       gchar *id = g_strdup_printf ("attachment-document-%d", i);
-      
+
       attachment_print (att, id, do_save);
       g_object_unref (att);
       g_free (id);
@@ -2403,7 +2403,7 @@ const command_arg_type_t cmd_addannot_spec[] =
 static void
 cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
 {
-  
+
   document_t *doc = args->value.doc;
   gint pn = args[1].value.natnum;
   const char *type_string = args[2].value.string;
@@ -2457,7 +2457,7 @@ cmd_addannot (const epdfinfo_t *ctx, const command_arg_t *args)
   OK_BEGIN ();
   annotation_print (a, page);
   OK_END ();
-  
+
  error:
   if (page) g_object_unref (page);
   if (error_msg) g_free (error_msg);
@@ -2522,7 +2522,7 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
   char *error_msg = NULL;
   command_arg_t carg;
   const char *unexpected_parse_error = "Internal error while parsing arg `%s'";
-  
+
   perror_if_not (a, "No such annotation: %s", key);
   pa = a->amap->annot;
   perror_if_not (annotation_edit_validate (ctx, &args[2], pa, &error_msg),
@@ -2561,13 +2561,13 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
           PopplerRectangle *area = &a->amap->area;
           gdouble width, height;
           PopplerRectangle r;
-            
+
           perror_if_not (command_arg_parse_arg  (ctx, rest_args[i], &carg,
                                                  ARG_EDGES_OR_POSITION, NULL),
                          unexpected_parse_error, rest_args[i]);
           r = carg.value.rectangle;
           poppler_page_get_size (page, &width, &height);
-          
+
           /* Translate Gravity and maybe keep the width and height. */
           if (r.x2 < 0)
             area->x2 +=  (r.x1 * width) - area->x1;
@@ -2637,12 +2637,12 @@ cmd_editannot (const epdfinfo_t *ctx, const command_arg_t *args)
           perror_if_not (0, "internal error: annotation property validation failed");
         }
     }
-  
+
   OK_BEGIN ();
   annotation_print (a, page);
   OK_END ();
 
- error:  
+ error:
   if (error_msg) g_free (error_msg);
   if (page) g_object_unref (page);
 }
@@ -2660,13 +2660,13 @@ cmd_save (const epdfinfo_t *ctx, const command_arg_t *args)
   GError *gerror = NULL;
   gchar *uri;
   gboolean success = FALSE;
-  
+
   if (!filename)
     {
       printf_error_response ("Unable to create temporary file");
       return;
     }
-      
+
   uri = g_filename_to_uri (filename, NULL, &gerror);
 
   if (uri)
@@ -2706,12 +2706,12 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   int line = args[2].value.natnum;
   int column = args[3].value.natnum;
   synctex_scanner_t scanner = NULL;
-  synctex_node_t node;  
+  synctex_node_t node;
   float x1, y1, x2, y2;
   PopplerPage *page = NULL;
   double width, height;
   int pn;
-  
+
   scanner = synctex_scanner_new_with_output_file (doc->filename, NULL, 1);
   perror_if_not (scanner, "Unable to create synctex scanner,\
  did you run latex with `--synctex=1' ?");
@@ -2734,7 +2734,7 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   y1 /= height;
   x2 /= width;
   y2 /= height;
-    
+
   OK_BEGIN ();
   printf("%d:%f:%f:%f:%f\n", pn, x1, y1, x2, y2);
   OK_END ();
@@ -2763,7 +2763,7 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   synctex_scanner_t scanner = NULL;
   const char *filename;
   PopplerPage *page = NULL;
-  synctex_node_t node;  
+  synctex_node_t node;
   double width, height;
   int line, column;
 
@@ -2814,7 +2814,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   int width = args[2].value.natnum;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
   cairo_surface_t *surface = NULL;
-  
+
   perror_if_not (page, "No such page %d", pn);
   surface = image_render_page (doc->pdf, page, width, 1);
   perror_if_not (surface, "Failed to render page %d", pn);
@@ -2851,14 +2851,14 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
   gchar *error_msg = NULL;
   double pt_width, pt_height;
   int i = 0;
-  
+
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
   surface = image_render_page (doc->pdf, page, width, 1);
   perror_if_not (surface, "Failed to render page %d", pn);
   cr = cairo_create (surface);
   cairo_scale (cr, width / pt_width, width / pt_width);
-  
+
   while (i < nrest_args)
     {
       PopplerColor fg, bg;
@@ -2886,11 +2886,11 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
           r->x2 *= pt_width;
           r->y1 *= pt_height;
           r->y2 *= pt_height;
-          
+
           if (single_line)
             {
               gdouble m = r->y1 + (r->y2 - r->y1) / 2;
-          
+
               /* Make the rectangle flat, otherwise poppler frequently
                  renders neighboring lines.*/
               r->y1 = m;
@@ -2902,7 +2902,7 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
           ++i;
         }
     }
-  
+
   image_write_print_response (surface, PNG);
 
  error:
@@ -2936,12 +2936,12 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
   gchar *error_msg = NULL;
   int height;
   int i = 0;
-  
+
   perror_if_not (page, "No such page %d", pn);
   surface = image_render_page (doc->pdf, page, width, 1);
   height = cairo_image_surface_get_height (surface);
   cr = cairo_create (surface);
-  
+
   while (i < nrest_args)
     {
       PopplerColor bg;
@@ -2969,14 +2969,14 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
           const int xoffset = 6;
           const double deg = M_PI / 180.0;
           double rad;
-          
+
           r->x1 *= width; r->x2 *= width;
           r->x1 -= xoffset; r->x2 += xoffset;
           r->y1 *= height; r->y2 *= height;
           r->y1 -= yoffset; r->y2 += yoffset;
 
           rad = MIN (5, MIN (r->x2 - r->x1, r->y2 - r->y1) / 2.0);
-          
+
           cairo_move_to (cr, r->x1 , r->y1 + rad);
           cairo_arc (cr, r->x1 + rad, r->y1 + rad, rad, 180 * deg, 270 * deg);
           cairo_arc (cr, r->x2 - rad, r->y1 + rad, rad, 270 * deg, 360 * deg);
@@ -2995,7 +2995,7 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
           ++i;
         }
     }
-  
+
   image_write_print_response (surface, PNG);
 
  error:
@@ -3023,7 +3023,7 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   unsigned char *data, *data_p;
   PopplerRectangle bbox;
   int i, j;
-  
+
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
   surface = image_render_page (doc->pdf, page, (int) pt_width, 1);
@@ -3104,7 +3104,7 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
               bbox.y2 / height);
     }
   OK_END ();
-  
+
  error:
   if (surface) cairo_surface_destroy (surface);
   if (page) g_object_unref (page);
@@ -3177,7 +3177,7 @@ int main(int argc, char **argv)
   ssize_t read;
   size_t line_size;
   const char *error_log = "/tmp/epdfinfo.log"; /* "/dev/null"; */
-  
+
   if (argc > 2)
     {
       fprintf(stderr, "usage: epdfinfo [ERROR-LOGFILE]\n");
@@ -3185,7 +3185,7 @@ int main(int argc, char **argv)
     }
   if (argc == 2)
     error_log = argv[1];
-  
+
   if (! freopen (error_log, "w", stderr))
     err (2, "Unable to redirect stderr");
 
@@ -3194,7 +3194,7 @@ int main(int argc, char **argv)
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);
 
-  while ((read = getline (&line, &line_size, stdin)) != -1) 
+  while ((read = getline (&line, &line_size, stdin)) != -1)
     {
       int nargs = 0;
       command_arg_t *cmd_args;
@@ -3207,7 +3207,7 @@ int main(int argc, char **argv)
           fprintf (stderr, "Skipped parts of a line: `%s'\n", line);
           goto next_line;
         }
-      
+
       line[read - 1] = '\0';
       args = command_arg_split (line, &nargs);
       if (nargs == 0)

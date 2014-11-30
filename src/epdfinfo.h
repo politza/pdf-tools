@@ -32,7 +32,7 @@
     dup2(fd, 1);                                \
     close(fd);                                  \
   } while (0)
-  
+
 #define UNDISCARD_STDOUT(saved_fd)              \
   do {                                          \
     fflush(stdout);                             \
@@ -62,9 +62,9 @@
 #ifdef WORDS_BIGENDIAN
 #define ARGB_TO_RGB(rgb, argb)                  \
   do {                                          \
-  rgb[0] = argb[1];                             \
-  rgb[1] = argb[2];                             \
-  rgb[2] = argb[3];                             \
+    rgb[0] = argb[1];                           \
+    rgb[1] = argb[2];                           \
+    rgb[2] = argb[3];                           \
   } while (0)
 
 #define ARGB_EQUAL(argb1, argb2)                \
@@ -75,9 +75,9 @@
 #else
 #define ARGB_TO_RGB(rgb, argb)                  \
   do {                                          \
-  rgb[0] = argb[2];                             \
-  rgb[1] = argb[1];                             \
-  rgb[2] = argb[0];                             \
+    rgb[0] = argb[2];                           \
+    rgb[1] = argb[1];                           \
+    rgb[2] = argb[0];                           \
   } while (0)
 
 #define ARGB_EQUAL(argb1, argb2)                \
@@ -145,9 +145,9 @@ typedef struct
     GList **pages;                /* page array  */
   } annotations;
 } document_t;
-  
-typedef enum 
-{
+
+typedef enum
+  {
     ARG_INVALID = 0,
     ARG_DOC,
     ARG_BOOL,
@@ -163,7 +163,7 @@ typedef enum
     ARG_QUADRILATERAL,
 #endif
     ARG_REST
-} command_arg_type_t;
+  } command_arg_type_t;
 
 typedef struct
 {
