@@ -105,12 +105,14 @@ is nil and VALUE undefined."
   nil)
 
 (defun pdf-cache-clear-data-of-pages (&rest pages)
-  (dolist (page pages)
-    (remhash page pdf-cache--data)))
+  (when pdf-cache--data
+    (dolist (page pages)
+      (remhash page pdf-cache--data))))
     
 (defun pdf-cache-clear-data ()
   (interactive)
-  (clrhash pdf-cache--data))
+  (when pdf-cache--data
+    (clrhash pdf-cache--data)))
 
 (defmacro define-pdf-cache-function (command &optional page-arg-p)
   "Define a simple data cache function.
