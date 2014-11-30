@@ -811,7 +811,7 @@ This will display a text cursor, when hovering over them."
 (define-minor-mode pdf-view-dark-minor-mode
   "Mode for PDF documents with dark background.
 
-This tells the various modes to use face's dark colors."
+This tells the various modes to use their face's dark colors."
   nil nil nil
   (pdf-util-assert-pdf-buffer)
   ;; FIXME: This should really be run in a hook.
