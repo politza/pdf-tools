@@ -127,7 +127,7 @@ with AUCTeX."
 Returns a list \(SOURCE LINE COLUMN\)."
 
   (pdf-util-assert-pdf-window)
-  (let ((size (pdf-util-image-size))
+  (let ((size (pdf-view-image-size))
         (page (pdf-view-current-page)))
     (setq x (/ x (float (car size)))
           y (/ y (float (cdr size))))
@@ -147,7 +147,7 @@ Returns a list \(SOURCE LINE COLUMN\)."
                              buffer pdf-sync-display-pdf-action)
         (pdf-util-assert-pdf-window)
         (pdf-view-goto-page page)
-        (let ((top (* y1 (cdr (pdf-util-image-size)))))
+        (let ((top (* y1 (cdr (pdf-view-image-size)))))
           (pdf-util-tooltip-arrow (round top))))
       (with-current-buffer buffer
         (run-hooks 'pdf-sync-display-pdf-hook)))))

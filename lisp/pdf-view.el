@@ -636,8 +636,6 @@ image.  These may be different, if slicing is in use."
          (image-get-display-property) t))
     (image-size (pdf-view-current-image window) t)))
 
-(defalias 'pdf-util-image-size 'pdf-view-image-size)
-
 (defun pdf-view-image-offset (&optional window)
   "Return the offset of the current image.
 
