@@ -360,13 +360,20 @@ interrupted."
     (open nil)
     (close (equal "1" (caar response)))
     (number-of-pages (string-to-number (caar response)))
-    (search
+    ((search-string search-regexp)
      (let ((matches (mapcar (lambda (r)
-                              (list
-                               (string-to-number (pop r))
-                               (mapcar 'string-to-number
-                                       (split-string (pop r) " " t))
-                               (pop r)))
+                              (append
+                               (list (string-to-number (pop r)))
+                               (cl-ecase cmd
+                                 (search-string
+                                  (list (mapcar 'string-to-number
+                                                (split-string (car r) " " t))))
+                                 (search-regexp
+                                  (apply 'nconc (mapcar (lambda (m)
+                                                          (mapcar 'string-to-number
+                                                                  (split-string m " " t)))
+                                                        (butlast r)))))
+                               (last r)))
                             response))
            result)
        (while matches
@@ -781,7 +788,7 @@ searching case-sensitive is supported by the server."
      (pdf-info--normalize-file-or-buffer file-or-buffer)
      (car pages)
      (cdr pages)
-     string
+     regexp
      (if case-fold-search 1 0)
      (if extended-regexp-p 1 0)
      (if dont-treat-newline-p 0 1))))
