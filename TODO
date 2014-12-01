@@ -14,3 +14,5 @@
 ** Updating the list buffer is too slow
    + Update it incrementally.
    + Possibly skip the update if the buffer is not visible. 
+* epdfinfo
+** Split the code up in several files.
