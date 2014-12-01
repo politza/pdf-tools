@@ -14,7 +14,7 @@
 (ert-deftest pdf-info ()
   (should-not (pdf-info-open pdf))
   (should (= (pdf-info-number-of-pages pdf) 3))
-  (should (= (length (pdf-info-search-string "Hello" pdf)) 3))
+  (should (= (length (pdf-info-search-string "Hello" nil pdf)) 3))
   (should (pdf-info-close pdf)))
 
 (add-hook 'kill-emacs-hook
