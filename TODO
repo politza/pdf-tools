@@ -6,6 +6,8 @@
    inserting multibyte characters in the minibuffer with some
    input-methods, while editing the search string.
 ** Implement regexp search
+   + Use pdf-info-search-regexp if isearch-regexp is non-nil.
+   + Make functions handle a list of edges per match.
 * pdf-occur
 ** Implement regexp search
 * PDF Forms
