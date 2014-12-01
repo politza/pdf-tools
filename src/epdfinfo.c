@@ -1636,18 +1636,6 @@ cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args)
   OK ();
 }
 
-/* Name: search
-   Args: filename ignorecase firstpage lastpage searchstring
-
-   firstpage and lastpage may be 0, in which they are taken to be the
-   first, respc. last, page of the document.
-
-   Returns: A list of matches:
-   page edges matched-text
-   Errors:  None
-*/
-
-
 const command_arg_type_t cmd_search_regexp_spec[] =
   {
     ARG_DOC,
@@ -1712,32 +1700,39 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
 
       while (*text_p && ! regexec (re, text_p, 1, &match, eflags))
         {
+          const double scale = 100.0;
           gint start = g_utf8_strlen (text_p, match.rm_so);
           gint len = g_utf8_strlen (text_p + match.rm_so, match.rm_eo - match.rm_so);
           cairo_region_t *region = cairo_region_create ();
           int i;
-
-          /* Merge matched glyph rectangles. */
-          assert (start + offset + len < nrectangles);
+            
+          /* Merge matched glyph rectangles. Scale them so we're able
+             to use cairo . */
+          assert (start + offset + len <= nrectangles);
           for (i = start + offset; i < start + offset + len; ++i)
             {
               PopplerRectangle *r = rectangles + i;
-              cairo_region_t *s =
-                poppler_page_get_selected_region (page, 1.0, POPPLER_SELECTION_GLYPH, r);
+              cairo_rectangle_int_t c;
 
-              cairo_region_union (region, s);
-              cairo_region_destroy (s);
+              c.x = (int) (scale * r->x1 + 0.5); 
+              c.y = (int) (scale * r->y1 + 0.5); 
+              c.width = (int) (scale * (r->x2 - r->x1) + 0.5); 
+              c.height = (int) (scale * (r->y2 - r->y1) + 0.5); 
+              
+              cairo_region_union_rectangle (region, &c);
             }
 
           if (len != 0)
             {
               char endc = *(text_p + match.rm_eo);
+              
               printf ("%d:", pn);
-              region_print (region, width, height);
-              putchar (':');
               *(text_p + match.rm_eo) = '\0';
-              print_response_string (text_p + match.rm_so, NEWLINE);
+              print_response_string (text_p + match.rm_so, COLON);
               *(text_p + match.rm_eo) = endc;
+              region_print (region, width * scale, height * scale);
+              putchar ('\n');
+              
               offset += start + len;
               text_p = g_utf8_offset_to_pointer (text_p, start + len);
             }
@@ -1814,12 +1809,13 @@ cmd_search_string(const epdfinfo_t *ctx, const command_arg_t *args)
           r->y1 = height - r->y2;
           r->y2 = height - y1;
 
-          printf ("%d:%f %f %f %f:", pn,
-                  r->x1 / width, r->y1 / height,
-                  r->x2 / width, r->y2 / height);
+          printf ("%d:", pn);
           line = strchomp (poppler_page_get_selected_text
                            (page, POPPLER_SELECTION_LINE, r));
-          print_response_string (line, NEWLINE);
+          print_response_string (line, COLON);
+          printf ("%f %f %f %f\n",
+                  r->x1 / width, r->y1 / height,
+                  r->x2 / width, r->y2 / height);
           g_free (line);
           poppler_rectangle_free (r);
         }
@@ -3250,3 +3246,4 @@ int main(int argc, char **argv)
     err (2, NULL);
   exit (EXIT_SUCCESS);
 }
+ 
