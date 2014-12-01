@@ -176,7 +176,8 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (with-help-window (help-buffer)
     (princ "PDF Tools Help\n\n")
     (princ "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
-    (dolist (m (sort (copy-sequence pdf-tools-modes) 'string<))
+    (dolist (m (cons 'pdf-view-mode
+                     (sort (copy-sequence pdf-tools-modes) 'string<)))
       (princ (format "`%s' is " m))
       (describe-function-1 m)
       (terpri) (terpri)
