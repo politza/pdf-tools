@@ -375,20 +375,16 @@ interrupted."
     (close (equal "1" (caar response)))
     (number-of-pages (string-to-number (caar response)))
     ((search-string search-regexp)
-     (let ((matches (mapcar (lambda (r)
-                              (append
-                               (list (string-to-number (pop r)))
-                               (cl-ecase cmd
-                                 (search-string
-                                  (list (mapcar 'string-to-number
-                                                (split-string (car r) " " t))))
-                                 (search-regexp
-                                  (apply 'nconc (mapcar (lambda (m)
-                                                          (mapcar 'string-to-number
-                                                                  (split-string m " " t)))
-                                                        (butlast r)))))
-                               (last r)))
-                            response))
+     (let ((matches
+            (mapcar
+             (lambda (r)
+               `(,(string-to-number (car r))
+                 ,(cadr r)
+                 ,@(mapcar (lambda (m)
+                             (mapcar 'string-to-number
+                                     (split-string m " " t)))
+                           (cddr r))))
+             response))
            result)
        (while matches
          (let ((page (caar matches))
@@ -750,14 +746,14 @@ document."
    'metadata
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
                
-(defun pdf-info-search-string (string &optional file-or-buffer pages)
+(defun pdf-info-search-string (string &optional pages file-or-buffer)
   "Search for STRING in PAGES of docüment FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
-looks like \(EDGES TEXT\), where EDGES represent the coordinates
+looks like \(TEXT EDGES\), where EDGES represent the coordinates
 of the match as a list of four relative values \(LEFT TOP RIGHT
 BOTTOM\). TEXT is the complete line where STRING was found.
 
@@ -773,28 +769,31 @@ searching case-sensitive is supported by the server."
      string
      (if case-fold-search 1 0))))
 
-(defun pdf-info-search-regexp (regexp &optional file-or-buffer pages
-                                  extended-regexp-p
-                                  dont-treat-newline-p)
+(defun pdf-info-search-regexp (regexp &optional pages  
+                                      extended-regexp-p
+                                      dont-treat-newline-p
+                                      file-or-buffer)
   "Search for REGEXP in PAGES of docüment FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
-looks like \(EDGES EDGES ... TEXT\), where the EDGES elements
+looks like \(TEXT EDGES EDGES ...\), where the EDGES elements
 represent the coordinates of the match, each one beeing a list of
 four relative values \(LEFT TOP RIGHT BOTTOM\). TEXT is the
 matched text.
 
-Treat REGEXP as a extended regular expression, lese REGEXP should
-be a POSIX regular expression.
+If EXTENDED-REGEXP-P is non nil, treat REGEXP as a extended
+regular expression, otherwise REGEXP should be a POSIX regular
+expression.  Note that there are in any case subtle differences
+compared to an Emacs regexp.
 
 If DONT-TREAT-NEWLINE-P is non-nil, `^' and `$' match at the
-beginning resp. end of a page only and `.' and `[^...]' do match
+beginning resp. end of a page only and `.' and `[^...]' match
 newlines.  Otherwise, the text is divided into multiple lines, so
 that `^' and `$' match before and after a newline.  Also, `.' and
-`[^...]'  don't match newlines in this case.
+`[^...]' don't match newlines in this case.
 
 Search is case-insensitive, unless `case-fold-search' is nil and
 searching case-sensitive is supported by the server."
