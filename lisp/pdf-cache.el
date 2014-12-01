@@ -316,7 +316,7 @@ See also `pdf-info-renderpage-text-regions' and
 (defun pdf-cache-renderpage-highlight (page width &rest regions)
   "Highlight PAGE according to WIDTH and REGIONS.
 
-See also `pdf-info-renderpage-text-regions' and
+See also `pdf-info-renderpage-highlight' and
 `pdf-cache-renderpage'."
   (if pdf-cache-image-inihibit
       (apply 'pdf-info-renderpage-highlight
