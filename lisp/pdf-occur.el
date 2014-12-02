@@ -174,8 +174,8 @@ If EVENT is nil, use occurrence at current line."
             page-entries)
         (dolist (match (cdr m))
           (let ((txt (pdf-occur-fontify
-                      string (cadr match))))
-            (push (list (list buffer page (car match))
+                      string (car match))))
+            (push (list (list buffer page (cadr match))
                         (vector page-str txt))
                   page-entries)))
         (setq entries (append entries page-entries))))
