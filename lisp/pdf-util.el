@@ -378,6 +378,21 @@ which case scroll as much as possible."
 (defvar-local pdf-util--dedicated-directory nil
   "The relative name of buffer's dedicated directory.")
 
+;; This macro is only available in recent Emacs versions.
+(eval-when-compile
+  (unless (fboundp 'with-file-modes)
+    (defmacro with-file-modes (modes &rest body)
+      "Execute BODY with default file permissions temporarily set to MODES.
+MODES is as for `set-default-file-modes'."
+      (declare (indent 1) (debug t))
+      (let ((umask (make-symbol "umask")))
+        `(let ((,umask (default-file-modes)))
+           (unwind-protect
+               (progn
+                 (set-default-file-modes ,modes)
+                 ,@body)
+             (set-default-file-modes ,umask)))))))
+
 (defun pdf-util-dedicated-directory ()
   "Return the name of a existing dedicated directory.
 
