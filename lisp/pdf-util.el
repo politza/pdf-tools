@@ -533,7 +533,8 @@ Singal an error, if color is invalid."
       (image-set-window-vscroll vscroll))
     (setq dy (max 0 (- dy
                        (cdr (pdf-view-image-offset))
-                       (window-vscroll nil t))))
+                       (window-vscroll nil t)
+                       (frame-char-height))))
     (when (overlay-get (pdf-view-current-overlay) 'before-string)
       (let* ((e (window-inside-pixel-edges))
              (xw (pdf-util-with-edges (e) e-width)))
