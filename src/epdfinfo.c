@@ -449,7 +449,6 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
               }
             png_write_row (png_ptr, row);
           }
-        png_write_png (png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
         png_write_end (png_ptr, NULL);
         success = 1;
       finalize:
