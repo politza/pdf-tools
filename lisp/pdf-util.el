@@ -986,7 +986,7 @@ event.  It evaluates to t, if at least one event was processed in
 BODY, otherwise nil.  In the latter case, the only event (usually
 a mouse click event) is unread.
 
-\(FN (EVENT RESOLUTION) CONDITION &rest BODY\)"
+\(FN (EVENT RESOLUTION) &rest BODY\)"
   (declare (indent 1) (debug ((symbolp form) body)))
   (let ((ran-once-p (make-symbol "ran-once-p")))
     `(let (,ran-once-p)
