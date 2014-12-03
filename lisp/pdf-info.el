@@ -72,7 +72,7 @@
   :group 'pdf-info
   :type '(file :must-match t))
 
-(defcustom pdf-info-log t
+(defcustom pdf-info-log nil
   "Whether to log the communication with the server.
 
 If this is non-nil, all communication with the epdfinfo programm
