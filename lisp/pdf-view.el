@@ -258,6 +258,9 @@ PNG images in Emacs buffers.
               'pdf-view-bookmark-make-record)
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
+  ;; No undo at the moment.
+  (buffer-disable-undo)
+  
   (use-local-map pdf-view-mode-map)
 
   (add-hook 'window-configuration-change-hook
