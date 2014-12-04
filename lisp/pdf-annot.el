@@ -987,6 +987,7 @@ Return the new annotation."
         (error
          (pdf-info-delannot id)
          (signal (car err) (cdr err)))))
+    (setq a (pdf-annot-create a))
     (set-buffer-modified-p t)
     (pdf-annot-run-modified-hooks :insert a)
     (when pdf-annot-activate-created-annotations
