@@ -89,7 +89,7 @@ be prefetched and their order."
   "Get value of KEY in the cache of PAGE.
 
 Returns a cons \(HIT . VALUE\), where HIT is non-nil if KEY was
-stored previously for PAGE and VALUE it's value.  Otherwise HIt
+stored previously for PAGE and VALUE it's value.  Otherwise HIT
 is nil and VALUE undefined."
   (pdf-cache--initialize)
   (let ((elt (assq key (gethash page pdf-cache--data))))
