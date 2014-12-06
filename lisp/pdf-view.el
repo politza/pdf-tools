@@ -631,8 +631,8 @@ or png."
 (defun pdf-view-image-size (&optional displayed-p window)
   "Return the size in pixel of the current image.
 
-If DISPLAYED-P is non-nil, returned the size of the displayed
-image.  These may be different, if slicing is in use."
+If DISPLAYED-P is non-nil, return the size of the displayed
+image.  These values may be different, if slicing is used."
   (if displayed-p
       (with-selected-window (or window (selected-window))
         (image-display-size
@@ -978,15 +978,25 @@ Deactivate the region if DEACTIVATE-P is non-nil."
 (declare-function bookmark-default-handler "bookmark" (bmk))
 
 (defun pdf-view-bookmark-make-record ()
-  (nconc (bookmark-make-record-default)
-         `((page     . ,(pdf-view-current-page))
-           (handler  . pdf-view-bookmark-jump))))
+  (let ((displayed-p (eq (current-buffer)
+                         (window-buffer))))
+    (nconc (bookmark-make-record-default)
+           `((page . ,(pdf-view-current-page))
+             (slice . ,(pdf-view-current-slice))
+             (size . ,pdf-view-display-size)
+             (vscroll . ,(and displayed-p (window-vscroll)))
+             (hscroll . ,(and displayed-p (window-hscroll)))
+             (handler . pdf-view-bookmark-jump)))))
 
 ;;;###autoload
 (defun pdf-view-bookmark-jump (bmk)
   ;; This implements the `handler' function interface for record type
   ;; returned by `pdf-view-bookmark-make-record', which see.
   (let ((page (bookmark-prop-get bmk 'page))
+	(slice (bookmark-prop-get bmk 'slice))
+        (size (bookmark-prop-get bmk 'size))
+        (vscroll (bookmark-prop-get bmk 'vscroll))
+        (hscroll (bookmark-prop-get bmk 'hscroll))
 	(show-fn-sym (make-symbol "pdf-view-bookmark-after-jump-hook")))
     (fset show-fn-sym
 	  (lambda ()
@@ -996,7 +1006,14 @@ Deactivate the region if DEACTIVATE-P is non-nil."
 	    (with-selected-window
 		(or (get-buffer-window (current-buffer) 0)
 		    (selected-window))
-	      (pdf-view-goto-page page))))
+	      (setq-local pdf-view-display-size size)
+              (when slice
+                (apply 'pdf-view-set-slice slice) )
+	      (pdf-view-goto-page page)
+              (when vscroll
+                (image-set-window-vscroll vscroll))
+              (when hscroll
+                (image-set-window-hscroll hscroll)))))
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
     (bookmark-default-handler bmk)))
 
