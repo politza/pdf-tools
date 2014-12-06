@@ -36,6 +36,80 @@
 (declare-function pdf-view-current-image "pdf-view")
 (declare-function pdf-view-current-overlay "pdf-view")
 (declare-function pdf-cache-pagesize "pdf-cache")
+
+
+
+;; * ================================================================== *
+;; * Compatibility with older Emacssen (>= 24.3)
+;; * ================================================================== *
+
+;; The with-file-modes macro is only available in recent Emacs
+;; versions.
+(eval-when-compile
+  (unless (fboundp 'with-file-modes)
+    (defmacro with-file-modes (modes &rest body)
+      "Execute BODY with default file permissions temporarily set to MODES.
+MODES is as for `set-default-file-modes'."
+      (declare (indent 1) (debug t))
+      (let ((umask (make-symbol "umask")))
+        `(let ((,umask (default-file-modes)))
+           (unwind-protect
+               (progn
+                 (set-default-file-modes ,modes)
+                 ,@body)
+             (set-default-file-modes ,umask)))))))
+
+;; In Emacs 24.3 window-width does not have a PIXELWISE argument.
+(defmacro pdf-util-window-pixel-width (&optional window)
+  "Return the width of WINDOW in pixel."
+  (if (< (cdr (subr-arity (symbol-function 'window-body-width))) 2)
+      (let ((window* (make-symbol "window")))
+        `(let ((,window* ,window))
+           (*  (window-body-width ,window*)
+               (frame-char-width (window-frame ,window*)))))
+    `(window-body-width ,window t)))
+
+;; In Emacs 24.3 image-mode-winprops leads to infinite recursion.
+(unless (or (> emacs-major-version 24)
+            (and (= emacs-major-version 24)
+                 (>= emacs-minor-version 4)))
+  (require 'image-mode)
+  (defalias 'image-mode-winprops-original-function
+    (symbol-function 'image-mode-winprops))
+  (eval-after-load "image-mode"
+    '(defun image-mode-winprops (&optional window cleanup)
+       (if (not (eq major-mode 'pdf-view-mode))
+           (with-no-warnings ;; Compiler does not recognize above defalias.
+             (image-mode-winprops-original-function window cleanup))
+         (cond ((null window)
+                (setq window
+                      (if (eq (current-buffer) (window-buffer)) (selected-window) t)))
+               ((eq window t))
+               ((not (windowp window))
+                (error "Not a window: %s" window)))
+         (when cleanup
+           (setq image-mode-winprops-alist
+                 (delq nil (mapcar (lambda (winprop)
+                                     (let ((w (car-safe winprop)))
+                                       (if (or (not (windowp w)) (window-live-p w))
+                                           winprop)))
+                                   image-mode-winprops-alist))))
+         (let ((winprops (assq window image-mode-winprops-alist)))
+           ;; For new windows, set defaults from the latest.
+           (if winprops
+               ;; Move window to front.
+               (setq image-mode-winprops-alist
+                     (cons winprops (delq winprops image-mode-winprops-alist)))
+             (setq winprops (cons window
+                                  (copy-alist (cdar image-mode-winprops-alist))))
+             ;; Add winprops before running the hook, to avoid inf-loops if the hook
+             ;; triggers window-configuration-change-hook.
+             (setq image-mode-winprops-alist
+                   (cons winprops image-mode-winprops-alist))
+             (run-hook-with-args 'image-mode-new-window-functions winprops))
+           winprops)))))
+
+
 
 ;; * ================================================================== *
 ;; * Transforming coordinates 
@@ -377,21 +451,6 @@ which case scroll as much as possible."
 
 (defvar-local pdf-util--dedicated-directory nil
   "The relative name of buffer's dedicated directory.")
-
-;; This macro is only available in recent Emacs versions.
-(eval-when-compile
-  (unless (fboundp 'with-file-modes)
-    (defmacro with-file-modes (modes &rest body)
-      "Execute BODY with default file permissions temporarily set to MODES.
-MODES is as for `set-default-file-modes'."
-      (declare (indent 1) (debug t))
-      (let ((umask (make-symbol "umask")))
-        `(let ((,umask (default-file-modes)))
-           (unwind-protect
-               (progn
-                 (set-default-file-modes ,modes)
-                 ,@body)
-             (set-default-file-modes ,umask)))))))
 
 (defun pdf-util-dedicated-directory ()
   "Return the name of a existing dedicated directory.

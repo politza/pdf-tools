@@ -49,7 +49,7 @@
    + Keep track of visited pages via a history.
 ** Installation
 *** Prerequisites
-    You'll need GNU Emacs 24 and some form of a GNU/Linux OS.  Other
+    You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.  Other
     operating systems are currently not supported (patches welcome).
     The following instructions assume a Debian-based system.  
 

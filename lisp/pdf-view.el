@@ -236,11 +236,6 @@ PNG images in Emacs buffers.
             nil t)
   (remove-overlays (point-min) (point-max) 'pdf-view t) ;Just in case.
 
-  ;; Keep track of display info
-  (add-hook 'image-mode-new-window-functions
-            'pdf-view-new-window-function nil t)
-  (image-mode-setup-winprops)
-
   ;; Setup other local variables.
   (setq-local mode-line-position
               '(" P" (:eval (number-to-string (pdf-view-current-page)))
@@ -271,6 +266,11 @@ PNG images in Emacs buffers.
   (add-hook 'after-revert-hook 'pdf-view--after-revert-hook nil t)
   (pdf-view-add-hotspot-function 'pdf-view-text-regions-hotspots-function -9)
   
+  ;; Keep track of display info
+  (add-hook 'image-mode-new-window-functions
+            'pdf-view-new-window-function nil t)
+  (image-mode-setup-winprops)
+
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1))
 
@@ -758,11 +758,9 @@ If WINDOW is t, redisplay pages in all windows."
                  (not (window-live-p (overlay-get ov 'window))))
         (delete-overlay ov)))
     (when (and (windowp (car winprops))
-               (null (pdf-view-current-image (car winprops))))
-      ;; We're not displaying an image yet, so let's do so.  This happens when
-      ;; the buffer is displayed for the first time.
-      ;; Don't do it if there's a conversion is running, since in that case, it
-      ;; will be done later.
+               (null (image-mode-window-get 'image winprops)))
+      ;; We're not displaying an image yet, so let's do so.  This
+      ;; happens when the buffer is displayed for the first time.
       (with-selected-window (car winprops)
         (set-window-parameter
          nil
@@ -775,7 +773,7 @@ If WINDOW is t, redisplay pages in all windows."
   (let* ((pagesize (pdf-cache-pagesize
                     (or page (pdf-view-current-page window))))
          (slice (pdf-view-current-slice window))
-         (width-scale (/ (/ (float (window-width window t))
+         (width-scale (/ (/ (float (pdf-util-window-pixel-width window))
                             (or (nth 2 slice) 1.0))
                          (float (car pagesize))))
          (height (- (nth 3 (window-inside-pixel-edges window))
