@@ -1237,8 +1237,6 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page))
 
-(add-hook 'kill-emacs-hook 'pdf-info-quit)
-
 (provide 'pdf-info)
 
 ;;; pdf-info.el ends here
