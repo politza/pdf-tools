@@ -124,7 +124,7 @@
 #+begin_src elisp
   M-x package-install-file RET pdf-tools-0.40.tar RET
 #+end_src
-  
+
   To complete the installation process, you need to activate the
   package by putting
 #+begin_src elisp
@@ -137,6 +137,12 @@
   M-x pdf-tools-help RET
   M-x pdf-tools-customize RET
 #+end_src
+
+*** Updating
+    Some day you might want to update this package via `git pull` and
+    then reinstall it.  In order to avoid problems with the existing
+    version, you should delete it beforehand via `list-packages`.
+    Especially if it still carries the same version number.
   
 # Local Variables:
 # mode: org
