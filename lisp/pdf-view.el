@@ -50,6 +50,8 @@ other value behaves like `fit-width'."
                  (const fit-width)
                  (const fit-page)))
 
+(make-variable-buffer-local 'pdf-view-display-size)
+
 (defcustom pdf-view-resize-factor 1.25
   "Fractional amount of resizing of one resize command."
   :group 'pdf-view
