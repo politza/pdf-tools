@@ -1145,21 +1145,17 @@ Optional REVERT-P means, revert the display afterwards."
    prop))
 
 (defun tablist-current-column ()
-  "Return the column number at point."
-  (let ((columns
-         (tablist-column-offsets))
-        (index 0))
-    (when (eq 0 (car columns))
-      (cl-incf index))
-    (while (and columns
-                (<= (car columns)
-                    (current-column)))
-      (cl-incf index)
-      (setq columns (cdr columns)))
-    (if (> index 0)
-        (1- index)
-      (if columns
-          0))))
+  "Return the column number at point.
+
+Returns nil, if point is before the first column."
+  (let ((column
+         (1- (cl-position
+              (current-column)
+              (append (tablist-column-offsets)
+                      (list most-positive-fixnum))
+              :test (lambda (column offset) (> offset column))))))
+    (when (>= column 0)
+      column)))
 
 (defun tablist-column-offsets ()
   "Return a list of column positions.
