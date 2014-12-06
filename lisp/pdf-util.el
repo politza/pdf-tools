@@ -74,13 +74,13 @@ MODES is as for `set-default-file-modes'."
             (and (= emacs-major-version 24)
                  (>= emacs-minor-version 4)))
   (require 'image-mode)
-  (defalias 'image-mode-winprops-original-function
+  (defvar image-mode-winprops-original-function
     (symbol-function 'image-mode-winprops))
   (eval-after-load "image-mode"
     '(defun image-mode-winprops (&optional window cleanup)
        (if (not (eq major-mode 'pdf-view-mode))
-           (with-no-warnings ;; Compiler does not recognize above defalias.
-             (image-mode-winprops-original-function window cleanup))
+           (funcall image-mode-winprops-original-function
+                    window cleanup)
          (cond ((null window)
                 (setq window
                       (if (eq (current-buffer) (window-buffer)) (selected-window) t)))
