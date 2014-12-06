@@ -356,7 +356,7 @@ which case scroll as much as possible.
 Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
 top of the window.  CONTEXT-PIXEL defaults to 0.
 
-Return the require hscroll in columns or nil, if scrolling is not
+Return the required hscroll in columns or nil, if scrolling is not
 needed."
 
   (pdf-util-assert-pdf-window)
@@ -373,18 +373,18 @@ needed."
       (let* ((edges-left (- edges-left context-pixel))
              (edges-right (+ edges-right context-pixel)))
         (if (< edges-left image-left)
-            (/ (max 0 (if eager-p
-                          (- edges-right win-width)
-                        edges-left))
-               (frame-char-width))
+            (round (/ (max 0 (if eager-p
+                                 (- edges-right win-width)
+                               edges-left))
+                      (frame-char-width)))
           (if (> (min image-width
                       edges-right)
                  (+ image-left win-width))
-              (/ (min (- image-width win-width)
-                      (if eager-p
-                          edges-left
-                        (- edges-right win-width)))
-                 (frame-char-width))))))))
+              (round (/ (min (- image-width win-width)
+                             (if eager-p
+                                 edges-left
+                               (- edges-right win-width)))
+                        (frame-char-width)))))))))
 
 (defun pdf-util-required-vscroll (edges &optional eager-p context-pixel)
   "Return the amount of scrolling nescessary, to make image EDGES visible.
@@ -396,7 +396,7 @@ Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
 top of the window.  CONTEXT-PIXEL defaults to an equivalent pixel
 value of `next-screen-context-lines'.
 
-Return the require vscroll in lines or nil, if scrolling is not
+Return the required vscroll in lines or nil, if scrolling is not
 needed."
   
   (pdf-util-assert-pdf-window)
@@ -414,18 +414,18 @@ needed."
              (edges-top (- edges-top context-pixel))
              (edges-bot (+ edges-bot context-pixel)))
         (if (< edges-top image-top)
-            (/ (max 0 (if eager-p
-                          (- edges-bot win-height)
-                        edges-top))
-               (float (frame-char-height)))
+            (round (/ (max 0 (if eager-p
+                                 (- edges-bot win-height)
+                               edges-top))
+                      (float (frame-char-height))))
           (if (> (min image-height
                       edges-bot)
                  (+ image-top win-height))
-              (/ (min (- image-height win-height)
-                      (if eager-p
-                          edges-top
-                        (- edges-bot win-height)))
-                 (float (frame-char-height)))))))))
+              (round (/ (min (- image-height win-height)
+                             (if eager-p
+                                 edges-top
+                               (- edges-bot win-height)))
+                        (float (frame-char-height))))))))))
 
 (defun pdf-util-scroll-to-edges (edges &optional eager-p)
   "Scroll window such that image EDGES are visible.
