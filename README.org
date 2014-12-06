@@ -141,7 +141,7 @@
 *** Updating
     Some day you might want to update this package via ~git pull~ and
     then reinstall it.  In order to avoid problems with the existing
-    version, you should delete it beforehand via `list-packages`.
+    version, you should delete it beforehand via ~list-packages~.
     Especially if it still carries the same version number.
   
 # Local Variables:
