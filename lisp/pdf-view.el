@@ -982,10 +982,13 @@ Deactivate the region if DEACTIVATE-P is non-nil."
                          (window-buffer))))
     (nconc (bookmark-make-record-default)
            `((page . ,(pdf-view-current-page))
-             (slice . ,(pdf-view-current-slice))
+             (slice . ,(and displayed-p
+                            (pdf-view-current-slice)))
              (size . ,pdf-view-display-size)
-             (vscroll . ,(and displayed-p (window-vscroll)))
-             (hscroll . ,(and displayed-p (window-hscroll)))
+             (origin . ,(and displayed-p
+                             (let ((edges (pdf-util-image-displayed-edges nil t)))
+                               (pdf-util-scale-pixel-to-relative
+                                (cons (car edges) (cadr edges)) nil t))))
              (handler . pdf-view-bookmark-jump)))))
 
 ;;;###autoload
@@ -995,8 +998,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
   (let ((page (bookmark-prop-get bmk 'page))
 	(slice (bookmark-prop-get bmk 'slice))
         (size (bookmark-prop-get bmk 'size))
-        (vscroll (bookmark-prop-get bmk 'vscroll))
-        (hscroll (bookmark-prop-get bmk 'hscroll))
+        (origin (bookmark-prop-get bmk 'origin))
 	(show-fn-sym (make-symbol "pdf-view-bookmark-after-jump-hook")))
     (fset show-fn-sym
 	  (lambda ()
@@ -1010,10 +1012,14 @@ Deactivate the region if DEACTIVATE-P is non-nil."
               (when slice
                 (apply 'pdf-view-set-slice slice) )
 	      (pdf-view-goto-page page)
-              (when vscroll
-                (image-set-window-vscroll vscroll))
-              (when hscroll
-                (image-set-window-hscroll hscroll)))))
+              (when origin
+                (let ((size (pdf-view-image-size t)))
+                  (image-set-window-hscroll
+                   (round (/ (* (car origin) (car size))
+                             (frame-char-width))))
+                  (image-set-window-vscroll
+                   (round (/ (* (cdr origin) (cdr size))
+                             (frame-char-height)))))))))
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
     (bookmark-default-handler bmk)))
 

@@ -328,14 +328,16 @@ values."
 ;; * Scrolling
 ;; * ================================================================== *
 
-(defun pdf-util-image-displayed-edges (&optional window)
+(defun pdf-util-image-displayed-edges (&optional window displayed-p)
   "Return the visible region of the image in WINDOW.
 
 Returns a list of pixel edges."
   (pdf-util-assert-pdf-window)
   (let* ((edges (window-inside-pixel-edges window))
-         (isize (pdf-view-image-size window))
-         (offset (pdf-view-image-offset window))
+         (isize (pdf-view-image-size displayed-p window))
+         (offset (if displayed-p
+                     `(0 . 0)
+                   (pdf-view-image-offset window)))
          (hscroll (* (window-hscroll window)
                      (frame-char-width (window-frame window))))
          (vscroll (window-vscroll window t))
@@ -345,7 +347,7 @@ Returns a list of pixel edges."
                   (+ x0 (- (nth 2 edges) (nth 0 edges)))))
          (y1 (min (cdr isize)
                   (+ y0 (- (nth 3 edges) (nth 1 edges))))))
-    (list x0 y0 x1 y1)))
+    (mapcar 'round (list x0 y0 x1 y1))))
 
 (defun pdf-util-required-hscroll (edges &optional eager-p context-pixel)
   "Return the amount of scrolling nescessary, to make image EDGES visible.
