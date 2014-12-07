@@ -3183,7 +3183,9 @@ int main(int argc, char **argv)
   if (! freopen (error_log, "w", stderr))
     err (2, "Unable to redirect stderr");
 
+#if ! GLIB_CHECK_VERSION(2,36,0)
   g_type_init ();
+#endif
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);
