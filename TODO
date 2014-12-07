@@ -15,6 +15,9 @@
 * pdf-annot
 ** Updating the list buffer is too slow
    + Update it incrementally.
-   + Possibly skip the update if the buffer is not visible. 
+   + Possibly skip the update if the buffer is not visible.
+** Make highlighting customizable
 * epdfinfo
-** Split the code up in several files.
+** Maybe split the code up in several files.
+* pdf-view
+** Provide some kind of multipage view  
