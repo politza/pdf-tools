@@ -730,7 +730,8 @@ If WINDOW is t, redisplay pages in all windows."
                         (window-height window))))
         (unless (equal size stored)
           (set-window-parameter window 'pdf-view-window-size size)
-          (unless (or (and (eq pdf-view-display-size 'fit-width)
+          (unless (or (null stored)
+                      (and (eq pdf-view-display-size 'fit-width)
                            (eq (car size) (car stored)))
                       (and (eq pdf-view-display-size 'fit-height)
                            (eq (cdr size) (cdr stored))))
@@ -765,10 +766,6 @@ If WINDOW is t, redisplay pages in all windows."
       ;; We're not displaying an image yet, so let's do so.  This
       ;; happens when the buffer is displayed for the first time.
       (with-selected-window (car winprops)
-        (set-window-parameter
-         nil
-         'pdf-view-window-size (cons (window-width)
-                                     (window-height)))
         (pdf-view-goto-page
          (or (image-mode-window-get 'page t) 1))))))
 
