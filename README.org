@@ -140,9 +140,10 @@
 
 *** Updating
     Some day you might want to update this package via ~git pull~ and
-    then reinstall it.  In order to avoid problems with the existing
-    version, you should delete it beforehand via ~list-packages~.
-    Especially if it still carries the same version number.
+    then reinstall it.  Sometimes this may fail, especially if
+    Lisp-Macros are involved.  To avoid this kind of problems, you
+    should delete the old package via ~list-packages~, restart Emacs
+    and then reinstall the package.
   
 # Local Variables:
 # mode: org
