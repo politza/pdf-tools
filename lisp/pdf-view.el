@@ -722,7 +722,8 @@ If WINDOW is t, redisplay pages in all windows."
 (defun pdf-view-maybe-redisplay-resized-windows ()
   "Redisplay some windows needing redisplay."
   (unless (or (numberp pdf-view-display-size)
-              (pdf-view-active-region-p))
+              (pdf-view-active-region-p)
+              (> (minibuffer-depth) 0))
     (dolist (window (get-buffer-window-list nil nil t))
       (let ((stored (window-parameter window 'pdf-view-window-size))
             (size (cons (window-width window)
