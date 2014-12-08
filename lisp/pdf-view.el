@@ -75,7 +75,8 @@ of the page moves to the previous page."
   "Whether imagemagick should be used for rendering.
 
 This variable has no effect, if imagemagick was not compiled into
-Emacs.  FIXME: Explain dis-/advantages of imagemagick and png."
+Emacs or if imagemagick is the only way to display PNG images.
+FIXME: Explain dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :type 'boolean)
 
@@ -87,8 +88,6 @@ Emacs or `pdf-view-use-imagemagick' is nil.  FIXME: Explain
 dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :type 'boolean)
-
-
 
 (defface pdf-view-region
   '((((background dark)) (:inherit region))
@@ -613,12 +612,19 @@ again."
 (defun pdf-view-image-type ()
   "Return the image-type which should be used.
 
-The return value is either imagemagick (if available and wanted)
-or png."
-  (if (and pdf-view-use-imagemagick
-           (fboundp 'imagemagick-types))
-      'imagemagick
-    'png))
+The return value is either imagemagick (if available and wanted
+or if png is not available) or png.
+
+Signal an error, if neither imagemagick nor png is available."
+  (cond ((and pdf-view-use-imagemagick
+              (fboundp 'imagemagick-types))
+         'imagemagick)
+        ((image-type-available-p 'png)
+         'png)
+        ((fboundp 'imagemagick-types)
+         'imagemagick)
+        (t
+         (error "PNG image supported not compiled into Emacs"))))
 
 (defun pdf-view-use-scaling-p ()
   (and (eq 'imagemagick
