@@ -97,13 +97,27 @@ dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :group 'pdf-tools-faces)
 
+(defcustom pdf-view-change-page-hook nil
+  "Hook run after changing to another page, but before displaying it.
+
+See also `pdf-view-before-change-page-hook' and
+`pdf-view-after-change-page-hook'."
+  :group 'pdf-view
+  :type 'hook)
+
 (defcustom pdf-view-before-change-page-hook nil
-  "Hook run before changing to another page."
+  "Hook run before changing to another page.
+
+See also `pdf-view-change-page-hook' and
+`pdf-view-after-change-page-hook'."
   :group 'pdf-view
   :type 'hook)
 
 (defcustom pdf-view-after-change-page-hook nil
-  "Hook run after changing to another page."
+  "Hook run after changing to and displaying another page.
+
+See also `pdf-view-change-page-hook' and
+`pdf-view-before-change-page-hook'."
   :group 'pdf-view
   :type 'hook)
 
@@ -384,8 +398,9 @@ a local copy of a remote file."
     (let ((changing-p
            (not (eq page (pdf-view-current-page window)))))
       (when changing-p
-        (run-hooks 'pdf-view-before-change-page-hook))
-      (setf (pdf-view-current-page window) page)
+        (run-hooks 'pdf-view-before-change-page-hook)
+        (setf (pdf-view-current-page window) page)
+        (run-hooks 'pdf-view-change-page-hook))
       (when (window-live-p window)
         (pdf-view-redisplay window))
       (when changing-p
