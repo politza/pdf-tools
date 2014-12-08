@@ -615,7 +615,9 @@ again."
 The return value is either imagemagick (if available and wanted
 or if png is not available) or png.
 
-Signal an error, if neither imagemagick nor png is available."
+Signal an error, if neither imagemagick nor png is available.
+
+See also `pdf-view-use-imagemagick'."
   (cond ((and pdf-view-use-imagemagick
               (fboundp 'imagemagick-types))
          'imagemagick)
