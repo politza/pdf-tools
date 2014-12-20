@@ -64,10 +64,9 @@
   $ sudo aptitude install libpoppler-glib-dev 
   $ sudo aptitude install libpoppler-private-dev 
 #+end_src
-    If you are doing this on a recent Ubuntu system, the final command
-    will probably give an error.  This should be no problem, since the
-    Ubuntu people merged this package into the main ~libpoppler-dev~
-    package.
+    On some older Ubuntu systems, the final command will possibly give
+    an error.  This should be no problem, since in some versions this
+    package was contained in the main package ~libpoppler-dev~.
 
     Debian wheezy comes with libpoppler version 0.18, which is pretty
     old.  The minimally required version is 0.16, but some features of
