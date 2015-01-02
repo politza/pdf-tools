@@ -24,7 +24,6 @@
 
 (require 'semantic/wisent/comp)
 (require 'semantic/wisent/wisent)
-(require 'eldoc)
 
 ;;; Code:
 
@@ -309,10 +308,11 @@
        (princ (concat (make-string (max 0 (- 4 (length (symbol-name (car op)))))
                                    ?\s)
                       "- "
-                      (eldoc-docstring-first-line
-                       (or (documentation (cdr op))
-                           (format "FIXME: Not documented: %s"
-                                   (cdr op))))
+                      (car (split-string
+                            (or (documentation (cdr op))
+                                (format "FIXME: Not documented: %s"
+                                        (cdr op)))
+                            "\n" t))
                       "\n"))))
     (with-temp-buffer-window
      "*Help*"
