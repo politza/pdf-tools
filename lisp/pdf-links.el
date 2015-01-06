@@ -144,7 +144,9 @@ links via \\[pdf-links-isearch-link].
          (lambda nil
            (interactive "@")
            (pdf-links-action-perform (cdr l))))
-        (pdf-util-image-map-divert-mouse-clicks id)))
+        (local-set-key
+         (vector id t)
+         'pdf-util-image-map-mouse-event-proxy))) 
     (nreverse hotspots)))
 
 (defun pdf-links-action-to-string (action)
