@@ -35,23 +35,25 @@
                    (file-name-directory load-file-name)
                    "server"))))
   ;; Assume a MELPA installation
-  (let* ((default-directory (expand-file-name
-                             "server"
-                             (file-name-directory load-file-name)))
-         (readme (expand-file-name "../README.org")))
+  (let* ((server-directory (expand-file-name
+                            "server"
+                            (file-name-directory load-file-name)))
+         (readme (expand-file-name "../README"
+                                   server-directory)))
     (find-file readme)
     (show-all)
     (goto-char (org-find-exact-headline-in-buffer "Prerequisites" nil t))
     (recenter 0)
     (read-string "Will you read the README ? (yes/shure/absolutely) ")
     (read-string "Trying to compile now. If it fails fix the prerequisites and press g in the compilation buffer to try again. (ok/got it)")
+    (cd server-directory)
     (compile 
      (concat
       "./autogen.sh && "
       "./configure -C && "
       "make -C src -s && "
       "cp src/epdfinfo ../ && "
-      "echo Have fun !"))))
+      "echo Server successfully build !"))))
 
 
 ;; * ================================================================== *
