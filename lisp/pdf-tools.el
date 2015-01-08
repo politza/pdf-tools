@@ -28,24 +28,29 @@
 (require 'cus-edit)
 ;;; Code:
 
-(unless (file-executable-p pdf-info-epdfinfo-program)
+(unless (or (file-executable-p pdf-info-epdfinfo-program)
+            (null load-file-name)
+            (not (file-directory-p
+                  (expand-file-name
+                   (file-name-directory load-file-name)
+                   "server"))))
   ;; Assume a MELPA installation
   (let* ((default-directory (expand-file-name
                              "server"
                              (file-name-directory load-file-name)))
-         (readme (expand-file-name "README.org")))
+         (readme (expand-file-name "../README.org")))
     (find-file readme)
     (show-all)
     (goto-char (org-find-exact-headline-in-buffer "Prerequisites" nil t))
-    (org-narrow-to-subtree)
-    (message "Please install all necessary prerequisites, trying to compile...")
-    (sit-for 1)
+    (recenter 0)
+    (read-string "Will you read the README ? (yes/shure/absolutely) ")
+    (read-string "Trying to compile now. If it fails fix the prerequisites and press g in the compilation buffer to try again. (ok/got it)")
     (compile 
      (concat
       "./autogen.sh && "
-      "./configure && "
+      "./configure -C && "
       "make -C src -s && "
-      "mv src/epdfinfo ../ && "
+      "cp src/epdfinfo ../ && "
       "echo Have fun !"))))
 
 
