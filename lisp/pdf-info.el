@@ -62,12 +62,9 @@
   :group 'pdf-tools)
   
 (defcustom pdf-info-epdfinfo-program
-  (let* ((exec-path (cons
-                     (if load-file-name
-                         (file-name-directory load-file-name)
-                       default-directory)
-                       exec-path)))
-    (executable-find "epdfinfo"))
+  (expand-file-name "epdfinfo"
+                    (file-name-directory
+                     (or load-file-name default-directory)))
   "Filename of the epdfinfo executable."
   :group 'pdf-info
   :type '(file :must-match t))

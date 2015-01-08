@@ -24,10 +24,29 @@
 
 (require 'pdf-view)
 (require 'pdf-util)
+(require 'pdf-info)
 (require 'cus-edit)
-
 ;;; Code:
 
+(unless (file-executable-p pdf-info-epdfinfo-program)
+  ;; Assume a MELPA installation
+  (let* ((default-directory (expand-file-name
+                             "server"
+                             (file-name-directory load-file-name)))
+         (readme (expand-file-name "README.org")))
+    (find-file readme)
+    (show-all)
+    (goto-char (org-find-exact-headline-in-buffer "Prerequisites" nil t))
+    (org-narrow-to-subtree)
+    (message "Please install all necessary prerequisites, trying to compile...")
+    (sit-for 1)
+    (compile 
+     (concat
+      "./autogen.sh && "
+      "./configure && "
+      "make -C src -s && "
+      "mv src/epdfinfo ../ && "
+      "echo Have fun !"))))
 
 
 ;; * ================================================================== *
