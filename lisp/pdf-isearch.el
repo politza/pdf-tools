@@ -380,7 +380,7 @@ there was no previous search, this function returns t."
                (format " [%s]" msg)))
           (isearch-message)
           (sit-for 1))
-      (message "%s" fmt))))
+      (message "%s" msg))))
 
 
 
