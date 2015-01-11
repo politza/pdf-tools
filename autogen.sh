@@ -54,7 +54,7 @@ if [ "$INSTALL_DEPS" = true ]; then
         echo "Packages required:"
         for d in $DEPS; do echo $d; done
         echo
-        echo "Packages which maybe required:"
+        echo "Packages which may be required:"
         for d in $MAYBE_DEPS; do echo $d; done
         echo
     else
