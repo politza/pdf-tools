@@ -49,10 +49,12 @@
    + Keep track of visited pages via a history.
 ** Installation
 *** Prerequisites
-    You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.  Other
-    operating systems are currently not supported (patches welcome).
-    The following instructions assume a Debian-based system.  
-
+    You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
+    Other operating systems are currently not supported (patches
+    welcome).  The following instructions assume a Debian-based
+    system. (On this system prerequisites may be installed
+    automatically, see [[Compilation]] .)
+    
     First make shure a suitable build-system is installed.  We need at
     least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~, ~automake~
     and ~autoconf~.
@@ -98,8 +100,10 @@
     
 #+begin_src sh
     $ cd /path/to/pdf-tools
-    $ ./autogen.sh
+    $ ./autogen.sh 
 #+end_src
+    The ~autogen.sh~ also takes an optional argument ~--install-deps~,
+    which will try to install above prerequisites.
 
     Now comes the familiar
 #+begin_src sh
