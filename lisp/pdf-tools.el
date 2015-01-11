@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013, 2014  Andreas Politz
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
-;; Keywords: files, pdf
+;; Keywords: files, multimedia
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -35,25 +35,27 @@
                    (file-name-directory load-file-name)
                    "server"))))
   ;; Assume a MELPA installation
-  (let* ((server-directory (expand-file-name
-                            "server"
-                            (file-name-directory load-file-name)))
-         (readme (expand-file-name "../README"
-                                   server-directory)))
-    (find-file readme)
-    (show-all)
-    (goto-char (org-find-exact-headline-in-buffer "Prerequisites" nil t))
-    (recenter 0)
-    (read-string "Will you read the README ? (yes/shure/absolutely) ")
-    (read-string "Trying to compile now. If it fails fix the prerequisites and press g in the compilation buffer to try again. (ok/got it)")
-    (cd server-directory)
-    (compile 
-     (concat
-      "./autogen.sh && "
-      "./configure -C && "
-      "make -C src -s && "
-      "cp src/epdfinfo ../ && "
-      "echo Server successfully build !"))))
+  (when (y-or-n-p "pdf-tools: Should I try to build the server now ?")
+    (let* ((server-directory (expand-file-name
+                              "server"
+                              (file-name-directory load-file-name)))
+           (readme (expand-file-name "../README"
+                                     server-directory)))
+      (require 'org)
+      (find-file readme)
+      (show-all)
+      (goto-char (point-min))
+      (when (re-search-forward "^ *\*+ *Prerequisites *$" nil t)
+        (recenter 0))
+      (compile 
+       (concat
+        (format "cd '%s' && " server-directory)
+        "./autogen.sh --install-deps && "
+        "./configure && "
+        "make -C src -s && "
+        "cp src/epdfinfo ../ && "
+        "echo Server build successfully"))
+      (message "Trying to compile now. If it fails fix the prerequisites and press g in the compilation buffer to try again."))))
 
 
 ;; * ================================================================== *

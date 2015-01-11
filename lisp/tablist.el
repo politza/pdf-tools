@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013, 2014  Andreas Politz
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
-;; Keywords:
+;; Keywords: extensions, lisp
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
