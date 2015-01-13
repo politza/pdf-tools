@@ -24,8 +24,17 @@
 
 (message "Installing package %s" (buffer-file-name))
 (package-install-file (buffer-file-name))
+(when (and (bound-and-true-p byte-compile-log-buffer)
+           (buffer-live-p (get-buffer byte-compile-log-buffer)))
+  (with-current-buffer byte-compile-log-buffer
+    (save-excursion
+      (goto-char 1)
+      (when (re-search-forward ":\\(?:Error\\|Warning\\):" nil t)
+        (error "Compilation had errors and/or warnings.")))))
+
 (message "Installing pdf-tools")
 (pdf-tools-install)
+
 (message "Running ERT tests")
 (ert-run-tests-batch-and-exit)
 
