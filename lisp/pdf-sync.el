@@ -56,6 +56,16 @@ The hook is run in the PDF's buffer."
   :group 'pdf-sync
   :type 'display-buffer--action-custom-type)
 
+(defcustom pdf-sync-locate-synctex-file-functions nil
+  "A list of functions for locating the synctex database.
+
+Each function on this hook should accept a single argument: The
+absolute path of a PDF file. It should return the absolute path
+of the corresponding synctex database or nil, if it was unable to
+locate it."
+  :group 'pdf-sync
+  :type 'hook)
+
 (defvar pdf-sync-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap [double-mouse-1] 'pdf-sync-mouse-goto-tex)
@@ -163,26 +173,95 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
     (unless line (setq line (line-number-at-pos)))
     (unless column (setq column (current-column))))
 
-  (let ((pdf (expand-file-name
-              (with-no-warnings (TeX-master-file "pdf"))))) 
-    (condition-case nil
+  (let* ((pdf (expand-file-name
+               (with-no-warnings (TeX-master-file "pdf"))))
+         (sfilename (pdf-sync-synctex-file-name
+                     (buffer-file-name) pdf))) 
+    (condition-case err
         (cons pdf
               (pdf-info-synctex-forward-search
-               (buffer-file-name) line column pdf))
+               (or sfilename
+                   (buffer-file-name))
+               line column pdf))
       (error
-       ;; Work around quirky filenames in synctex.gz database.
-       (let ((master-directory
-              (file-name-as-directory
-               (expand-file-name
-                (with-no-warnings (TeX-master-directory))))))
-         (cons pdf
-               (pdf-info-synctex-forward-search
-                (concat master-directory "./"
-                        (file-relative-name
-                         (buffer-file-name)
-                         master-directory))
-                line column pdf)))))))
+       (if (null sfilename)
+           (signal (car err) (cdr err))
+         ;; It would be embarassing, if the unmodified buffer-file-name
+         ;; would actually work for some reason.
+         (condition-case nil
+             (cons pdf
+                   (pdf-info-synctex-forward-search
+                    (buffer-file-name))
+                   line column pdf)
+           (error (signal (car err) (cdr err)))))))))
 
+(defun pdf-sync-locate-synctex-file (pdf)
+  "Locate the synctex database corresponding to PDF.
+
+Returns either the absolute path of the database or nil.
+
+See als `pdf-sync-locate-synctex-file-functions'."
+  (cl-check-type pdf string)
+  (setq pdf (expand-file-name pdf))
+  (or (run-hook-with-args-until-success
+       'pdf-sync-locate-synctex-file-functions pdf)
+      (pdf-sync-locate-synctex-file-default pdf)))
+
+(defun pdf-sync-locate-synctex-file-default (pdf)
+  "The default function for locating a synctex database for PDF.
+
+See also `pdf-sync-locate-synctex-file'."
+  (let ((default-directory
+          (file-name-directory pdf))
+        (basename (file-name-sans-extension
+                   (file-name-nondirectory pdf)))
+        result)
+    (cl-labels ((file-if-exists-p (file)
+                  (and (file-exists-p file)
+                       file)))
+      (or (file-if-exists-p
+           (expand-file-name (concat basename ".synctex.gz")))
+          (file-if-exists-p
+           (expand-file-name (concat basename ".synctex")))
+          ;; Some pdftex quote the basename.
+          (file-if-exists-p
+           (expand-file-name (concat "\"" basename "\"" ".synctex.gz")))
+          (file-if-exists-p
+           (expand-file-name (concat "\"" basename "\"" ".synctex")))))))
+
+(defun pdf-sync-synctex-file-name (filename pdf)
+  "Find the SyncTeX filename corresponding to FILENAME in the context of PDF.
+
+This function consults the synctex.gz database of PDF and
+searches for a filename, which is `file-equal-p' to FILENAME.
+The first such filename is returned, or nil if none was found."
+
+  (when (file-exists-p filename)
+    (setq filename (expand-file-name filename))
+    (let* ((synctex (pdf-sync-locate-synctex-file pdf))
+           (basename (file-name-nondirectory filename))
+           (regexp (format "^ *Input *: *[^:\n]+ *:\\(.*%s\\)$"
+                           (regexp-quote basename))))
+      (when (and synctex
+                 (file-readable-p synctex))
+        (with-current-buffer (let ((revert-without-query (list "")))
+                               (find-file-noselect synctex))
+          ;; Keep point in front of the found filename. It will
+          ;; probably be queried for again next time.
+          (let ((beg (point))
+                end (point-max))
+            (catch 'found
+              (dotimes (i 2)
+                (while (re-search-forward regexp end t)
+                  (let ((syncname (match-string-no-properties 1)))
+                    (when (and (file-exists-p syncname)
+                               (file-equal-p filename syncname))
+                      (goto-char (point-at-bol))
+                      (throw 'found syncname))))
+                (setq end beg
+                      beg (point-min))
+                (goto-char beg)))))))))
+    
 (provide 'pdf-sync)
 
 ;;; pdf-sync.el ends here
