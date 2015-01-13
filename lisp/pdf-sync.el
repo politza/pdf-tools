@@ -168,10 +168,8 @@ Returns a list \(SOURCE LINE COLUMN\)."
 Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
   (unless (fboundp 'TeX-master-file)
     (error "This function works only with AUCTeX"))
-  (save-restriction
-    (widen)
-    (unless line (setq line (line-number-at-pos)))
-    (unless column (setq column (current-column))))
+  (unless line (setq line (line-number-at-pos)))
+  (unless column (setq column (current-column)))
 
   (let* ((pdf (expand-file-name
                (with-no-warnings (TeX-master-file "pdf"))))
