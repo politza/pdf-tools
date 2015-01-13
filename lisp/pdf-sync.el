@@ -122,13 +122,21 @@ with AUCTeX."
     (pop-to-buffer (or (find-buffer-visiting source)
                        (find-file-noselect source)))
     (push-mark)
-    (when (> line 0)
-      (save-restriction
-        (widen)
-        (goto-char 1)
-        (forward-line (1- line))))
-    (when (> column 0)
-      (forward-char (1- column)))
+    (let ((pos 
+           (when (> line 0)
+             (save-excursion
+               (save-restriction
+                 (widen)
+                 (goto-char 1)
+                 (forward-line (1- line))
+                 (when (> column 0)
+                   (forward-char (1- column)))
+                 (point))))))
+      (when pos
+        (when (or (< pos (point-min))
+                  (> pos (point-max)))
+          (widen))
+        (goto-char pos)))
     (run-hooks 'pdf-sync-goto-tex-hook)))
 
 (defun pdf-sync-correlate-tex (x y)
