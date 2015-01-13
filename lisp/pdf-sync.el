@@ -182,7 +182,7 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
   (let* ((pdf (expand-file-name
                (with-no-warnings (TeX-master-file "pdf"))))
          (sfilename (pdf-sync-synctex-file-name
-                     (buffer-file-name) pdf))) 
+                     (buffer-file-name) pdf)))
     (condition-case err
         (cons pdf
               (pdf-info-synctex-forward-search
@@ -197,31 +197,30 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
          (condition-case nil
              (cons pdf
                    (pdf-info-synctex-forward-search
-                    (buffer-file-name))
-                   line column pdf)
+                    (buffer-file-name)
+                    line column pdf))
            (error (signal (car err) (cdr err)))))))))
 
-(defun pdf-sync-locate-synctex-file (pdf)
-  "Locate the synctex database corresponding to PDF.
+(defun pdf-sync-locate-synctex-file (pdffile)
+  "Locate the synctex database corresponding to PDFFILE.
 
 Returns either the absolute path of the database or nil.
 
 See als `pdf-sync-locate-synctex-file-functions'."
-  (cl-check-type pdf string)
-  (setq pdf (expand-file-name pdf))
+  (cl-check-type pdffile string)
+  (setq pdffile (expand-file-name pdffile))
   (or (run-hook-with-args-until-success
-       'pdf-sync-locate-synctex-file-functions pdf)
-      (pdf-sync-locate-synctex-file-default pdf)))
+       'pdf-sync-locate-synctex-file-functions pdffile)
+      (pdf-sync-locate-synctex-file-default pdffile)))
 
-(defun pdf-sync-locate-synctex-file-default (pdf)
-  "The default function for locating a synctex database for PDF.
+(defun pdf-sync-locate-synctex-file-default (pdffile)
+  "The default function for locating a synctex database for PDFFILE.
 
 See also `pdf-sync-locate-synctex-file'."
   (let ((default-directory
-          (file-name-directory pdf))
+          (file-name-directory pdffile))
         (basename (file-name-sans-extension
-                   (file-name-nondirectory pdf)))
-        result)
+                   (file-name-nondirectory pdffile))))
     (cl-labels ((file-if-exists-p (file)
                   (and (file-exists-p file)
                        file)))
@@ -235,16 +234,16 @@ See also `pdf-sync-locate-synctex-file'."
           (file-if-exists-p
            (expand-file-name (concat "\"" basename "\"" ".synctex")))))))
 
-(defun pdf-sync-synctex-file-name (filename pdf)
-  "Find the SyncTeX filename corresponding to FILENAME in the context of PDF.
+(defun pdf-sync-synctex-file-name (filename pdffile)
+  "Find the SyncTeX filename corresponding to FILENAME in the context of PDFFILE.
 
-This function consults the synctex.gz database of PDF and
+This function consults the synctex.gz database of PDFFILE and
 searches for a filename, which is `file-equal-p' to FILENAME.
 The first such filename is returned, or nil if none was found."
 
   (when (file-exists-p filename)
     (setq filename (expand-file-name filename))
-    (let* ((synctex (pdf-sync-locate-synctex-file pdf))
+    (let* ((synctex (pdf-sync-locate-synctex-file pdffile))
            (basename (file-name-nondirectory filename))
            (regexp (format "^ *Input *: *[^:\n]+ *:\\(.*%s\\)$"
                            (regexp-quote basename))))
@@ -255,9 +254,9 @@ The first such filename is returned, or nil if none was found."
           ;; Keep point in front of the found filename. It will
           ;; probably be queried for again next time.
           (let ((beg (point))
-                end (point-max))
+                (end (point-max)))
             (catch 'found
-              (dotimes (i 2)
+              (dotimes (_x 2)
                 (while (re-search-forward regexp end t)
                   (let ((syncname (match-string-no-properties 1)))
                     (when (and (file-exists-p syncname)
