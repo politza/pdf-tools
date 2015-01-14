@@ -39,6 +39,6 @@ melpa: all
 		echo "Server successfully build."; \
 	else \
 		echo "Server not build, maybe due to missing dependencies (See README)."; \
-		echo "Required: g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
+		echo "Required: gcc g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
 		false; \
 	fi
