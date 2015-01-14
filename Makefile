@@ -1,14 +1,14 @@
-# elpa-* targets are supposed to be only invoked from a elpa
-# installation.
-
 EMACS = emacs
+EFLAGS = -Q -L $(PWD)/lisp --batch \
+	--eval '(setq byte-compile-error-on-warn t)'
 
-.PHONY: all clean elpa-check elpa-all
+.PHONY: all clean distclean package bytecompile test check melpa
 
 all: server/epdfinfo
 
 clean: 
 	rm -rf dist
+	rm -f -- lisp/*.elc
 	$(MAKE) -C server clean
 
 distclean: clean
@@ -24,19 +24,18 @@ server/Makefile: server/configure
 server/configure: server/configure.ac
 	cd server && ./autogen.sh
 
-compilecheck: 
-	cask exec $(EMACS) -Q -L $$PWD/lisp --batch -f batch-byte-compile lisp/*.el
-	rm -f -- lisp/*.elc
+bytecompile: 
+	cask exec $(EMACS) $(EFLAGS) -f batch-byte-compile lisp/*.el
 
 test: all
-	cask exec emacs -Q -batch -L $$PWD/lisp -l test/run-tests.el 
+	cask exec $(EMACS) $(EFLAGS) -l test/run-tests.el 
 
-elpa-all: all
+check: bytecompile test
+
+melpa: all
 	cp -p server/epdfinfo .
 	$(MAKE) elpa-check
 	$(MAKE) distclean
-
-elpa-check:
 	@if [ -x epdfinfo ]; then \
 		echo "Server successfully build."; \
 	else \
