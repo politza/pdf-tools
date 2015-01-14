@@ -34,7 +34,6 @@ check: bytecompile test
 
 melpa: all
 	cp -p server/epdfinfo .
-	$(MAKE) elpa-check
 	$(MAKE) distclean
 	@if [ -x epdfinfo ]; then \
 		echo "Server successfully build."; \
