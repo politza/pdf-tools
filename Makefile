@@ -1,6 +1,8 @@
 # elpa-* targets are supposed to be only invoked from a elpa
 # installation.
 
+EMACS = emacs
+
 .PHONY: all clean elpa-check elpa-all
 
 all: server/epdfinfo
@@ -21,6 +23,13 @@ server/Makefile: server/configure
 	cd server && ./configure -q
 server/configure: server/configure.ac
 	cd server && ./autogen.sh
+
+compilecheck: 
+	cask exec $(EMACS) -Q -L $$PWD/lisp --batch -f batch-byte-compile lisp/*.el
+	rm -f -- lisp/*.elc
+
+test: all
+	cask exec emacs -Q -batch -L $$PWD/lisp -l test/run-tests.el 
 
 elpa-all: all
 	cp -p server/epdfinfo .
