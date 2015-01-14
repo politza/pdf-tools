@@ -31,6 +31,7 @@
 (require 'pdf-util)
 (require 'pdf-info)
 (require 'cus-edit)
+(require 'compile)
 
 
 
