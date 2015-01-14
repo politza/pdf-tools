@@ -4,6 +4,9 @@
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
 ;; Keywords: files, multimedia
+;; Package: pdf-tools
+;; Version: 0.50
+;; Package-Requires: ((emacs "24.3") (tablist "0.50"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,42 +23,15 @@
 
 ;;; Commentary:
 ;;
-;; See README.org
+;; See README.
+
+;;; Code:
 
 (require 'pdf-view)
 (require 'pdf-util)
 (require 'pdf-info)
 (require 'cus-edit)
-;;; Code:
 
-(unless (or (file-executable-p pdf-info-epdfinfo-program)
-            (null load-file-name)
-            (not (file-directory-p
-                  (expand-file-name
-                   (file-name-directory load-file-name)
-                   "server"))))
-  ;; Assume a MELPA installation
-  (when (y-or-n-p "pdf-tools: Should I try to build the server now ?")
-    (let* ((server-directory (expand-file-name
-                              "server"
-                              (file-name-directory load-file-name)))
-           (readme (expand-file-name "../README"
-                                     server-directory)))
-      (require 'org)
-      (find-file readme)
-      (show-all)
-      (goto-char (point-min))
-      (when (re-search-forward "^ *\*+ *Prerequisites *$" nil t)
-        (recenter 0))
-      (compile 
-       (concat
-        (format "cd '%s' && " server-directory)
-        "./autogen.sh --install-deps && "
-        "./configure && "
-        "make -C src -s && "
-        "cp src/epdfinfo ../ && "
-        "echo Server build successfully"))
-      (message "Trying to compile now. If it fails fix the prerequisites and press g in the compilation buffer to try again."))))
 
 
 ;; * ================================================================== *
@@ -131,6 +107,17 @@ PDF buffers."
 ;; * ================================================================== *
 
 
+(defun pdf-tools-rebuild-server (&optional directory)
+  (interactive (list nil))
+  (unless (executable-find "make")
+    (error "Executable `make' command not found"))
+  (let ((compilation-auto-jump-to-first-error nil)
+        (compilation-scroll-output t)
+        (directory (or directory
+                       (file-name-directory pdf-info-epdfinfo-program))))
+    (compile 
+     (format "make -skC '%s' elpa-all" directory))))
+
 (defun pdf-tools-pdf-buffer-p (&optional buffer)
   "Return non-nil if BUFFER contains a PDF document."
   (save-current-buffer
@@ -176,6 +163,10 @@ MODES defaults to `pdf-tools-enabled-modes'."
 
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
+  (unless (file-executable-p pdf-info-epdfinfo-program)
+    (when (y-or-n-p "Need to build the server, do it now ? ")
+      (pdf-tools-rebuild-server))
+    (error "No executable `epdfinfo' available"))
   (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
   (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
@@ -187,6 +178,7 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
 (defun pdf-tools-uninstall ()
   "Uninstall PDF-Tools in all current and future PDF buffers."
   (interactive)
+  (pdf-info-quit)
   (setq-default auto-mode-alist
     (remove pdf-tools-auto-mode-alist-entry auto-mode-alist))
   (remove-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
