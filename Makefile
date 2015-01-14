@@ -1,50 +1,37 @@
-SUBDIRS = src tests
+# elpa-* targets are supposed to be only invoked from a elpa
+# installation.
 
-LISP_FILES = $(top_srcdir)/lisp/pdf-history.el		\
-		$(top_srcdir)/lisp/pdf-info.el		\
-		$(top_srcdir)/lisp/pdf-isearch.el	\
-		$(top_srcdir)/lisp/pdf-links.el		\
-		$(top_srcdir)/lisp/pdf-misc.el		\
-		$(top_srcdir)/lisp/pdf-occur.el		\
-		$(top_srcdir)/lisp/pdf-outline.el	\
-		$(top_srcdir)/lisp/pdf-tools.el		\
-		$(top_srcdir)/lisp/pdf-util.el		\
-		$(top_srcdir)/lisp/pdf-annot.el		\
-		$(top_srcdir)/lisp/pdf-sync.el		\
-		$(top_srcdir)/lisp/pdf-view.el		\
-		$(top_srcdir)/lisp/pdf-cache.el		\
-		$(top_srcdir)/lisp/tablist.el		\
-		$(top_srcdir)/lisp/tablist-filter.el
+.PHONY: all clean elpa-check elpa-all
 
-AUX_FILES = $(top_srcdir)/README.org
+all: server/epdfinfo
 
-# Emacs Lisp Package
-ELP_FILES = $(LISP_FILES) $(AUX_FILES) $(top_builddir)/src/epdfinfo
-ELP_NAME = $(PACKAGE_NAME)-$(PACKAGE_VERSION)
-ELP_TAR_FILE = $(ELP_NAME).tar
-ELP_TMP_DIR = elp-tmp-dir
+clean: 
+	rm -rf dist
+	$(MAKE) -C server clean
 
-EXTRA_DIST = $(LISP_FILES) $(AUX_FILES)
-CLEANFILES = $(ELP_TAR_FILE)
+distclean: clean
+	[ -f server/Makefile ] && $(MAKE) -C server distclean
 
-all-local: $(ELP_TAR_FILE)
+package: all
+	cask package
 
-$(ELP_TAR_FILE): $(LISP_FILES)
-	mkdir -p $(ELP_TMP_DIR)/$(ELP_NAME)
-	echo "(define-package \"$(PACKAGE_NAME)\" \"$(PACKAGE_VERSION)\" \
-	 	\"Support library for PDF documents.\")"  \
-		> $(ELP_TMP_DIR)/$(ELP_NAME)/$(PACKAGE_NAME)-pkg.el
-	cp -r $(ELP_FILES) -t $(ELP_TMP_DIR)/$(ELP_NAME)/
-	cd $(ELP_TMP_DIR) && \
-		tar cf ../$(ELP_TAR_FILE) $(ELP_NAME) 
-	rm -rf -- $(ELP_TMP_DIR)
+server/epdfinfo: server/Makefile
+	$(MAKE) -C server
+server/Makefile: server/configure
+	cd server && ./configure -q
+server/configure: server/configure.ac
+	cd server && ./autogen.sh
 
-install-package: all $(ELP_TAR_FILE)
-	if ! which -- "$(EMACS)"; then \
-		echo "No emacs executable found, you have to set EMACS"; \
+elpa-all: all
+	cp -p server/epdfinfo .
+	$(MAKE) elpa-check
+	$(MAKE) distclean
+
+elpa-check:
+	@if [ -x epdfinfo ]; then \
+		echo "Server successfully build."; \
+	else \
+		echo "Server not build, maybe due to missing dependencies (See README)."; \
+		echo "Required: g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
 		false; \
 	fi
-	$(EMACS) -Q --batch --eval "(package-install-file \
-	 	\"$$PWD/$(ELP_TAR_FILE)\")"
-
-
