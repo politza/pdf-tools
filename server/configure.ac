@@ -2,10 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([pdf-tools], [0.40], [politza@fh-trier.de])
+AC_INIT([epdfinfo], [0.40], [politza@fh-trier.de])
 AM_INIT_AUTOMAKE([-Wall -Wno-override foreign])
-AC_CONFIG_SRCDIR([src/epdfinfo.h])
-AC_CONFIG_HEADERS([src/config.h])
+AC_CONFIG_SRCDIR([epdfinfo.h])
+AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
@@ -66,7 +66,7 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([strcspn strtol])
 
-AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
 echo
