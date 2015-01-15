@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([epdfinfo], [0.40], [politza@fh-trier.de])
+AC_INIT([epdfinfo], [0.50], [politza@fh-trier.de])
 AM_INIT_AUTOMAKE([-Wall -Wno-override foreign])
 AC_CONFIG_SRCDIR([epdfinfo.h])
 AC_CONFIG_HEADERS([config.h])
