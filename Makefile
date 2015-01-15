@@ -12,7 +12,6 @@ clean:
 
 distclean: clean
 	[ -f server/Makefile ] && $(MAKE) -C server distclean
-	rm -rf -- .cask
 
 package: all
 	cask package
