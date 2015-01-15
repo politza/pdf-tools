@@ -1,5 +1,13 @@
 -*- org -*-
 
+* Version 0.50
+** PDF Tools is now available on melpa.
+** SyncTeX
+   SyncTeX is pretty picky about source filenames.  So instead of
+   trying various filenames and hoping for best, we find it by
+   directly inspecting the database.
+** Compatible with Emacs >= 24.3
+** Integrate with bookmark.el
 * Version 0.40
   I basically reimplemented the whole thing. (Not really, but a lot
   has changed.)
