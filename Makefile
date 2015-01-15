@@ -31,6 +31,11 @@ test: all
 
 check: bytecompile test
 
+install-server-deps:
+	sudo apt-get install gcc g++ make automake autoconf \
+		libpng-dev libz-dev libpoppler-glib-dev
+	-sudo apt-get install libpoppler-private-dev
+
 melpa: all
 	cp -p server/epdfinfo .
 	$(MAKE) distclean
