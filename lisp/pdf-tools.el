@@ -36,6 +36,14 @@
 ;; (pdf-tools-install)
 ;;
 ;; somewhere in your .emacs.el .
+;;
+;; M-x pdf-tools-help RET
+;;
+;; gives some help on using the package and
+;;
+;; M-x pdf-tools-customize RET
+;;
+;; offers some customization options.
 
 ;; Features:
 ;; 
