@@ -48,7 +48,11 @@
    + Search for occurrences of a string.
    + Keep track of visited pages via a history.
 ** Installation
-*** Prerequisites
+   {Insert melpa instructions here.}
+*** Lisp Prerequisites
+    Creating the package via ~make~ as decribed below requires
+    the [[https://github.com/cask/cask][cask]] and the package itself requires the [[https://github.com/politza/tablist][tablist]] packages.    
+*** Server Prerequisites
     You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
     Other operating systems are currently not supported (patches
     welcome).  The following instructions assume a Debian-based
@@ -94,38 +98,29 @@
   $ sudo aptitude install imagemagick
 #+end_src
 *** Compilation
-    Now it's time to compile the source.  Since we are building from
-    the git repository, we have to initialize the build-system first.
-    There is a tiny script in the root directory doing this for us.
-    
+    Now it's time to compile the source.      
 #+begin_src sh
     $ cd /path/to/pdf-tools
-    $ ./autogen.sh 
+    $ make install-server-deps
+    $ make package
 #+end_src
-    The ~autogen.sh~ also takes an optional argument ~--install-deps~,
-    which will try to install above prerequisites.
-
-    Now comes the familiar
-#+begin_src sh
-  ./configure && make
-#+end_src
-    which should compile the source code and create a Emacs Lisp
-    Package in the root directory. The configure script also tells you
-    at the very end, which features, depending on the libpoppler
-    version, will be available.  These commands should give no error,
-    otherwise you are in trouble.
+    The ~make install-server-deps~ command will install all nescessary
+    programms and libraries to build the package, though it'll only
+    work, if ~sudo~ and ~apt-get~ are available. 
+    
+    This should compile the source code and create a Emacs Lisp
+    Package in the ~dist~ directory. Also, the configure script also
+    tells you at the very end, which features, depending on the
+    libpoppler version, will be available.  These commands should give
+    no error, otherwise you are in trouble.
 
 *** Installing
-    If ~make~ produced the ELP file ~pdf-tools-0.40.tar~ you are fine.
-    This package contains all the nescessary files for Emacs and may
-    be installed via
-#+begin_src sh
-  $ make install-package
-#+end_src
-    Alternatively start the one true Editor from the same directory
-    and execute the command
+    If ~make~ produced the ELP file ~dist/pdf-tools-${VERSION}.tar~
+    you are fine.  This package contains all the nescessary files for
+    Emacs and may be installed by executing the
+    command
 #+begin_src elisp
-  M-x package-install-file RET pdf-tools-0.40.tar RET
+  M-x package-install-file RET dist/pdf-tools-${VERSION}.tar RET
 #+end_src
 
   To complete the installation process, you need to activate the
@@ -133,9 +128,9 @@
 #+begin_src elisp
   (pdf-tools-install)
 #+end_src
-  somewhere in your ~.emacs~. Next you probably might want to take a
-  look at the various features of what you've just installed.  The
-  following two commands might be of help for doing so.
+  somewhere in your ~.emacs~. Next you probably want to take a look at
+  the various features of what you've just installed.  The following
+  two commands might be of help for doing so.
 #+begin_src elisp
   M-x pdf-tools-help RET
   M-x pdf-tools-customize RET
@@ -144,9 +139,9 @@
 *** Updating
     Some day you might want to update this package via ~git pull~ and
     then reinstall it.  Sometimes this may fail, especially if
-    Lisp-Macros are involved.  To avoid this kind of problems, you
-    should delete the old package via ~list-packages~, restart Emacs
-    and then reinstall the package.
+    Lisp-Macros are involved and the version hasn't changed.  To avoid
+    this kind of problems, you should delete the old package via
+    ~list-packages~, restart Emacs and then reinstall the package.
   
 # Local Variables:
 # mode: org
