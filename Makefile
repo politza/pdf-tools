@@ -3,7 +3,7 @@ EFLAGS = -Q -L $(PWD)/lisp --batch
 
 .PHONY: all clean distclean package bytecompile test check melpa
 
-all: server/epdfinfo
+all: package
 
 clean: 
 	rm -rf dist
@@ -13,7 +13,7 @@ clean:
 distclean: clean
 	[ -f server/Makefile ] && $(MAKE) -C server distclean
 
-package: all
+package: server/epdfinfo
 	cask package
 
 server/epdfinfo: server/Makefile
