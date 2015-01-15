@@ -1,6 +1,5 @@
 EMACS = emacs
-EFLAGS = -Q -L $(PWD)/lisp --batch \
-	--eval '(setq byte-compile-error-on-warn t)'
+EFLAGS = -Q -L $(PWD)/lisp --batch 
 
 .PHONY: all clean distclean package bytecompile test check melpa
 
