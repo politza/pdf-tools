@@ -31,6 +31,12 @@
 ;; Note: This package requires external libraries and works currently
 ;; only on GNU/Linux systems.
 ;; 
+;; To activate the package put
+;;
+;; (pdf-tools-install)
+;;
+;; somewhere in your .emacs.el .
+
 ;; Features:
 ;; 
 ;; * View
