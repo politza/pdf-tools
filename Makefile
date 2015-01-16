@@ -8,10 +8,10 @@ all: package
 clean: 
 	rm -rf dist
 	rm -f -- lisp/*.elc
-	$(MAKE) -C server clean
+	! [ -f server/Makefile ] || $(MAKE) -C server clean
 
 distclean: clean
-	[ -f server/Makefile ] && $(MAKE) -C server distclean
+	! [ -f server/Makefile ] || $(MAKE) -C server distclean
 
 package: server/epdfinfo
 	cask package
