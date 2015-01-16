@@ -1,4 +1,4 @@
-EMACS = emacs
+EMACS ?= emacs
 EFLAGS = -Q -L $(PWD)/lisp --batch 
 
 .PHONY: all clean distclean package bytecompile test check melpa
@@ -15,6 +15,12 @@ distclean: clean
 
 package: server/epdfinfo
 	cask package
+
+install-package: package
+	$(EMACS) $(EFLAGS) --eval \
+		"(progn (package-initialize) \
+			(package-install-file \
+				\"dist/pdf-tools-$(shell cask version).tar\"))"
 
 server/epdfinfo: server/Makefile
 	$(MAKE) -C server
@@ -36,7 +42,7 @@ install-server-deps:
 		libpng-dev libz-dev libpoppler-glib-dev
 	-sudo apt-get install libpoppler-private-dev
 
-melpa: all
+melpa: server/epdfinfo
 	cp -p server/epdfinfo .
 	$(MAKE) distclean
 	@if [ -x epdfinfo ]; then \
