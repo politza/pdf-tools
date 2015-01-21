@@ -15,3 +15,4 @@ install-sh
 libsynctex.a
 missing
 stamp-h1
+ar-lib
