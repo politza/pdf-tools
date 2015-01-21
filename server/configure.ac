@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([epdfinfo], m4_esyscmd_s([cd .. && make print-version]),
+AC_INIT([epdfinfo], m4_esyscmd_s([cd .. && make -s print-version]),
                     [politza@fh-trier.de])
 AM_INIT_AUTOMAKE([-Wall -Wno-override foreign])
 AC_CONFIG_SRCDIR([epdfinfo.h])
