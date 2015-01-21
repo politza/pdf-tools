@@ -12,7 +12,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_RANLIB
-AM_PATH_LISPDIR                 dnl Sets EMACS
+AM_PROG_AR
 
 # Checks for libraries.
 HAVE_POPPLER_FIND_OPTS="no   (requires poppler-glib >= 0.22)"
