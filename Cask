@@ -8,5 +8,4 @@
        "server/epdfinfo")
 
 (development
- (depends-on "emacs" "24.3")
- (depends-on "tablist" "0.50"))
+ (depends-on "emacs" "24.3"))

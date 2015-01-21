@@ -48,16 +48,12 @@
    + Search for occurrences of a string.
    + Keep track of visited pages via a history.
 ** Installation
-   {Insert melpa instructions here.}
-*** Lisp Prerequisites
-    Creating the package via ~make~ as decribed below requires
-    the [[https://github.com/cask/cask][cask]] and the package itself requires the [[https://github.com/politza/tablist][tablist]] packages.    
 *** Server Prerequisites
     You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
     Other operating systems are currently not supported (patches
     welcome).  The following instructions assume a Debian-based
-    system. (On this system prerequisites may be installed
-    automatically, see [[Compilation]] .)
+    system. (The prerequisites may be installed automatically on this
+    kind of systems, see [[Compilation]] .)
     
     First make shure a suitable build-system is installed.  We need at
     least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~, ~automake~
@@ -104,25 +100,28 @@
     $ make install-server-deps
     $ make
 #+end_src
-    The ~make install-server-deps~ command will install all nescessary
-    programms and libraries to build the package, though it'll only
-    work, if ~sudo~ and ~apt-get~ are available. 
+    The ~make install-server-deps~ command will try to install all
+    nescessary programms and libraries to build the package, though
+    it'll only work, if ~sudo~ and ~apt-get~ are available.
     
     This should compile the source code and create a Emacs Lisp
-    Package in the ~dist~ directory. Also, the configure script also
-    tells you at the very end, which features, depending on the
+    Package in the root directory of the project. The configure script
+    also tells you at the very end, which features, depending on the
     libpoppler version, will be available.  These commands should give
     no error, otherwise you are in trouble.
 
 *** Installing
-    If ~make~ produced the ELP file ~dist/pdf-tools-${VERSION}.tar~
-    you are fine.  This package contains all the nescessary files for
-    Emacs and may be installed by executing the
-    command
-#+begin_src elisp
-  M-x package-install-file RET dist/pdf-tools-${VERSION}.tar RET
+    If ~make~ produced the ELP file ~pdf-tools-${VERSION}.tar~ you are
+    fine.  This package contains all the nescessary files for Emacs
+    and may be installed by either using
+#+begin_src sh
+    $ make install-package
 #+end_src
-
+    or executing the Emacs command
+#+begin_src elisp
+  M-x package-install-file RET pdf-tools-${VERSION}.tar RET
+#+end_src
+    
   To complete the installation process, you need to activate the
   package by putting
 #+begin_src elisp
