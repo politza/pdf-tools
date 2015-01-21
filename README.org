@@ -98,7 +98,7 @@
 #+begin_src sh
     $ cd /path/to/pdf-tools
     $ make install-server-deps
-    $ make
+    $ make -s
 #+end_src
     The ~make install-server-deps~ command will try to install all
     nescessary programms and libraries to build the package, though
