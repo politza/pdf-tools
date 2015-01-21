@@ -60,14 +60,3 @@ install-server-deps:
 	sudo apt-get install gcc g++ make automake autoconf \
 		libpng-dev libz-dev libpoppler-glib-dev
 	-sudo apt-get install libpoppler-private-dev
-
-melpa: server/epdfinfo
-	cp -p server/epdfinfo .
-	$(MAKE) distclean
-	@if [ -x epdfinfo ]; then \
-		echo "Server successfully build."; \
-	else \
-		echo "Server not build, maybe due to missing dependencies (See README)."; \
-		echo "Required: gcc g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
-		false; \
-	fi

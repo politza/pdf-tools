@@ -164,19 +164,6 @@ PDF buffers."
 ;; * Initialization
 ;; * ================================================================== *
 
-
-(defun pdf-tools-build-server ()
-  (interactive)
-  (if (file-executable-p pdf-info-epdfinfo-program)
-      (message "%s" "Server already build.")
-    (unless (executable-find "make")
-      (error "Executable `make' command not found"))
-    (let ((compilation-auto-jump-to-first-error nil)
-          (compilation-scroll-output t)
-          (directory (file-name-directory pdf-info-epdfinfo-program)))
-      (compile 
-       (format "make -skC '%s' melpa" directory)))))
-
 (defun pdf-tools-pdf-buffer-p (&optional buffer)
   "Return non-nil if BUFFER contains a PDF document."
   (save-current-buffer
@@ -222,10 +209,6 @@ MODES defaults to `pdf-tools-enabled-modes'."
 
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
-  (unless (file-executable-p pdf-info-epdfinfo-program)
-    (when (y-or-n-p "Need to build the server, do it now ? ")
-      (pdf-tools-build-server))
-    (error "No executable `epdfinfo' available"))
   (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
   (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
