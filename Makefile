@@ -1,9 +1,9 @@
 EMACS ?= emacs
 EFLAGS = -Q -L $(PWD)/lisp --batch
 
-PACKAGE_VERSION = $(shell sed -ne '1,32s/^;; \+Version: *\([0-9.]\+\) *$$/\1/p' \
-			lisp/pdf-tools.el)
-
+# Note: If you change this, also change it in lisp/pdf-tools.el and
+# server/configure.ac .
+PACKAGE_VERSION = 0.50
 PKGFILE_CONTENT = (define-package "pdf-tools" "$(PACKAGE_VERSION)"	\
 		   "Support library for PDF documents."			\
 		   (quote ((emacs "24.3")))				\
@@ -60,3 +60,16 @@ install-server-deps:
 	sudo apt-get install gcc g++ make automake autoconf \
 		libpng-dev libz-dev libpoppler-glib-dev
 	-sudo apt-get install libpoppler-private-dev
+
+melpa-build: server/epdfinfo
+	-cp -p server/epdfinfo ..
+	$(MAKE) distclean
+	@if [ -x ../epdfinfo ]; then \
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
+		echo "Server successfully build. Do M-x pdf-tools-install again."; \
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
+	else \
+		echo "Server not build, maybe due to missing dependencies (See README)."; \
+		echo "Required: gcc g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
+		false; \
+	fi

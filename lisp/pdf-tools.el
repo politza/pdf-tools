@@ -164,6 +164,32 @@ PDF buffers."
 ;; * Initialization
 ;; * ================================================================== *
 
+
+(defun pdf-tools--melpa-build-server (&optional build-directory)
+  "Compile the epdfinfo program in BUILD-DIRECTORY.
+
+This is a helper function when installing via melpa."
+  (if (file-executable-p pdf-info-epdfinfo-program)
+      (message "%s" "Server already build.")
+    (unless (executable-find "make")
+      (error "Executable `make' command not found"))
+    (unless build-directory
+      (setq build-directory
+            (expand-file-name
+             "build"
+             (file-name-directory pdf-info-epdfinfo-program))))
+    (unless (file-directory-p build-directory)
+      (error "No such directory: %s" build-directory))
+    (let ((install-server-deps
+           (y-or-n-p "Should I try to install dependencies with apt-get ?"))
+          (compilation-auto-jump-to-first-error nil)
+          (compilation-scroll-output t))
+      (compile 
+       (format "make -kC '%s' %smelpa-build"
+               build-directory
+               (if install-server-deps "install-server-deps " " "))
+       install-server-deps))))
+
 (defun pdf-tools-pdf-buffer-p (&optional buffer)
   "Return non-nil if BUFFER contains a PDF document."
   (save-current-buffer
@@ -209,6 +235,10 @@ MODES defaults to `pdf-tools-enabled-modes'."
 
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
+  (unless (file-executable-p pdf-info-epdfinfo-program)
+    (when (y-or-n-p "Need to build the server, do it now ? ")
+      (pdf-tools--melpa-build-server))
+    (error "No executable `epdfinfo' available"))
   (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
   (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
