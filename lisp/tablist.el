@@ -1,4 +1,4 @@
-;;; tablist.el --- Extented tabulated-list-mode. -*- lexical-binding: t -*-
+;;; tablist.el --- Extended tabulated-list-mode -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2013, 2014  Andreas Politz
 
@@ -1928,8 +1928,3 @@ AWINDOW is deleted."
 
 (provide 'tablist)
 ;;; tablist.el ends here
-
-;; Local Variables:
-;; End:
-
-
