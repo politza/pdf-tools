@@ -31,6 +31,8 @@
 ;; Note: This package requires external libraries and works currently
 ;; only on GNU/Linux systems.
 ;; 
+;; Note: If you ever update it, you need to restart Emacs afterwards.
+;;
 ;; To activate the package put
 ;;
 ;; (pdf-tools-install)
