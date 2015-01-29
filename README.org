@@ -2,6 +2,7 @@
 #+AUTHOR:    Andreas Politz
 #+EMAIL:     politza@fh-trier.de
 
+[[http://melpa.org/#/pdf-tools][file:http://melpa.org/packages/pdf-tools-badge.svg]]
 ** About this package
    PDF Tools is, among other things, a replacement of DocView for PDF
    files.  The key difference is, that pages are not prerendered by
@@ -48,6 +49,10 @@
    + Search for occurrences of a string.
    + Keep track of visited pages via a history.
 ** Installation
+   The package may be installed via melpa and it will try to build the
+   server part when it is actiated the first time, though next section
+   is still relevant.
+   
 *** Server Prerequisites
     You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
     Other operating systems are currently not supported (patches
@@ -97,7 +102,7 @@
     Now it's time to compile the source.      
 #+begin_src sh
     $ cd /path/to/pdf-tools
-    $ make install-server-deps
+    $ make install-server-deps # optional
     $ make -s
 #+end_src
     The ~make install-server-deps~ command will try to install all
@@ -141,9 +146,9 @@
     Lisp-Macros are involved and the version hasn't changed.  To avoid
     this kind of problems, you should delete the old package via
     ~list-packages~, restart Emacs and then reinstall the package.
-  
+
+    This also applies when updating via package and melpa.
+
 # Local Variables:
 # mode: org
 # End:
-
-
