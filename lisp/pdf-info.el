@@ -904,7 +904,7 @@ aforementioned function, when called with the same arguments."
 (defun pdf-info-pagesize (page &optional file-or-buffer)
   "Return the size of PAGE as a cons \(WIDTH . HEIGHT\)
 
-The size is in pixel."
+The size is in PDF points."
   (pdf-info-query
    'pagesize
    (pdf-info--normalize-file-or-buffer file-or-buffer)
