@@ -187,7 +187,7 @@ This is a helper function when installing via melpa."
           (compilation-auto-jump-to-first-error nil)
           (compilation-scroll-output t))
       (compile 
-       (format "make -kC '%s' %smelpa-build"
+       (format "make V=0 -kC '%s' %smelpa-build"
                build-directory
                (if install-server-deps "install-server-deps " " "))
        install-server-deps))))
