@@ -982,6 +982,9 @@ FIXME: -1 = 24
 See `pdf-info-getannots' for the kind of value of this function
 returns."
   (pdf-info-assert-writable-annotations)
+  (when (consp file-or-buffer)
+    (push file-or-buffer markup-edges)
+    (setq file-or-buffer nil))
   (apply
    'pdf-info-query
    'addannot
