@@ -5,12 +5,57 @@
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{amsmath,amssymb,amsfonts,amstext,amsthm}
+\usepackage[rgb]{xcolor}
+\usepackage[author={PDF Tools}]{pdfcomment}
+\usepackage{attachfile}
 
 \begin{document}
-Hello World !
+\section{Text}
+
+\label{sec:text}
+PDF Tools is, among other things, a replacement of DocView for PDF
+files.  The key difference is, that pages are not prerendered by
+e.g. ghostscript and stored in the file-system, but rather created
+on-demand and stored in memory.
+
+PDF Tools is, among other things, a replacement of DocView for PDF
+files.  The key difference is, that pages are not prerendered by
+e.g. ghostscript and stored in the file-system, but rather created
+on-demand and stored in memory.
 \newpage
-Hello World !
+
+\section{Annotations}
+
+\label{sec:annotations}
+\begin{enumerate}
+\item \pdfcomment[color=red,icon=Insert]{insert} \\
+\item \pdfmarkupcomment[markup=StrikeOut, color=red]{strikeout} \\
+\item \pdfmarkupcomment[markup=Highlight, color=red]{highlight} \\
+\item \pdfmarkupcomment[markup=Underline, color=red]{underline} \\
+\item \pdfmarkupcomment[markup=Squiggly, color=red]{squiggly} \\
+\end{enumerate}
 \newpage
-Hello World !
+
+\section{Links}
+
+\label{sec:links}
+
+\begin{enumerate}
+\item Internal link: \ref{sec:text}
+\item External link: \url{http://www.gnu.org}
+\end{enumerate}
 \newpage
+
+\section{Attachments}
+
+\label{sec:attachments}
+\attachfile{test.tex}
+
+\newpage
+\section{Outline}
+
+\label{sec:outline}
+\subsection{subsection}
+\subsubsection{subsubsection}
+
 \end{document}
