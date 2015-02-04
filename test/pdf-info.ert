@@ -66,7 +66,7 @@
       (setq links (mapcar 'cdr links))
       (should (equal (mapcar 'car links)
                      '(goto-dest uri)))
-      (should (equal (mapcar 'caddr links)
+      (should (equal (mapcar 'car (mapcar 'cddr links))
                      '(1 "http://www.gnu.org"))))))
 
 (ert-deftest pdf-info-number-of-pages ()
