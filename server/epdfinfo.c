@@ -2026,6 +2026,9 @@ cmd_pagelinks(const epdfinfo_t *ctx, const command_arg_t *args)
       r->y1 = height - r->y2;
       r->y2 = height - y1;
 
+      if (! action_is_handled (link->action))
+        continue;
+
       printf ("%f %f %f %f:",
               r->x1 / width, r->y1 / height,
               r->x2 / width, r->y2 / height);
