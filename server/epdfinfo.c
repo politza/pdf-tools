@@ -651,7 +651,7 @@ command_arg_split (const char *args, int *nargs)
   if (! args)
     goto theend;
 
-  buffer = g_malloc (strlen (args));
+  buffer = g_malloc (strlen (args) + 1);
 
   while (*args || last)
     {
@@ -2127,7 +2127,7 @@ cmd_getselection (const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerDocument *doc = args[0].value.doc->pdf;
   int pn = args[1].value.natnum;
   PopplerRectangle r = args[2].value.rectangle;
-  int selection_style = args[5].value.natnum;
+  int selection_style = args[3].value.natnum;
   gdouble width, height;
   cairo_region_t *region = NULL;
   PopplerPage *page = NULL;
