@@ -21,3 +21,5 @@
 ** Maybe split the code up in several files.
 * pdf-view
 ** Provide some kind of multipage view  
+* pdf-info
+** Add a report/debug command, displaying a list of open files and other information.
