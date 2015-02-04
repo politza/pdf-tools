@@ -133,6 +133,9 @@ Edge values are image coordinates.")
 (defvar-local pdf-view--buffer-file-name nil
   "Local copy of remote file or nil.")
 
+(defvar-local pdf-view--server-file-name nil
+  "The servers notion of this buffer's filename.")
+
 (defvar-local pdf-view--next-page-timer nil
   "Timer used in `pdf-view-next-page-command'.")
 
@@ -256,6 +259,7 @@ PNG images in Emacs buffers.
               '(" P" (:eval (number-to-string (pdf-view-current-page)))
                 "/" (:eval (number-to-string (pdf-cache-number-of-pages)))))
   (setq-local auto-hscroll-mode nil)
+  (setq-local pdf-view--server-file-name (pdf-view-buffer-file-name))
   ;; High values of scroll-conservatively seem to trigger
   ;; some display bug in xdisp.c:try_scrolling .
   (setq-local scroll-conservatively 0)
@@ -302,15 +306,17 @@ a local copy of a remote file."
 (defun pdf-view--write-contents-function ()
   "Function for `write-contents-functions' to save the buffer."
   (when (pdf-util-pdf-buffer-p)
-    (let ((tempfile (pdf-info-save)))
+    (let ((tempfile (pdf-info-save pdf-view--server-file-name)))
       (unwind-protect
           (progn
-            (pdf-info-close)
+            (pdf-info-close pdf-view--server-file-name)
             (copy-file tempfile (buffer-file-name) t)
             (when pdf-view--buffer-file-name
               (copy-file tempfile pdf-view--buffer-file-name t))
             (clear-visited-file-modtime)
             (set-buffer-modified-p nil)
+            (setq pdf-view--server-file-name
+                  (pdf-view-buffer-file-name))
             (pdf-view-redisplay t)
             t)
         (when (file-exists-p tempfile)
