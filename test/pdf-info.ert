@@ -5,6 +5,7 @@
   (let ((buffer (make-symbol "buffer")))
     `(let ((,buffer (find-file-noselect
                      (expand-file-name "test.pdf"))))
+       (pdf-info-quit)
        (pdf-info-process-assert-running t)
        (unwind-protect
            (with-current-buffer ,buffer ,@body)
