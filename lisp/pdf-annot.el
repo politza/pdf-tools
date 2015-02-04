@@ -253,6 +253,8 @@ Setting this after the package was loaded has no effect."
     kmap)
   "Keymap used for `pdf-annot-minor-mode'.")
 
+(defvar savehist-minibuffer-history-variables)
+
 ;;;###autoload
 (define-minor-mode pdf-annot-minor-mode
   "Support for PDF Annotations.
@@ -267,7 +269,10 @@ Setting this after the package was loaded has no effect."
       (setq tooltip-hide-delay 3600))
     (pdf-view-add-hotspot-function 'pdf-annot-hotspot-function 9)
     (add-hook 'pdf-info-close-document-hook
-              'pdf-annot-attachment-delete-base-directory nil t))
+              'pdf-annot-attachment-delete-base-directory nil t)
+    (when (featurep 'savehist)
+      (add-to-list 'savehist-minibuffer-history-variables
+                   'pdf-annot-color-history)))
    (t
     (pdf-view-remove-hotspot-function 'pdf-annot-hotspot-function)
     (remove-hook 'pdf-info-close-document-hook
