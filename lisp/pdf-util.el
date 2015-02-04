@@ -561,12 +561,14 @@ is non-nil."
   "Return COLOR in hex-format.
 
 Singal an error, if color is invalid." 
-  (let ((values (color-values color)))
-    (unless values
-      (signal 'wrong-type-argument (list 'color-defined-p color)))
-    (apply 'format "#%02x%02x%02x"
-           (mapcar (lambda (c) (lsh c -8))
-                   values))))
+  (if (string-match "\\`#[[:xdigit:]]\\{6\\}\\'" color)
+      color
+    (let ((values (color-values color)))
+      (unless values
+        (signal 'wrong-type-argument (list 'color-defined-p color)))
+      (apply 'format "#%02x%02x%02x"
+             (mapcar (lambda (c) (lsh c -8))
+                     values)))))
 
 (defun pdf-util-color-completions ()
   "Return a fontified list of defined colors."
