@@ -325,7 +325,10 @@ a local copy of a remote file."
 (defun pdf-view-revert-buffer (&optional ignore-auto noconfirm)
   "Like `revert-buffer', but preserves the buffer's current modes."
   (interactive (list (not current-prefix-arg)))
-  (revert-buffer ignore-auto noconfirm 'preserve-modes))
+  ;; Bind to default so that one may use pdf-view-revert-buffer as
+  ;; revert-buffer-function.
+  (let ((revert-buffer-function #'revert-buffer--default))
+    (revert-buffer ignore-auto noconfirm 'preserve-modes)))
 
 (defun pdf-view--after-revert-hook ()
   (pdf-info-close)
