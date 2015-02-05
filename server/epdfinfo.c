@@ -2063,7 +2063,7 @@ cmd_gettext(const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerDocument *doc = args[0].value.doc->pdf;
   int pn = args[1].value.natnum;
   PopplerRectangle r = args[2].value.rectangle;
-  int selection_style = args[5].value.natnum;
+  int selection_style = args[3].value.natnum;
   PopplerPage *page = NULL;
   double width, height;
   gchar *text = NULL;
