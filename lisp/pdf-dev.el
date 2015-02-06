@@ -1,0 +1,81 @@
+;;; pdf-dev.el --- Mother's little development helper  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2015  Andreas Politz
+
+;; Author: Andreas Politz <politza@hochschule-trier.de>
+;; Keywords: 
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+;; 
+;; This file is only ment for developers.  The entry point is
+;; pdf-dev-minor-mode, which see.
+
+;;; Code:
+
+(defvar pdf-dev-root-directory
+  (file-name-directory
+   (directory-file-name
+    (file-name-directory load-file-name))))
+
+(defun pdf-dev-reload ()
+  "Reload lisp files from source."
+  (interactive)
+  (let ((default-directory (expand-file-name
+                            "lisp"
+                            pdf-dev-root-directory))
+        loaded)
+    (dolist (file (directory-files default-directory nil "\\`[^#]*\\.el\\'"))
+      (push file loaded)
+      (load-file file))
+    (message "Loaded %s" (mapconcat 'identity loaded " "))))
+    
+(define-minor-mode pdf-dev-minor-mode
+  "Make developing pdf-tools easier.
+
+It does the following:
+
+Quits the server and sets `pdf-info-epdfinfo-program' to
+../server/epdfinfo.
+
+Restarts epdfinfo after a succesful recompilation.
+
+Loads all lisp files, so find-function will do the right thing."
+  nil nil nil
+  (cond
+   (pdf-dev-minor-mode
+    (add-hook 'compilation-finish-functions 'pdf-dev-compilation-finished)
+    (setq pdf-info-epdfinfo-program
+          (expand-file-name
+           "epdfinfo"
+           (expand-file-name "server" pdf-dev-root-directory)))
+    (pdf-info-quit)
+    (pdf-dev-reload))
+   (t
+    (remove-hook 'compilation-finish-functions 'pdf-dev-compilation-finished))))
+
+(defun pdf-dev-compilation-finished (buffer status)
+  (with-current-buffer buffer
+    (when (and (equal status "finished\n")
+               (file-equal-p
+                (expand-file-name "server" pdf-dev-root-directory)
+                default-directory))
+      (message "Restarting epdfinfo server")
+      (pdf-info-quit)
+      (let ((pdf-info-restart-process-p t))
+        (pdf-info-process-assert-running)))))
+
+(provide 'pdf-dev)
+;;; pdf-dev.el ends here
