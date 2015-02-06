@@ -77,6 +77,24 @@ locate it."
     (define-key kmap [double-mouse-1] 'pdf-sync-mouse-goto-tex)
     kmap))
 
+(defcustom pdf-sync-backward-redirect-functions nil
+  "List of functions which may redirect a backward search.
+
+Functions on this hook should accept three arguments, namely
+SOURCE, LINE and COLUMN, where SOURCE is the absolute filename of
+the source file and LINE and COLUMN denote the position in the
+file.  COLUMN may be negative, meaning unspecified.
+
+These functions should either return nil, if no redirection is
+necessary.  Or a list of the same structure, with some or all (or
+none) values modified.
+
+AUCTeX installs a function here which changes the backward search
+location for synthetic `TeX-region' files back to the equivalent
+position in the original tex file."
+  :group 'pdf-sync)
+
+
 ;;;###autoload
 (define-minor-mode pdf-sync-minor-mode
   "Correlate a PDF position with the TeX file.
@@ -153,8 +171,11 @@ position."
           y (/ y (float (cdr size))))
     (cl-destructuring-bind (source line column)
         (pdf-info-synctex-backward-search page x y)
-      (list (expand-file-name source)
-            line column))))
+      (let ((data (list (expand-file-name source)
+                        line column)))
+        (or (run-hook-with-args-until-success
+             'pdf-sync-backward-redirect-functions data)
+            data)))))
 
 
 ;; * ================================================================== *
