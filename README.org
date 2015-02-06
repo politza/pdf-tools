@@ -98,6 +98,21 @@
 #+begin_src sh
   $ sudo aptitude install imagemagick
 #+end_src
+**** Compiling on OS X
+     Although OS X is not officially supported, it has been
+     successfully compiled.  You will poppler which you can install
+     with homebrew via
+#+BEGIN_SRC sh
+  $ brew install poppler
+#+END_SRC
+
+     You will also have to help pkg-config find some X11 libraries by
+     setting ~PKG_CONFIG_PATH~:
+#+BEGIN_SRC sh
+  $ export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig
+#+END_SRC
+
+     After that, compilation should proceed as normal.
 *** Compilation
     Now it's time to compile the source.      
 #+begin_src sh
