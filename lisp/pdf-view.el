@@ -200,8 +200,8 @@ Edge values are image coordinates.")
     (define-key map (kbd "s r")       'pdf-view-reset-slice)
     ;; Reconvert
     (define-key map (kbd "C-c C-c")   'doc-view-mode)
-    (define-key map (kbd "g")         'pdf-view-revert-buffer)
-    (define-key map (kbd "r")         'pdf-view-revert-buffer)
+    (define-key map (kbd "g")         'revert-buffer)
+    (define-key map (kbd "r")         'revert-buffer)
     ;; Region
     (define-key map [down-mouse-1] 'pdf-view-mouse-set-region)
     (define-key map [C-down-mouse-1] 'pdf-view-mouse-extend-region)
@@ -270,6 +270,7 @@ PNG images in Emacs buffers.
   (setq-local view-read-only nil)
   (setq-local bookmark-make-record-function
               'pdf-view-bookmark-make-record)
+  (setq-local revert-buffer-function #'pdf-view-revert-buffer)
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
   ;; No undo at the moment.
@@ -325,7 +326,13 @@ a local copy of a remote file."
 (defun pdf-view-revert-buffer (&optional ignore-auto noconfirm)
   "Like `revert-buffer', but preserves the buffer's current modes."
   (interactive (list (not current-prefix-arg)))
-  (revert-buffer ignore-auto noconfirm 'preserve-modes))
+  ;; Bind to default so that we can use pdf-view-revert-buffer as
+  ;; revert-buffer-function.  A binding of nil is needed in Emacs 24.3, but in
+  ;; later versions the semantics that nil means the default function should
+  ;; not relied upon.
+  (let ((revert-buffer-function (when (fboundp #'revert-buffer--default)
+				  #'revert-buffer--default)))
+    (revert-buffer ignore-auto noconfirm 'preserve-modes)))
 
 (defun pdf-view--after-revert-hook ()
   (pdf-info-close)
