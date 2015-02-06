@@ -126,7 +126,20 @@ with AUCTeX."
     (unless image
       (error "Outside of image area"))
     (pdf-sync-backward-search (car xy) (cdr xy))))
-  
+
+(defvar pdf-sync-correlate-tex-refine-function nil
+  "A function called by `pdf-sync-correlate-tex' that can change the location.
+The function should have the signature
+
+  (SOURCE LINE COLUMN &rest MORE)
+
+and return a list of the same structure again where the
+individual items might have been changed.
+
+AUCTeX installs a function here which changes the backward search
+location for synthetic `TeX-region' files back to the equivalent
+position in the original tex file.")
+
 (defun pdf-sync-backward-search (x y)
   "Go to the source corresponding to image coordinates X, Y."
   (cl-destructuring-bind (source line column)
@@ -153,8 +166,11 @@ position."
           y (/ y (float (cdr size))))
     (cl-destructuring-bind (source line column)
         (pdf-info-synctex-backward-search page x y)
-      (list (expand-file-name source)
-            line column))))
+      (let ((data (list (expand-file-name source)
+			line column)))
+	(if pdf-sync-correlate-tex-refine-function
+	    (apply pdf-sync-correlate-tex-refine-function data)
+	  data)))))
 
 
 ;; * ================================================================== *
