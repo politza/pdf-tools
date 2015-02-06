@@ -139,6 +139,19 @@ with AUCTeX."
         (goto-char pos)))
     (run-hooks 'pdf-sync-goto-tex-hook)))
 
+(defvar pdf-sync-correlate-tex-refine-function nil
+  "A function called by `pdf-sync-correlate-tex' that can change the location.
+The function should have the signature
+
+  (SOURCE LINE COLUMN &rest MORE)
+
+and return a list of the same structure again where the
+individual items might have been changed.
+
+AUCTeX installs a function here which changes the backward search
+location for synthetic `TeX-region' files back to the equivalent
+position in the original tex file.")
+
 (defun pdf-sync-correlate-tex (x y)
   "Find the source corresponding to image coordinates X, Y.
 
@@ -151,8 +164,11 @@ Returns a list \(SOURCE LINE COLUMN\)."
           y (/ y (float (cdr size))))
     (cl-destructuring-bind (source line column)
         (pdf-info-synctex-backward-search page x y)
-      (list (expand-file-name source)
-            line column))))
+      (let ((data (list (expand-file-name source)
+			line column)))
+	(if pdf-sync-correlate-tex-refine-function
+	    (apply pdf-sync-correlate-tex-refine-function data)
+	  data)))))
 
 (defun pdf-sync-display-pdf (&optional line column)
   "Display the PDF location corresponding to LINE, COLUMN."
