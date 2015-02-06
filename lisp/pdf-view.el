@@ -326,9 +326,12 @@ a local copy of a remote file."
 (defun pdf-view-revert-buffer (&optional ignore-auto noconfirm)
   "Like `revert-buffer', but preserves the buffer's current modes."
   (interactive (list (not current-prefix-arg)))
-  ;; Bind to default so that one may use pdf-view-revert-buffer as
-  ;; revert-buffer-function.
-  (let ((revert-buffer-function #'revert-buffer--default))
+  ;; Bind to default so that we can use pdf-view-revert-buffer as
+  ;; revert-buffer-function.  A binding of nil is needed in Emacs 24.3, but in
+  ;; later versions the semantics that nil means the default function should
+  ;; not relied upon.
+  (let ((revert-buffer-function (when (fboundp #'revert-buffer--default)
+				  #'revert-buffer--default)))
     (revert-buffer ignore-auto noconfirm 'preserve-modes)))
 
 (defun pdf-view--after-revert-hook ()
