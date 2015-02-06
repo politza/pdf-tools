@@ -702,6 +702,27 @@ AWINDOW is deleted."
     (pdf-util-window-attach newwin window)
     newwin))
 
+(defun pdf-util-goto-position (line &optional column)
+  "Goto LINE and COLUMN in the current buffer.
+
+COLUMN defaults to 0.  Widen the buffer, if the position is
+outside the current limits."
+  (let ((pos 
+         (when (> line 0)
+           (save-excursion
+             (save-restriction
+               (widen)
+               (goto-char 1)
+               (when (= 0 (forward-line (1- line)))
+                 (when (and column (> column 0))
+                   (forward-char (1- column)))
+                 (point)))))))
+    (when pos
+      (when (or (< pos (point-min))
+                (> pos (point-max)))
+        (widen))
+      (goto-char pos))))
+
 
 ;; * ================================================================== *
 ;; * Imagemagick's convert
