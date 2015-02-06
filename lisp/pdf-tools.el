@@ -182,10 +182,14 @@ This is a helper function when installing via melpa."
              (file-name-directory pdf-info-epdfinfo-program))))
     (unless (file-directory-p build-directory)
       (error "No such directory: %s" build-directory))
-    (let ((install-server-deps
-           (y-or-n-p "Should I try to install dependencies with apt-get ?"))
-          (compilation-auto-jump-to-first-error nil)
-          (compilation-scroll-output t))
+    (let* ((have-apt-and-sudo
+            (and (executable-find "apt-get")
+                 (executable-find "sudo")))
+           (install-server-deps
+            (and have-apt-and-sudo
+                 (y-or-n-p "Should I try to install dependencies with apt-get ?")))
+           (compilation-auto-jump-to-first-error nil)
+           (compilation-scroll-output t))
       (compile 
        (format "make V=0 -kC '%s' %smelpa-build"
                build-directory
