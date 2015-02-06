@@ -16,3 +16,5 @@ libsynctex.a
 missing
 stamp-h1
 ar-lib
+compile
+config.h.in~
