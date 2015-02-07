@@ -173,8 +173,8 @@ position."
         (pdf-info-synctex-backward-search page x y)
       (let ((data (list (expand-file-name source)
                         line column)))
-        (or (run-hook-with-args-until-success
-             'pdf-sync-backward-redirect-functions data)
+        (or (apply 'run-hook-with-args-until-success
+                   'pdf-sync-backward-redirect-functions data)
             data)))))
 
 
