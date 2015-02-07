@@ -167,7 +167,14 @@ PDF buffers."
 ;; * ================================================================== *
 
 ;;;###autoload
-(when (and (boundp 'pdf-info-epdfinfo-program)
+(defcustom pdf-tools-handle-upgrades t
+  "Whether PDF Tools should handle upgrading itself."
+  :group 'pdf-tools
+  :type 'boolean)
+  
+;;;###autoload
+(when (and pdf-tools-handle-upgrades
+           (boundp 'pdf-info-epdfinfo-program)
            (stringp pdf-info-epdfinfo-program)
            (stringp load-file-name))
   (let* ((package-dir (file-name-directory load-file-name))
@@ -194,7 +201,10 @@ PDF buffers."
         (with-current-buffer buffer
           (when (eq major-mode 'pdf-view-mode)
             (set-buffer-modified-p nil)
-            (fundamental-mode))))
+            (fundamental-mode)
+            (let ((ov (make-overlay (point-min) (point-max))))
+              (overlay-put ov 'pdf-view t)
+              (overlay-put ov 'display "Reompiling, stand by...")))))
       (pdf-info-quit)
       (setq pdf-info-epdfinfo-program
             (expand-file-name "epdfinfo" package-dir))
