@@ -166,11 +166,60 @@ PDF buffers."
 ;; * Initialization
 ;; * ================================================================== *
 
+;;;###autoload
+(when (boundp 'pdf-info-epdfinfo-program)
+  (let* ((package-dir (file-name-directory load-file-name))
+         (server-dir (file-name-directory pdf-info-epdfinfo-program))
+         (upgrading-p (and (not (file-equal-p package-dir server-dir))
+                           (file-executable-p pdf-info-epdfinfo-program))))
+    (when upgrading-p
+      (require 'cl-lib)
+      (when (cl-some (lambda (buffer)
+                       (and (eq 'pdf-view-mode
+                                (buffer-local-value
+                                 'major-mode buffer))
+                            (buffer-modified-p buffer)))
+                     (buffer-list))
+        (when (y-or-n-p
+               (concat "Warning: Upgrading will abandon ALL pdf modifications,"
+                       "save some of them ?"))
+          (save-some-buffers nil modified-pdf-buffer-p)))
+      (dolist (buffer (buffer-list))
+        (with-current-buffer buffer
+          (when (eq major-mode 'pdf-view-mode)
+            (set-buffer-modified-p nil)
+            (fundamental-mode))))
+      (pdf-info-quit)
+      (setq pdf-info-epdfinfo-program
+            (expand-file-name "epdfinfo" package-dir))
+      (let ((build-hook (make-symbol "pdf-tools--upgrade")))
+        (fset build-hook
+              `(lambda ()
+                 (remove-hook 'post-command-hook ',build-hook)
+                 (let ((load-path (cons ,package-dir load-path))
+                       (elc (directory-files ,package-dir nil "\\.elc\\'")))
+                   ;; Recompile because package does it wrong.
+                   (let ((load-suffixes '(".el")))
+                     (dolist (file elc)
+                       (load (file-name-sans-extension file))))
+                   (byte-recompile-directory ,package-dir 0 t)
+                   (dolist (file elc)
+                     (load file)))
+                 (pdf-tools-install 'compile 'skip-deps)))
+        (add-hook 'post-command-hook build-hook)))))
 
-(defun pdf-tools--melpa-build-server (&optional build-directory)
+;;;###autoload
+(defun pdf-tools--melpa-build-server (&optional build-directory
+                                                  skip-dependencies-p
+                                                  callback)
   "Compile the epdfinfo program in BUILD-DIRECTORY.
 
-This is a helper function when installing via melpa."
+This is a helper function when installing via melpa.
+
+Don't try to install dependencies if SKIP-DEPENDENCIES-P is non-nil.
+
+CALLBACK may be a function, which will be locally put on
+`compilation-finish-functions', which see."
   (if (file-executable-p pdf-info-epdfinfo-program)
       (message "%s" "Server already build.")
     (unless (executable-find "make")
@@ -187,14 +236,27 @@ This is a helper function when installing via melpa."
                  (executable-find "sudo")))
            (install-server-deps
             (and have-apt-and-sudo
+                 (not skip-dependencies-p)
                  (y-or-n-p "Should I try to install dependencies with apt-get ?")))
            (compilation-auto-jump-to-first-error nil)
-           (compilation-scroll-output t))
+           (compilation-scroll-output t)
+           compilation-buffer
+           (compilation-buffer-name-function
+            (lambda (&rest _)
+              (setq compilation-buffer
+                    (generate-new-buffer-name "*compile pdf-tools*")))))
       (compile 
        (format "make V=0 -kC '%s' %smelpa-build"
                build-directory
                (if install-server-deps "install-server-deps " " "))
-       install-server-deps))))
+       install-server-deps)
+      (when (and compilation-buffer
+                 (buffer-live-p (get-buffer compilation-buffer)))
+        (when callback
+          (with-current-buffer compilation-buffer
+            (add-hook 'compilation-finish-functions callback nil t))))
+      compilation-buffer)))
+
 
 (defun pdf-tools-pdf-buffer-p (&optional buffer)
   "Return non-nil if BUFFER contains a PDF document."
@@ -236,15 +298,24 @@ MODES defaults to `pdf-tools-enabled-modes'."
   (pdf-tools-set-modes-enabled nil modes))
 
 ;;;###autoload
-(defun pdf-tools-install ()
+(defun pdf-tools-install (&optional force-compile-p skip-dependencies-p)
   "Install PDF-Tools in all current and future PDF buffers.
 
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
   (unless (file-executable-p pdf-info-epdfinfo-program)
-    (when (y-or-n-p "Need to build the server, do it now ? ")
-      (pdf-tools--melpa-build-server))
-    (error "No executable `epdfinfo' available"))
+    (when (or force-compile-p
+              (y-or-n-p "Need to build the server, do it now ? "))
+      (pdf-tools--melpa-build-server
+       nil
+       skip-dependencies-p
+       (lambda (buffer _status)
+         (when (buffer-live-p buffer)
+           (display-buffer buffer))
+         (when (file-executable-p pdf-info-epdfinfo-program)
+           (let ((pdf-info-restart-process-p t))
+             (pdf-tools-install))))))
+    (error "No executable `epdfinfo' found"))
   (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
   (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))

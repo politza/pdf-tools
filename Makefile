@@ -32,6 +32,14 @@ package: server/epdfinfo
 	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
 	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
 
+melpa-package: 
+	$(MAKE) distclean
+	mkdir -p '$(PACKAGE_DIR)/build'
+	cp -u lisp/*.el README -t '$(PACKAGE_DIR)'
+	cp -r Makefile server '$(PACKAGE_DIR)/build'
+	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
+	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
+
 install-package: package
 	$(EMACS) $(EFLAGS) --eval \
 		"(progn (package-initialize) \
@@ -65,9 +73,9 @@ melpa-build: server/epdfinfo
 	-cp -p server/epdfinfo ..
 	$(MAKE) distclean
 	@if [ -x ../epdfinfo ]; then \
-		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
-		echo "Server successfully build. Do M-x pdf-tools-install again."; \
-		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
+		echo "Server successfully build. "; \
+		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
 	else \
 		echo "Server not build, maybe due to missing dependencies (See README)."; \
 		echo "Required: gcc g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
