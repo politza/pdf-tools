@@ -183,7 +183,11 @@ PDF buffers."
         (when (y-or-n-p
                (concat "Warning: Upgrading will abandon ALL pdf modifications,"
                        "save some of them ?"))
-          (save-some-buffers nil modified-pdf-buffer-p)))
+          (save-some-buffers
+           nil
+           (lambda ()
+             (and (eq 'pdf-view-mode major-mode)
+                  (buffer-modified-p))))))
       (dolist (buffer (buffer-list))
         (with-current-buffer buffer
           (when (eq major-mode 'pdf-view-mode)
