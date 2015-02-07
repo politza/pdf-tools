@@ -167,7 +167,8 @@ PDF buffers."
 ;; * ================================================================== *
 
 ;;;###autoload
-(when (boundp 'pdf-info-epdfinfo-program)
+(when (and (boundp 'pdf-info-epdfinfo-program)
+           (stringp pdf-info-epdfinfo-program))
   (let* ((package-dir (file-name-directory load-file-name))
          (server-dir (file-name-directory pdf-info-epdfinfo-program))
          (upgrading-p (and (not (file-equal-p package-dir server-dir))
