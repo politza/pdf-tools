@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
+#include <stdbool.h>
 #include <assert.h>
 #include <err.h>
 #include <error.h>
@@ -36,6 +37,11 @@
 #include "synctex_parser.h"
 #include "epdfinfo.h"
 #include "config.h"
+
+#ifdef __APPLE__
+# define error printf
+#endif
+
 
 
 /* ================================================================== *
