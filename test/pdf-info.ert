@@ -156,6 +156,7 @@
                               'string-lessp :key 'car))))))
 
 (ert-deftest pdf-info-addannot ()
+  (skip-unless (pdf-info-writable-annotations-p))
   (pdf-test-with-test-pdf
     (let (annot)
       (should (consp (setq annot
@@ -165,6 +166,7 @@
       (should (equal "" (cdr (assq 'contents annot)))))))
 
 (ert-deftest pdf-info-delannot ()
+  (skip-unless (pdf-info-writable-annotations-p))
   (pdf-test-with-test-pdf
     (let ((nannots (length (pdf-info-getannots)))
           annots)
@@ -181,6 +183,7 @@
       (should (= nannots (length (pdf-info-getannots)))))))
 
 (ert-deftest pdf-info-mvannot ()
+  (skip-unless (pdf-info-writable-annotations-p))  
   (pdf-test-with-test-pdf
     (let ((edges '(0.25 0.25 1.0 1.0))
           (id (cdr (assq 'id (car (pdf-info-getannots))))))
@@ -198,6 +201,7 @@
                      color)))))
 
 (ert-deftest pdf-info-save ()
+  (skip-unless (pdf-info-writable-annotations-p))
   (pdf-test-with-test-pdf
     (dolist (id (mapcar (lambda (a)
                           (cdr (assq 'id a)))
