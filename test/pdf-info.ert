@@ -127,6 +127,7 @@
       (should (pdf-info-close)))))
 
 (ert-deftest pdf-info-getannots ()
+  (skip-unless (pdf-info-writable-annotations-p))
   (pdf-test-with-test-pdf
     (when (memq 'markup-annotations
                 (pdf-info-features))
