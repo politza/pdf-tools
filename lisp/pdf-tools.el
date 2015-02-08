@@ -176,10 +176,14 @@ PDF buffers."
 (when (and pdf-tools-handle-upgrades
            (boundp 'pdf-info-epdfinfo-program)
            (stringp pdf-info-epdfinfo-program)
+           (boundp 'package-user-dir)
+           (stringp package-user-dir)
            (stringp load-file-name))
   (let* ((package-dir (file-name-directory load-file-name))
          (server-dir (file-name-directory pdf-info-epdfinfo-program))
          (upgrading-p (and (not (file-equal-p package-dir server-dir))
+                           (file-in-directory-p package-dir package-user-dir)
+                           (file-in-directory-p server-dir package-user-dir)
                            (file-executable-p pdf-info-epdfinfo-program))))
     (when upgrading-p
       (require 'cl-lib)
@@ -221,7 +225,7 @@ PDF buffers."
                    (byte-recompile-directory ,package-dir 0 t)
                    (dolist (file elc)
                      (load file)))
-                 (pdf-tools-install 'compile 'skip-deps)))
+                 (pdf-tools-install 'compile 'skip-deps 'no-error)))
         (add-hook 'post-command-hook build-hook)))))
 
 ;;;###autoload
@@ -314,12 +318,13 @@ MODES defaults to `pdf-tools-enabled-modes'."
   (pdf-tools-set-modes-enabled nil modes))
 
 ;;;###autoload
-(defun pdf-tools-install (&optional force-compile-p skip-dependencies-p)
+(defun pdf-tools-install (&optional force-compile-p skip-dependencies-p no-error)
   "Install PDF-Tools in all current and future PDF buffers.
 
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
-  (unless (file-executable-p pdf-info-epdfinfo-program)
+  (cond
+   (t;;(not (file-executable-p pdf-info-epdfinfo-program))
     (when (or force-compile-p
               (y-or-n-p "Need to build the server, do it now ? "))
       (pdf-tools--melpa-build-server
@@ -331,14 +336,16 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
          (when (file-executable-p pdf-info-epdfinfo-program)
            (let ((pdf-info-restart-process-p t))
              (pdf-tools-install))))))
-    (error "No executable `epdfinfo' found"))
-  (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
-  (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
-  (dolist (buf (buffer-list))
-    (with-current-buffer buf
-      (when (and (pdf-tools-pdf-buffer-p)
-                 (buffer-file-name))
-        (pdf-view-mode)))))
+    (funcall (if no-error 'message 'error)
+             "%s" "No executable `epdfinfo' found"))
+   (t
+    (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
+    (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (and (pdf-tools-pdf-buffer-p)
+                   (buffer-file-name))
+          (pdf-view-mode)))))))
 
 (defun pdf-tools-uninstall ()
   "Uninstall PDF-Tools in all current and future PDF buffers."
