@@ -1,4 +1,15 @@
+;; -*- lexical-binding: t -*-
+
 (require 'pdf-info)
+(require 'ert)
+
+;; Fake skipped as accepted failures if skip-unless is not available.
+(unless (fboundp 'ert--skip-unless)
+  (defun skip-unless (arg)
+    (setf (ert-test-expected-result-type
+           (car ert--running-tests))
+          :failed)
+    (ert-fail (list nil))))
 
 (defmacro pdf-test-with-test-pdf (&rest body)
   (declare (indent 0) (debug t))
