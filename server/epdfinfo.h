@@ -99,6 +99,19 @@
 #  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)
 #endif
 
+#ifdef __APPLE__
+#  define error(status, errno, fmt, args...)                    \
+  do {                                                          \
+    int error = (errno);                                        \
+    fflush (stdout);                                            \
+    fprintf (stderr, "%s: " fmt, PACKAGE_NAME, ## args);        \
+    if (error)                                                  \
+      fprintf (stderr, ": %s", strerror (error));               \
+    fprintf (stderr, "\n");                                     \
+    exit (status);                                              \
+  } while (0)
+#endif
+
 #define internal_error(fmt, args...)                            \
   error (2, 0, "internal error in %s: " fmt, __func__, ## args)
 

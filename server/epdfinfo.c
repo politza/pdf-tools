@@ -39,19 +39,6 @@
 #include "epdfinfo.h"
 #include "config.h"
 
-#ifdef __APPLE__
-#  define error(status, errno, fmt, args...)                    \
-  do {                                                          \
-    int error = (errno);                                        \
-    fflush (stdout);                                            \
-    fprintf (stderr, "%s: " fmt, PACKAGE_NAME, ## args);        \
-    if (error)                                                  \
-      fprintf (stderr, ": %s", strerror (error));               \
-    fprintf (stderr, "\n");                                     \
-    exit (status);                                              \
-  } while (0)
-#endif
-
 
 /* ================================================================== *
  * Helper Functions
