@@ -17,7 +17,9 @@
 
 #include <assert.h>
 #include <err.h>
-#include <error.h>
+#ifndef __APPLE__
+#  include <error.h>
+#endif
 #include <glib.h>
 #include <poppler.h>
 #include <cairo.h>

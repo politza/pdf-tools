@@ -28,7 +28,7 @@ distclean: clean
 
 package: server/epdfinfo
 	mkdir -p '$(PACKAGE_DIR)'
-	cp -u lisp/*.el README server/epdfinfo -t '$(PACKAGE_DIR)'
+	cp lisp/*.el README server/epdfinfo '$(PACKAGE_DIR)'
 	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
 	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
 
