@@ -142,6 +142,7 @@
                             (alists-get annots 'edges))))))))
 
 (ert-deftest pdf-info-getannot ()
+  (skip-unless (pdf-info-writable-annotations-p))
   (pdf-test-with-test-pdf
     (let* ((text-annot (car
                         (cl-remove-if-not (lambda (elt)
