@@ -35,7 +35,7 @@ package: server/epdfinfo
 melpa-package: 
 	$(MAKE) distclean
 	mkdir -p '$(PACKAGE_DIR)/build'
-	cp -u lisp/*.el README -t '$(PACKAGE_DIR)'
+	cp lisp/*.el README '$(PACKAGE_DIR)'
 	cp -r Makefile server '$(PACKAGE_DIR)/build'
 	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
 	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
