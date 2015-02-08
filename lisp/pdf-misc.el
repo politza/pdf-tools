@@ -123,7 +123,7 @@
     ["Occur document" pdf-occur
      :visible (featurep 'pdf-occur)]
     "--"
-    ["Locate TeX source" pdf-sync-mouse-goto-tex
+    ["Locate TeX source" pdf-sync-backward-search-mouse
      :visible (and (featurep 'pdf-sync)
                    (equal last-command-event
                           last-nonmenu-event))]

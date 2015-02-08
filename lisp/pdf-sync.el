@@ -186,7 +186,7 @@ position."
   "Display the PDF location corresponding to LINE, COLUMN."
   (interactive)
   (cl-destructuring-bind (pdf page _x1 y1 _x2 _y2)
-      (pdf-sync-correlate-pdf line column)
+      (pdf-sync-forward-correlate line column)
     (let ((buffer (or (find-buffer-visiting pdf)
                       (find-file-noselect pdf))))
       (with-selected-window (display-buffer
