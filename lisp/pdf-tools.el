@@ -324,7 +324,7 @@ MODES defaults to `pdf-tools-enabled-modes'."
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (interactive)
   (cond
-   (t;;(not (file-executable-p pdf-info-epdfinfo-program))
+   ((not (file-executable-p pdf-info-epdfinfo-program))
     (when (or force-compile-p
               (y-or-n-p "Need to build the server, do it now ? "))
       (pdf-tools--melpa-build-server
