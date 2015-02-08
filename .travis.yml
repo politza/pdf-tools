@@ -1,0 +1,26 @@
+language: cpp
+
+env:
+  matrix:
+    - EMACS=emacs24
+    - EMACS=emacs-snapshot
+
+compiler:
+  - gcc
+
+install:
+  - if [ "$EMACS" = "emacs24" ]; then
+        sudo add-apt-repository -y ppa:cassou/emacs &&
+        sudo apt-get update -qq &&
+        sudo apt-get install -qq emacs24 emacs24-el;
+    fi
+  - if [ "$EMACS" = "emacs-snapshot" ]; then
+        sudo add-apt-repository -y ppa:ubuntu-elisp/ppa &&
+        sudo apt-get update -qq &&
+        sudo apt-get install -qq emacs-snapshot;
+    fi
+  - sudo apt-get install -qq make automake autoconf libpng-dev libz-dev
+  - sudo apt-get install libpoppler-glib-dev libpoppler-private-dev
+
+script:
+  - make test
