@@ -35,7 +35,7 @@ install:
                 --enable-xpdf-headers
                 && make -j4 && sudo make install
   - popd
-  - ldconfig -n /usr/local/lib
+  - sudo ldconfig -n /usr/local/lib
 
 script:
   - make test
