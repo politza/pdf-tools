@@ -38,14 +38,14 @@ command `pdf-sync-minor-mode' is activated and this map is defined."
   :group 'pdf-sync
   :type 'key-sequence)
 
-(defcustom pdf-sync-forward-hook nil
+(defcustom pdf-sync-backward-hook nil
   "Hook ran after going to a source location.
 
 The hook is run in the TeX buffer."
   :group 'pdf-sync
   :type 'hook)
 
-(defcustom pdf-sync-backward-hook nil
+(defcustom pdf-sync-forward-hook nil
   "Hook ran after displaying the PDF buffer.
 
 The hook is run in the PDF's buffer."
@@ -154,7 +154,7 @@ with AUCTeX."
                    pdf-sync-backward-display-action)
     (push-mark)
     (pdf-util-goto-position line column)
-    (run-hooks 'pdf-sync-forward-hook)))
+    (run-hooks 'pdf-sync-backward-hook)))
 
 (defun pdf-sync-backward-correlate (x y)
   "Find the source corresponding to image coordinates X, Y.
@@ -196,7 +196,7 @@ position."
         (let ((top (* y1 (cdr (pdf-view-image-size)))))
           (pdf-util-tooltip-arrow (round top))))
       (with-current-buffer buffer
-        (run-hooks 'pdf-sync-backward-hook)))))
+        (run-hooks 'pdf-sync-forward-hook)))))
 
 (defun pdf-sync-forward-correlate (&optional line column)
   "Find the PDF location corresponding to LINE, COLUMN.
@@ -314,12 +314,12 @@ The first such filename is returned, or nil if none was found."
 ;;;###autoload
 (define-obsolete-variable-alias
   'pdf-sync-goto-tex-hook
-  'pdf-sync-forward-hook nil)
+  'pdf-sync-backward-hook nil)
 
 ;;;###autoload
 (define-obsolete-variable-alias
   'pdf-sync-display-pdf-hook
-  'pdf-sync-backward-hook nil)
+  'pdf-sync-forward-hook nil)
 
 ;;;###autoload
 (define-obsolete-variable-alias
