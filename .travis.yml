@@ -26,7 +26,13 @@ install:
   - unxz $POPPLER.tar.xz
   - tar xf $POPPLER.tar
   - cd $POPPLER
-  - ./configure --enable-xpdf-headers && make -j4 && make install
+  - ./configure --disable-gtk-doc-html
+                --disable-xpdf-headers
+                --disable-poppler-qt4
+                --disable-poppler-qt5
+                --disable-poppler-cpp
+                --disable-utils
+                && make -j4 && sudo make install
 
 script:
   - make test
