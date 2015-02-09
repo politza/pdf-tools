@@ -25,7 +25,7 @@ install:
   - wget http://poppler.freedesktop.org/$POPPLER.tar.xz
   - unxz $POPPLER.tar.xz
   - tar xf $POPPLER.tar
-  - cd $POPPLER
+  - pushd $POPPLER
   - ./configure --disable-gtk-doc-html
                 --disable-xpdf-headers
                 --disable-poppler-qt4
@@ -33,6 +33,7 @@ install:
                 --disable-poppler-cpp
                 --disable-utils
                 && make -j4 && sudo make install
+  - popd
 
 script:
   - make test
