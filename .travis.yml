@@ -32,6 +32,7 @@ install:
                 --disable-poppler-qt5
                 --disable-poppler-cpp
                 --disable-utils
+                --enable-xpdf-headers
                 && make -j4 && sudo make install
   - popd
 
