@@ -613,6 +613,18 @@ again."
     (pdf-view-redisplay window))
   nil)
 
+(define-minor-mode pdf-view-auto-slice-minor-mode
+  "Automatically slice pages according to their bounding boxes.
+
+See also `pdf-view-set-slice-from-bounding-box'."
+  nil nil nil
+  (cond
+   (pdf-view-auto-slice-minor-mode
+    (pdf-view-set-slice-from-bounding-box)
+    (add-hook 'pdf-view-change-page-hook 'pdf-view-set-slice-from-bounding-box nil t))
+   (t
+    (pdf-view-reset-slice)
+    (remove-hook 'pdf-view-change-page-hook 'pdf-view-set-slice-from-bounding-box t))))
 
 
 ;; * ================================================================== *

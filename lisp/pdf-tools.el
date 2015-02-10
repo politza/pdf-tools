@@ -121,9 +121,21 @@ In order to customize dark and light colors use
     pdf-annot-minor-mode
     pdf-sync-minor-mode
     pdf-misc-context-menu-minor-mode
-    pdf-cache-prefetch-minor-mode))
+    pdf-cache-prefetch-minor-mode
+    pdf-view-auto-slice-minor-mode))
     
-(defcustom pdf-tools-enabled-modes pdf-tools-modes 
+(defcustom pdf-tools-enabled-modes
+  '(pdf-history-minor-mode
+    pdf-isearch-minor-mode
+    pdf-links-minor-mode
+    pdf-misc-minor-mode
+    pdf-outline-minor-mode
+    pdf-misc-size-indication-minor-mode
+    pdf-misc-menu-bar-minor-mode
+    pdf-annot-minor-mode
+    pdf-sync-minor-mode
+    pdf-misc-context-menu-minor-mode
+    pdf-cache-prefetch-minor-mode) 
   "A list of automatically enabled minor-modes.
 
 PDF Tools is build as a series of minor-modes.  This variable and
