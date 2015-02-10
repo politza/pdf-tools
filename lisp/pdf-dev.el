@@ -37,7 +37,7 @@
                             "lisp"
                             pdf-dev-root-directory))
         loaded)
-    (dolist (file (directory-files default-directory nil "\\`[^#]*\\.el\\'"))
+    (dolist (file (directory-files default-directory nil "\\`pdf-\\w*\\.el\\'"))
       (push file loaded)
       (load-file file))
     (message "Loaded %s" (mapconcat 'identity loaded " "))))
