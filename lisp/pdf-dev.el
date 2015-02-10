@@ -54,17 +54,20 @@ Restarts epdfinfo after a succesful recompilation.
 
 Loads all lisp files, so find-function will do the right thing."
   nil nil nil
-  (cond
-   (pdf-dev-minor-mode
-    (add-hook 'compilation-finish-functions 'pdf-dev-compilation-finished)
-    (setq pdf-info-epdfinfo-program
-          (expand-file-name
-           "epdfinfo"
-           (expand-file-name "server" pdf-dev-root-directory)))
-    (pdf-info-quit)
-    (pdf-dev-reload))
-   (t
-    (remove-hook 'compilation-finish-functions 'pdf-dev-compilation-finished))))
+  (let ((lisp-dir (expand-file-name "lisp" pdf-dev-root-directory)))
+    (setq load-path (remove lisp-dir load-path))
+    (cond
+     (pdf-dev-minor-mode
+      (add-hook 'compilation-finish-functions 'pdf-dev-compilation-finished)
+      (add-to-list 'load-path lisp-dir)
+      (setq pdf-info-epdfinfo-program
+            (expand-file-name
+             "epdfinfo"
+             (expand-file-name "server" pdf-dev-root-directory)))
+      (pdf-info-quit)
+      (pdf-dev-reload))
+     (t
+      (remove-hook 'compilation-finish-functions 'pdf-dev-compilation-finished)))))
 
 (defun pdf-dev-compilation-finished (buffer status)
   (with-current-buffer buffer
