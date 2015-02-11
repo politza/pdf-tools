@@ -416,6 +416,7 @@ a local copy of a remote file."
       (when (window-live-p window)
         (pdf-view-redisplay window))
       (when changing-p
+        (pdf-view-deactivate-region)
         (force-mode-line-update)
         (run-hooks 'pdf-view-after-change-page-hook))))
   nil)
@@ -748,7 +749,6 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
   "Redisplay page in WINDOW.
 
 If WINDOW is t, redisplay pages in all windows."
-  (deactivate-mark)
   (unless pdf-view-inhibit-redisplay
     (if (not (eq t window))
         (pdf-view-display-page
@@ -962,8 +962,9 @@ Deactivate the region if DEACTIVATE-P is non-nil."
                  (cons region pdf-view-active-region))
                 (pdf-util-scroll-to-edges region))))
       (push region pdf-view-active-region)
-      (let ((transient-mark-mode t))
-        (push-mark)))))
+      (when transient-mark-mode
+        (push-mark-command nil))
+      (setq deactivate-mark nil))))
 
 (defun pdf-view-mouse-extend-region (ev)
   (interactive "@e")
