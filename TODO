@@ -7,6 +7,7 @@
    input-methods, while editing the search string.
 ** Implement regexp search
    + Use pdf-info-search-regexp if isearch-regexp is non-nil.
+   + Make search-regexp use glib's regexp function. 
    + Make functions handle a list of edges per match.
 * pdf-occur
 ** Implement regexp search
