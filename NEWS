@@ -1,13 +1,29 @@
 -*- org -*-
 
 * Version 0.50
-** PDF Tools is now available on melpa.
+** PDF Tools is now available on MELPA.
 ** SyncTeX
+*** File name handling
    SyncTeX is pretty picky about source filenames.  So instead of
    trying various filenames and hoping for best, we find it by
    directly inspecting the database.
-** Compatible with Emacs >= 24.3
+*** Heuristic backward search
+    Backward searching now tries to find the exact position in the
+    LaTeX buffer.  This may be disabled by setting
+    pdf-sync-backward-use-heuristic to nil.
+*** Renamed most variables/functions/commands.
+    The old ones are still there but declared obsolete.
+** Compatible with Emacs 24.3
 ** Integrate with bookmark.el
+** Compiling on OSX
+   PDF Tools should now compile on OSX, though tis is unsupported.
+** MELPA
+   Try to handle an update via MELPA by package.el by shutting down
+   the server, recompiling and restarting it.  This may be deactivated
+   by setting pdf-tools-handle-upgrades to nil.
+** Auto slicing
+   A new minor mode which will automatically slice the page according
+   to it's bounding box.
 * Version 0.40
   I basically reimplemented the whole thing. (Not really, but a lot
   has changed.)
@@ -23,12 +39,12 @@
     user-interface.  Some differences are:
     + Setting the width to `fit-width', `fit-height' or `fit-page'
       keeps up with window-size changes.
-    + The values of the slice are relative, i.e. independant of the
+    + The values of the slice are relative, i.e. independent of the
       image-size.
 *** PNG Image Cache
     Image data is cached, in order to keep the time it needs to
-    display a page low.  Some pages are preloaded for the same reason,
-    while idleing.  The number of cached images per buffer may be
+    display a page low.  Some pages are pre-loaded for the same reason,
+    while idling.  The number of cached images per buffer may be
     customized using `pdf-cache-image-limit'.
 ** Annotations
 *** New supported types
