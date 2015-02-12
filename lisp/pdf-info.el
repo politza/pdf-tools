@@ -896,7 +896,7 @@ aforementioned function, when called with the same arguments."
      (line 2)
      (t 0))))
 
-(defun pdf-info-textlayout (page &optional file-or-buffer)
+(defun pdf-info-textregions (page &optional file-or-buffer)
   "Return a list of edges describing PAGE's text-layout."
   (pdf-info-getselection
    page '(0 0 1 1) 'glyph file-or-buffer))

@@ -147,7 +147,7 @@ Make shure, not to modify it's return value." command)))
 (define-pdf-cache-function number-of-pages)
 ;; The boundingbox may change if annotations change.
 (define-pdf-cache-function boundingbox t)
-(define-pdf-cache-function textlayout t)
+(define-pdf-cache-function textregions t)
 (define-pdf-cache-function pagesize t)
   
 

@@ -855,7 +855,7 @@ This will display a text cursor, when hovering over them."
                          . (,(nth 2 e) . ,(nth 3 e))))
                 pdf-view-text-region
                 (pointer text))))
-          (pdf-cache-textlayout page)))
+          (pdf-cache-textregions page)))
 
 (define-minor-mode pdf-view-dark-minor-mode
   "Mode for PDF documents with dark background.
