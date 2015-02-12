@@ -91,9 +91,9 @@
     (should (cl-every 'pdf-test-relative-edges-p
                       (pdf-info-getselection 1 '(0 0 1 1))))))
 
-(ert-deftest pdf-info-textlayout ()
+(ert-deftest pdf-info-textregions ()
   (pdf-test-with-test-pdf
-    (should (consp (pdf-info-textlayout 1)))))
+    (should (consp (pdf-info-textregions 1)))))
 
 (ert-deftest pdf-info-pagesize ()
   (pdf-test-with-test-pdf
