@@ -1685,7 +1685,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
     {
       PopplerPage *page = poppler_document_get_page(doc, pn - 1);
       char *text, *text_p;
-      PopplerRectangle *rectangles;
+      PopplerRectangle *rectangles = NULL;
       guint nrectangles;
       regmatch_t match;
       int offset = 0;
