@@ -1,1 +1,2 @@
 *.elc
+.dir-locals.el
