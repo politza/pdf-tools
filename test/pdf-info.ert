@@ -6,10 +6,11 @@
 ;; Fake skipped as accepted failures if skip-unless is not available.
 (unless (fboundp 'ert--skip-unless)
   (defun skip-unless (arg)
-    (setf (ert-test-expected-result-type
-           (car ert--running-tests))
-          :failed)
-    (ert-fail (list nil))))
+    (unless arg
+      (setf (ert-test-expected-result-type
+             (car ert--running-tests))
+            :failed)
+      (ert-fail (list nil)))))
 
 (defun pdf-test-relative-edges-p (edges)
   (and (consp edges)
