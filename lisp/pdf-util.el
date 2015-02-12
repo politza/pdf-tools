@@ -723,6 +723,94 @@ outside the current limits."
         (widen))
       (goto-char pos))))
 
+(defun pdf-util-seq-alignment (seq1 seq2 &optional similarity-fn alignment-type)
+  "Return an alignment of sequences SEQ1 and SEQ2.
+
+SIMILARITY-FN should be a function. It is called with two
+arguments: One element from SEQ1 and one from SEQ2.  It should
+return a number determining how similar the elements are, where
+higher values mean `more similar'.  The default returns 1 if the
+elements are equal, else -1.
+
+ALIGNMENT-TYPE may be one of the symbols `prefix', `suffix',
+`infix' or nil.  If it is `prefix', trailing elements in SEQ2 may
+be ignored. For example the alignment of 
+
+\(0 1\) and \(0 1 2\)
+
+using prefix matching is 0, since the prefixes are equal and the
+trailing 2 is ignored.  The other possible values have similar
+effects.  The default is nil, which means to match the whole
+sequences.
+
+Return a cons \(VALUE . ALINGMENT\), where VALUE says how similar
+the sequences are and ALINGMENT is a list of \(E1 . E2\), where
+E1 is an element from SEQ1 or nil, likewise for E2.  If one of
+them is nil, it means there is gap at this position in the
+respective sequence."
+
+  (cl-macrolet ((make-matrix (rows columns)
+                  (list 'apply (list 'quote 'vector)
+                        (list 'cl-loop 'for 'i 'from 1 'to rows
+                              'collect (list 'make-vector columns nil))))
+                (mset (matrix row column newelt)
+                  (list 'aset (list 'aref matrix row) column newelt))
+                (mref (matrix row column)
+                  (list 'aref (list 'aref matrix row) column)))
+    (let* ((nil-value nil)
+           (len1 (length seq1))
+           (len2 (length seq2))
+           (d (make-matrix (1+ len1) (1+ len2)))
+           (prefix-p (memq alignment-type '(prefix infix)))
+           (suffix-p (memq alignment-type '(suffix infix)))
+           (similarity-fn (or similarity-fn
+                              (lambda (a b)
+                                (if (equal a b) 1 -1)))))
+
+      (cl-loop for i from 0 to len1 do
+        (mset d i 0 (- i)))
+      (cl-loop for j from 0 to len2 do
+        (mset d 0 j (if suffix-p 0 (- j))))
+
+      (cl-loop for i from 1 to len1 do
+        (cl-loop for j from 1 to len2 do
+          (let ((max (max
+                      (1- (mref d (1- i) j))
+                      (+ (mref d i (1- j))
+                         (if (and prefix-p (= i len1)) 0 -1))
+                      (+ (mref d (1- i) (1- j))
+                         (funcall similarity-fn
+                                  (elt seq1 (1- i))
+                                  (elt seq2 (1- j)))))))
+            (mset d i j max))))
+
+      (let ((i len1)
+            (j len2)
+            alignment)
+        (while (or (> i 0)
+                   (> j 0))
+          (cond
+           ((and (> i 0)
+                 (= (mref d i j)
+                    (1- (mref d (1- i) j))))
+            (cl-decf i)
+            (push (cons (elt seq1 i) nil-value) alignment))
+           ((and (> j 0)
+                 (= (mref d i j)
+                    (+ (mref d i (1- j))
+                       (if (or (and (= i 0) suffix-p)
+                               (and (= i len1) prefix-p))
+                           0 -1))))
+            (cl-decf j)
+            (push (cons nil-value (elt seq2 j)) alignment))
+           (t
+            (cl-assert (and (> i 0) (> j 0)) t)
+            (cl-decf i)
+            (cl-decf j)
+            (push (cons (elt seq1 i)
+                        (elt seq2 j)) alignment))))
+        (cons (mref d len1 len2) alignment)))))
+
 
 ;; * ================================================================== *
 ;; * Imagemagick's convert
