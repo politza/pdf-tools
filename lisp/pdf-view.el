@@ -619,13 +619,17 @@ again."
 
 See also `pdf-view-set-slice-from-bounding-box'."
   nil nil nil
+  (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-view-auto-slice-minor-mode
-    (pdf-view-set-slice-from-bounding-box)
-    (add-hook 'pdf-view-change-page-hook 'pdf-view-set-slice-from-bounding-box nil t))
+    (dolist (win (get-buffer-window-list nil nil t))
+      (when (pdf-util-pdf-window-p win)
+        (pdf-view-set-slice-from-bounding-box win)))
+    (add-hook 'pdf-view-change-page-hook
+              'pdf-view-set-slice-from-bounding-box nil t))
    (t
-    (pdf-view-reset-slice)
-    (remove-hook 'pdf-view-change-page-hook 'pdf-view-set-slice-from-bounding-box t))))
+    (remove-hook 'pdf-view-change-page-hook
+                 'pdf-view-set-slice-from-bounding-box t))))
 
 
 ;; * ================================================================== *
