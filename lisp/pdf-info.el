@@ -371,6 +371,13 @@ interrupted."
     (open nil)
     (close (equal "1" (caar response)))
     (number-of-pages (string-to-number (caar response)))
+    (charlayout
+     (mapcar (lambda (elt)
+               (cl-assert (= 1 (length (cadr elt))) t)
+               `(,(aref (cadr elt) 0)
+                 ,(mapcar 'string-to-number
+                          (split-string (car elt) " " t))))
+             response))
     ((search-string search-regexp)
      (let ((matches
             (mapcar
@@ -900,6 +907,28 @@ aforementioned function, when called with the same arguments."
   "Return a list of edges describing PAGE's text-layout."
   (pdf-info-getselection
    page '(0 0 1 1) 'glyph file-or-buffer))
+
+(defun pdf-info-charlayout (page edges-or-pos &optional file-or-buffer)
+  "Return the layout of characters of PAGE in/at EDGES-OR-POS.
+
+Returns a list of elements \(CHAR . \(LEFT TOP RIGHT BOT\)\) of
+character and corresponding boundingboxes.
+
+EDGES-OR-POS may be a region \(LEFT TOP RIGHT BOT\) restricting
+the returned value to include only characters fully contained in
+it.  Or a cons \(LEFT . TOP\) which means to only include the
+character at this position.  In this case the return value
+contains at most one element."
+
+  (when (numberp (cdr edges-or-pos))
+    (setq edges-or-pos (list (car edges-or-pos)
+                             (cdr edges-or-pos)
+                             -1 -1)))
+  (pdf-info-query
+   'charlayout
+   (pdf-info--normalize-file-or-buffer file-or-buffer)
+   page
+   (mapconcat 'number-to-string edges-or-pos " ")))
 
 (defun pdf-info-pagesize (page &optional file-or-buffer)
   "Return the size of PAGE as a cons \(WIDTH . HEIGHT\)

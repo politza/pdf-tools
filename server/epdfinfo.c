@@ -3119,6 +3119,79 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   if (page) g_object_unref (page);
 }
 
+const command_arg_type_t cmd_charlayout_spec[] =
+  {
+    ARG_DOC,
+    ARG_NATNUM,                 /* page number */
+    ARG_EDGES_OR_POSITION,      /* region or position */
+  };
+
+static void
+cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  PopplerDocument *doc = args[0].value.doc->pdf;
+  int pn = args[1].value.natnum;
+  PopplerRectangle region = args[2].value.rectangle;
+  double width, height;
+  PopplerPage *page = poppler_document_get_page(doc, pn - 1);
+  char *text = NULL;
+  char *text_p;
+  PopplerRectangle *rectangles = NULL;
+  int nrectangles;
+  int i;
+  gboolean have_position = region.y2 < 0;
+    
+  perror_if_not (page, "No such page %d", pn);
+  
+  text = poppler_page_get_text (page);
+  text_p = text;
+  poppler_page_get_text_layout (page, &rectangles, &nrectangles);
+  poppler_page_get_size (page, &width, &height);
+  region.x1 *= width;
+  region.x2 *= width;
+  region.y1 *= height;
+  region.y2 *= height;  
+
+  OK_BEGIN ();
+  for (i = 0; i < nrectangles && *text_p; ++i)
+    {
+      PopplerRectangle *r = &rectangles[i];
+      char *nextc = g_utf8_offset_to_pointer (text_p, 1);
+      
+      if ((have_position
+           && region.x1 >= r->x1
+           && region.x1 <= r->x2
+           && region.y1 >= r->y1
+           && region.y1 <= r->y2)
+          || (! have_position
+              && r->x1 >= region.x1
+              && r->y1 >= region.y1
+              && r->x2 <= region.x2
+              && r->y2 <= region.y2))
+        {
+          char endc = *nextc;
+
+          printf ("%f %f %f %f:",
+                  r->x1 / width, r->y1 / height,
+                  r->x2 / width, r->y2 / height);
+          *nextc = '\0';
+          print_response_string (text_p, NEWLINE);
+          *nextc = endc;
+        }
+      text_p = nextc;
+    }
+  OK_END ();
+
+  g_free (rectangles);
+  g_object_unref (page);
+  g_free (text);
+
+ error:
+  return;
+}
+
+
+
 
 /* ================================================================== *
  * Main
