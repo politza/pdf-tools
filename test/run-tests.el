@@ -22,5 +22,20 @@
 (package-install-file pdf-tools-package)
 (dolist (file (directory-files "." t "\\.ert\\'"))
   (load-file file))
+
+(defmacro pdf-test-with-test-pdf (&rest body)
+  (declare (indent 0) (debug t))
+  (let ((buffer (make-symbol "buffer")))
+    `(let ((,buffer (find-file-noselect
+                     (expand-file-name "test.pdf"))))
+       (pdf-info-quit)
+       (pdf-info-process-assert-running t)
+       (unwind-protect
+           (with-current-buffer ,buffer ,@body)
+         (when (buffer-live-p ,buffer)
+           (set-buffer-modified-p nil)
+           (kill-buffer))
+         (pdf-info-quit)))))
+
 (ert-run-tests-batch-and-exit t)
     
