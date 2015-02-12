@@ -920,7 +920,7 @@ other annotations."
            (pdf-view-create-image
                (pdf-cache-renderpage-highlight
                 page (car size)
-                `("#ff0000" 0.6 ,@edges))
+                `("white" "steel blue" 0.35 ,@edges))
              :map (pdf-view-apply-hotspot-functions
                    window page size))))
         (pdf-util-scroll-to-edges

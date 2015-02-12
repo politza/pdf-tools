@@ -2916,7 +2916,7 @@ const command_arg_type_t cmd_renderpage_highlight_spec[] =
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
     ARG_NATNUM,                 /* width */
-    ARG_REST                    /* (fill-color stroke-color edges*)* */
+    ARG_REST                    /* (fill-color stroke-color alpha edges*)* */
   };
 
 
@@ -2943,13 +2943,20 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
 
   while (i < nrest_args)
     {
-      PopplerColor bg;
+      PopplerColor bg, sc;
       gdouble alpha;
 
       perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
                                             &error_msg),
                      "%s", error_msg);
       bg = rest_arg.value.color;
+      ++i;
+
+      perror_if_not (i < nrest_args, "Missing stroke color");
+      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
+                                            &error_msg),
+                     "%s", error_msg);
+      sc = rest_arg.value.color;
       ++i;
 
       perror_if_not (i < nrest_args, "Missing alpha argument");
@@ -2983,13 +2990,16 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
           cairo_arc (cr, r->x1 + rad, r->y2 - rad, rad, 90 * deg, 180 * deg);
           cairo_close_path (cr);
 
-          cairo_set_source_rgba (cr, 1, 1, 1, alpha);
-          cairo_fill_preserve (cr);
           cairo_set_source_rgba (cr,
                                  bg.red / 65535.0,
                                  bg.green / 65535.0,
-                                 bg.blue / 65535.0, 1.0);
-          cairo_set_line_width (cr, 2.5);
+                                 bg.blue / 65535.0, alpha);
+          cairo_fill_preserve (cr);
+          cairo_set_source_rgba (cr,
+                                 sc.red / 65535.0,
+                                 sc.green / 65535.0,
+                                 sc.blue / 65535.0, 1.0);
+          cairo_set_line_width (cr, 1.5);
           cairo_stroke (cr);
           ++i;
         }

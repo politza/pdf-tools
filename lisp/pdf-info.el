@@ -1197,8 +1197,9 @@ Return the data of the corresponding PNG image."
   "Highlight regions on PAGE with width WIDTH using REGIONS.
 
 REGIONS is a list determining the background color, a alpha value
-and the regions to render. So each element should look like
-\(BG ALPHA \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) .
+and the regions to render. So each element should look like \(FILL-COLOR
+STROKE-COLOR ALPHA \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \)
+.
 
 For the other args see `pdf-info-renderpage'.
 
@@ -1216,15 +1217,15 @@ Return the data of the corresponding PNG image."
          (apply 'append
                 (mapcar
                  (lambda (s)
-                   (cl-destructuring-bind (bg alpha &rest edges)
+                   (cl-destructuring-bind (fill stroke alpha &rest edges)
                        s
-                     (cons
-                      (pdf-util-hexcolor bg)
-                      (cons alpha
-                            (mapcar
-                             (lambda (e)
-                               (mapconcat 'number-to-string e " "))
-                             edges)))))
+                     `(,(pdf-util-hexcolor fill)
+                       ,(pdf-util-hexcolor stroke)
+                       ,alpha
+                       ,@(mapcar
+                          (lambda (e)
+                            (mapconcat 'number-to-string e " "))
+                          edges))))
                  regions))))
 
 (defun pdf-info-boundingbox (page &optional file-or-buffer)
