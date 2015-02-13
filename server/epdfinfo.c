@@ -3137,7 +3137,7 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   char *text = NULL;
   char *text_p;
   PopplerRectangle *rectangles = NULL;
-  int nrectangles;
+  guint nrectangles;
   int i;
   gboolean have_position = region.y2 < 0;
     
@@ -3304,7 +3304,7 @@ int main(int argc, char **argv)
   while ((read = getline (&line, &line_size, stdin)) != -1)
     {
       int nargs = 0;
-      command_arg_t *cmd_args;
+      command_arg_t *cmd_args = NULL;
       char **args = NULL;
       gchar *error_msg = NULL;
       int i;

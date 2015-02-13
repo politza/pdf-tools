@@ -101,7 +101,6 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
   {
     AnnotMarkup *annot;
     GooString *text;
-    time_t timet;
 
     g_return_val_if_fail (POPPLER_IS_ANNOT_MARKUP (poppler_annot), NULL);
 
