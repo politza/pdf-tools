@@ -507,6 +507,8 @@ point to the correct position."
           (skip-chars-forward "^ ")
           (skip-chars-forward " "))
         (goto-char center)
+        (when (eq ?\s (char-after))
+          (skip-chars-backward " "))
         (setq chindex (- (skip-chars-backward "^ ")))
         (setq words (split-string (buffer-string)))
         (when translation
