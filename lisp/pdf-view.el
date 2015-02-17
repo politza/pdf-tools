@@ -275,7 +275,10 @@ PNG images in Emacs buffers.
   (setq-local buffer-auto-save-file-name nil)
   ;; No undo at the moment.
   (buffer-disable-undo)
-  
+  ;; Enable transient-mark-mode, so region deactivation when quitting
+  ;; will work.
+  (setq-local transient-mark-mode t)
+
   (use-local-map pdf-view-mode-map)
 
   (add-hook 'window-configuration-change-hook
@@ -915,6 +918,11 @@ supercede hotspots in lower ones."
 ;; * Region
 ;; * ================================================================== *
 
+(defun pdf-view--push-mark ()
+  (let (mark-ring)
+    (push-mark-command nil))
+  (setq deactivate-mark nil))
+
 (defun pdf-view-active-region (&optional deactivate-p)
   "Return the active region, a list of edges.
 
@@ -951,6 +959,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
     (error "No page at this position"))
   (let* ((window (selected-window))
          (beg (posn-object-x-y (event-start ev)))
+         pdf-view-continuous
          region)
     (when (pdf-util-track-mouse-dragging (event 0.15)
             (let* ((pos (event-start event))
@@ -966,9 +975,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
                  (cons region pdf-view-active-region))
                 (pdf-util-scroll-to-edges region))))
       (push region pdf-view-active-region)
-      (when transient-mark-mode
-        (push-mark-command nil))
-      (setq deactivate-mark nil))))
+      (pdf-view--push-mark))))
 
 (defun pdf-view-mouse-extend-region (ev)
   (interactive "@e")
@@ -1006,8 +1013,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
   (let ((size (pdf-view-image-size)))
     (setq pdf-view-active-region
           (list (list 0 0 (car size) (cdr size)))))
-  (let ((transient-mark-mode t))
-    (push-mark))
+  (pdf-view--push-mark)
   (pdf-view-display-region))
 
 (defun pdf-view-active-region-text ()
