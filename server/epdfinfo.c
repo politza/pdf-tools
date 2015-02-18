@@ -3291,7 +3291,7 @@ int main(int argc, char **argv)
   if (argc == 2)
     error_log = argv[1];
 
-  if (! freopen (error_log, "w", stderr))
+  if (! freopen (error_log, "a", stderr))
     err (2, "Unable to redirect stderr");
 
 #if ! GLIB_CHECK_VERSION(2,36,0)
