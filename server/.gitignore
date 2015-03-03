@@ -18,3 +18,4 @@ stamp-h1
 ar-lib
 compile
 config.h.in~
+.clang_complete
