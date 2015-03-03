@@ -107,12 +107,13 @@
   $ brew install poppler
 #+END_SRC
 
-     You will also have to help ~pkg-config~ find some X11 libraries
-     by setting ~PKG_CONFIG_PATH~:
+     You will also have to help ~pkg-config~ find some libraries by
+     setting ~PKG_CONFIG_PATH~, e.g.
 #+BEGIN_SRC sh
-  $ export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig
+  $ export PKG_CONFIG_PATH=/usr/local/Cellar/zlib/1.2.8/lib/pkgconfig:/usr/local/lib/pkgconfig:/opt/X11/lib/pkgconfig
 #+END_SRC
-
+     or likewise within Emacs using `setenv`.
+     
      After that, compilation should proceed as normal.
 *** Compilation
     Now it's time to compile the source.      
