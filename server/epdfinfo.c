@@ -495,6 +495,7 @@ static void
 region_print (cairo_region_t *region, double width, double height)
 {
   int i;
+
   for (i = 0; i < cairo_region_num_rectangles (region); ++i)
     {
       cairo_rectangle_int_t r;
@@ -508,6 +509,8 @@ region_print (cairo_region_t *region, double width, double height)
       if (i < cairo_region_num_rectangles (region) - 1)
         putchar (':');
     }
+  if (0 == cairo_region_num_rectangles (region))
+    printf ("0.0 0.0 0.0 0.0");
 }
 
 /**
