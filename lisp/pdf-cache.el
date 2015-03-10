@@ -307,7 +307,7 @@ See also `pdf-info-renderpage-text-regions' and
     (let ((hash (sxhash
                  (format "%S" (cons 'renderpage-text-regions
                                     (cons single-line-p selection))))))
-      (or (pdf-cache-get-image page width nil hash)
+      (or (pdf-cache-get-image page width width hash)
           (let ((data (apply 'pdf-info-renderpage-text-regions
                              page width single-line-p nil selection)))
             (pdf-cache-put-image page width data hash)
@@ -324,7 +324,7 @@ See also `pdf-info-renderpage-highlight' and
     (let ((hash (sxhash
                  (format "%S" (cons 'renderpage-highlight
                                     regions)))))
-      (or (pdf-cache-get-image page width nil hash)
+      (or (pdf-cache-get-image page width width hash)
           (let ((data (apply 'pdf-info-renderpage-highlight
                              page width nil regions)))
             (pdf-cache-put-image page width data hash)
