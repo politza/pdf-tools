@@ -17,7 +17,7 @@
 
 #include <assert.h>
 #include <err.h>
-#ifndef __APPLE__
+#if ! (defined (__APPLE__) || defined (__CYGWIN__))
 #  include <error.h>
 #endif
 #include <glib.h>
