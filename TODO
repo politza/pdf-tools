@@ -27,5 +27,9 @@
    pdf-view-display-image), which is actually not so desirable, since
    it is absolute.  This results e.g. in the image popping out of the
    window, when it is shrunken.
+** Fix resizing issues
+*** window parameter pdf-view-window-size
+    There is currently no check whether the window changed buffer in
+    pdf-view-maybe-redisplay-resized-windows.
 * pdf-info
 ** Add a report/debug command, displaying a list of open files and other information.
