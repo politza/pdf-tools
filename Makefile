@@ -68,6 +68,7 @@ install-server-deps:
 	sudo apt-get install gcc g++ make automake autoconf \
 		libpng-dev libz-dev libpoppler-glib-dev
 	-sudo apt-get install libpoppler-private-dev
+	-sudo apt-get install gtklp
 
 melpa-build: server/epdfinfo
 	-cp -p server/epdfinfo ..

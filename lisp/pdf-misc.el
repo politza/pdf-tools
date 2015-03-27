@@ -31,6 +31,7 @@
 (defvar pdf-misc-minor-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "I") 'pdf-misc-display-metadata)
+    (define-key map (kbd "C-c C-p") 'pdf-misc-print-document)
     map)
   "Keymap used in `pdf-misc-minor-mode'.")
 
@@ -130,6 +131,8 @@
     ["--" nil :visible (and (featurep 'pdf-sync)
                             (equal last-command-event
                                    last-nonmenu-event))]
+    ["Print" pdf-misc-print-document]
+    "--"
     ["Revert buffer" pdf-view-revert-buffer
      :visible (pdf-info-writable-annotations-p)]
     "--"
@@ -197,6 +200,43 @@
       (goto-char 1)
       (display-buffer (current-buffer)))
     md))
+
+(defcustom pdf-misc-print-programm nil
+  "The program used for printing.
+
+It is called with one argument, the PDF file."
+  :group 'pdf-misc
+  :type 'file)
+
+(defun pdf-misc-print-programm (&optional interactive-p)
+  (or (and pdf-misc-print-programm
+           (executable-find pdf-misc-print-programm))
+      (when interactive-p
+        (let* ((default (car (delq nil (mapcar
+                                        'executable-find
+                                        '("gtklp" "xpp" "gpr")))))
+               buffer-file-name
+               (programm 
+                (expand-file-name
+                 (read-file-name
+                  "Print with: " default nil t nil 'file-executable-p))))
+          (when (and programm
+                     (executable-find programm))
+            (when (y-or-n-p "Save choice using customize ?")
+              (customize-save-variable
+               'pdf-misc-print-programm programm))
+            (setq pdf-misc-print-programm programm))))))
+
+(defun pdf-misc-print-document (filename &optional interactive-p)
+  (interactive
+   (list (pdf-view-buffer-file-name) t))
+  (unless (file-readable-p filename)
+    (signal 'wrong-type-argument
+            (list 'file-readable-p filename)))
+  (let ((programm (pdf-misc-print-programm interactive-p)))
+    (unless programm
+      (error "No print programm available"))
+    (start-process "printing" nil programm filename)))
 
 (provide 'pdf-misc)
 
