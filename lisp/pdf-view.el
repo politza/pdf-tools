@@ -486,7 +486,10 @@ Otherwise, goto next page only on typing SPC (ARG is nil)."
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
 	    (cur-page (pdf-view-current-page)))
-	(when (= (window-vscroll) (image-scroll-up arg))
+	(when (or (= (window-vscroll) (image-scroll-up arg))
+                  ;; Workaround rounding/off-by-one issues.
+                  (memq pdf-view-display-size
+                        '(fit-height fit-page)))
 	  (pdf-view-next-page)
 	  (when (/= cur-page (pdf-view-current-page))
 	    (image-bob)
@@ -503,7 +506,10 @@ Otherwise, goto previous page only on typing DEL (ARG is nil)."
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
 	    (cur-page (pdf-view-current-page)))
-	(when (= (window-vscroll) (image-scroll-down arg))
+	(when (or (= (window-vscroll) (image-scroll-up arg))
+                  ;; Workaround rounding/off-by-one issues.
+                  (memq pdf-view-display-size
+                        '(fit-height fit-page)))
 	  (pdf-view-previous-page)
 	  (when (/= cur-page (pdf-view-current-page))
 	    (image-eob)
