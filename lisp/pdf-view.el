@@ -218,16 +218,14 @@ Edge values are image coordinates.")
 
 (defvar bookmark-make-record-function)
 
-(defun pdf-view-mode ()
+(define-derived-mode pdf-view-mode special-mode "PDFView"
   "Major mode in PDF buffers.
 
 PDFView Mode is an Emacs PDF viewer.  It displays PDF files as
-PNG images in Emacs buffers.
-
-\\{pdf-view-mode-map}"
-
-  (interactive)
-  (kill-all-local-variables)
+PNG images in Emacs buffers."
+  :group 'pdf-view
+  :abbrev-table nil
+  :syntax-table nil
   ;; Setup a local copy for remote files.
   (when (or jka-compr-really-do-compress
             (let ((file-name-handler-alist nil))
@@ -267,8 +265,6 @@ PNG images in Emacs buffers.
   ;; some display bug in xdisp.c:try_scrolling .
   (setq-local scroll-conservatively 0)
   (setq-local cursor-type nil)
-  (setq-local mode-name "PDFView")
-  (setq-local major-mode 'pdf-view-mode)
   (setq-local buffer-read-only t)
   (setq-local view-read-only nil)
   (setq-local bookmark-make-record-function
@@ -282,15 +278,15 @@ PNG images in Emacs buffers.
   ;; will work.
   (setq-local transient-mark-mode t)
 
-  (use-local-map pdf-view-mode-map)
-
   (add-hook 'window-configuration-change-hook
             'pdf-view-maybe-redisplay-resized-windows nil t)
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
-  (add-hook 'write-contents-functions 'pdf-view--write-contents-function nil t)
+  (add-hook 'write-contents-functions
+            'pdf-view--write-contents-function nil t)
   (add-hook 'kill-buffer-hook 'pdf-info-close nil t)
   (add-hook 'after-revert-hook 'pdf-view--after-revert-hook nil t)
-  (pdf-view-add-hotspot-function 'pdf-view-text-regions-hotspots-function -9)
+  (pdf-view-add-hotspot-function
+   'pdf-view-text-regions-hotspots-function -9)
   
   ;; Keep track of display info
   (add-hook 'image-mode-new-window-functions
@@ -298,9 +294,7 @@ PNG images in Emacs buffers.
   (image-mode-setup-winprops)
 
   ;; Setup initial page and start display
-  (pdf-view-goto-page (or (pdf-view-current-page) 1))
-
-  (run-mode-hooks 'pdf-view-mode-hook))
+  (pdf-view-goto-page (or (pdf-view-current-page) 1)))
 
 (defun pdf-view-buffer-file-name ()
   "Return the local filename of the PDF in the current buffer.
