@@ -63,15 +63,6 @@
   :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
-(defcustom pdf-isearch-cache-images nil
-  "Whether already displayed images should be cached.
-
-FIXME: Explain."
-  :group 'pdf-isearch
-  :type 'boolean)
-
-
-
 
 ;; * ================================================================== *
 ;; * Internal Variables
@@ -585,49 +576,30 @@ MATCH-BG LAZY-FG LAZY-BG\)."
   "Highlighting edges CURRENT and MATCHES."
   (let* ((width (car (pdf-view-image-size)))
          (page (pdf-view-current-page))
-         (hash (sxhash
-                (format
-                 "%S"
-                 (list current
-                       (if (not isearch-forward)
-                           (reverse matches)
-                         matches)
-                       page 
-                       (if (boundp 'pdf-view-dark-minor-mode)
-                           pdf-view-dark-minor-mode
-                         'unbound)
-                       pdf-isearch-batch-mode
-                       pdf-isearch-current-parameter))))
-         (data nil ;; (pdf-cache-lookup-image page width nil hash)
-               ))
-    (if data
-        (pdf-view-display-image (create-image
-                                 data (pdf-view-image-type) t))
-      (let* ((window (selected-window))
-             (buffer (current-buffer))
-             (tick (cl-incf pdf-isearch--hl-matches-tick))
-             (pdf-info-asynchronous
-              (lambda (status data)
-                (when (and (null status)
-                           (eq tick pdf-isearch--hl-matches-tick)
-                           (buffer-live-p buffer)
-                           (window-live-p window)
-                           (eq (window-buffer window)
-                               buffer))
-                  (with-selected-window window
-                    (when (and (eq major-mode 'pdf-view-mode)
-                               isearch-mode
-                               (eq page (pdf-view-current-page)))
-                      (pdf-cache-put-image page width data hash) 
-                      (pdf-view-display-image
-                       (pdf-view-create-image data))))))))
-        (cl-destructuring-bind (fg1 bg1 fg2 bg2)
-            (pdf-isearch-current-colors)
-          (pdf-info-renderpage-text-regions
-           page width t nil
-           `(,fg1 ,bg1 ,(pdf-util-scale-pixel-to-relative current))
-           `(,fg2 ,bg2 ,@(pdf-util-scale-pixel-to-relative
-                          (remq current matches)))))))))
+         (window (selected-window))
+         (buffer (current-buffer))
+         (tick (cl-incf pdf-isearch--hl-matches-tick))
+         (pdf-info-asynchronous
+          (lambda (status data)
+            (when (and (null status)
+                       (eq tick pdf-isearch--hl-matches-tick)
+                       (buffer-live-p buffer)
+                       (window-live-p window)
+                       (eq (window-buffer window)
+                           buffer))
+              (with-selected-window window
+                (when (and (eq major-mode 'pdf-view-mode)
+                           isearch-mode
+                           (eq page (pdf-view-current-page)))
+                  (pdf-view-display-image
+                   (pdf-view-create-image data))))))))
+    (cl-destructuring-bind (fg1 bg1 fg2 bg2)
+        (pdf-isearch-current-colors)
+      (pdf-info-renderpage-text-regions
+       page width t nil
+       `(,fg1 ,bg1 ,(pdf-util-scale-pixel-to-relative current))
+       `(,fg2 ,bg2 ,@(pdf-util-scale-pixel-to-relative
+                      (remq current matches)))))))
 
 ;; The following isearch-search function is debugable.
 ;; 
