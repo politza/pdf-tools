@@ -341,7 +341,7 @@ a local copy of a remote file."
 (defun pdf-view-close-document ()
   "Like `pdf-info-close', but returns immediately."
   (let ((pdf-info-asynchronous 'ignore))
-    (pdf-info-quit)))
+    (pdf-info-close)))
 
 
 ;; * ================================================================== *
