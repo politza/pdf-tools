@@ -686,6 +686,93 @@ representing the final page."
        (string-to-number year)
        tz))))
 
+
+
+;; * ================================================================== *
+;; * Buffer local server instances
+;; * ================================================================== *
+
+(put 'pdf-info--queue 'permanent-local t)
+
+(defun pdf-info-make-local-server (&optional buffer force-restart-p)
+  "Create a server instance local to BUFFER.
+
+Does nothing if BUFFER already has a local instance.  Unless
+FORCE-RESTART-P is non-nil, then quit a potential process and
+restart it."
+  (unless buffer
+    (setq buffer (current-buffer)))
+  (with-current-buffer buffer
+    (unless (and 
+             (not force-restart-p)
+             (local-variable-p 'pdf-info--queue)
+             (processp (pdf-info-process))
+             (eq (process-status (pdf-info-process))
+                 'run))
+      (when (and (local-variable-p 'pdf-info--queue)
+                 (processp (pdf-info-process)))
+        (tq-close pdf-info--queue))
+      (set (make-local-variable 'pdf-info--queue) nil)
+      (pdf-info-process-assert-running t)
+      (add-hook 'kill-buffer-hook 'pdf-info-kill-local-server nil t)
+      pdf-info--queue)))
+
+(defun pdf-info-kill-local-server (&optional buffer)
+  "Kill the local server in BUFFER.
+
+A No-op, if BUFFER has not running server instance."
+  (save-current-buffer
+    (when buffer
+      (set-buffer buffer))
+    (when (local-variable-p 'pdf-info--queue)
+      (pdf-info-kill)
+      (kill-local-variable 'pdf-info--queue)
+      t)))
+
+(defun pdf-info-local-server-p (&optional buffer)
+  "Return non-nil, if BUFFER has a running server instance."
+  (unless buffer
+    (setq buffer (current-buffer)))
+  (setq buffer (get-buffer buffer))
+  (and (buffer-live-p buffer)
+       (local-variable-p 'pdf-info--queue buffer)))
+
+(defun pdf-info-local-batch-query (producer-fn
+                                   consumer-fn
+                                   sentinel-fn
+                                   args)
+  "Process a set of queries asynchronously in a local instance."
+  (unless (pdf-info-local-server-p)
+    (error "Create a local server first"))
+  (let* ((buffer (current-buffer))
+         (producer-symbol (make-symbol "producer"))
+         (consumer-symbol (make-symbol "consumer"))
+         (producer
+          (lambda (args)
+            (if (null args)
+                (funcall sentinel-fn 'finished buffer)
+              (let ((pdf-info-asynchronous
+                     (apply-partially
+                      (symbol-function consumer-symbol)
+                      args)))
+                (cond
+                 ((pdf-info-local-server-p buffer)
+                  (with-current-buffer buffer
+                    (apply producer-fn (car args))))
+                 (t
+                  (funcall sentinel-fn 'error buffer)))))))
+         (consumer (lambda (args status result)
+                     (if (not (pdf-info-local-server-p buffer))
+                         (funcall sentinel-fn 'error buffer)
+                       (with-current-buffer buffer
+                         (apply consumer-fn status result (car args)))
+                       (funcall (symbol-function producer-symbol)
+                                (cdr args))))))
+    (fset producer-symbol producer)
+    (fset consumer-symbol consumer)
+    (funcall producer args)))
+
+
 
 ;; * ================================================================== *
 ;; * High level interface
