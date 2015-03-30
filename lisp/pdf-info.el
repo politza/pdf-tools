@@ -1126,7 +1126,8 @@ before killing the server."
   (cl-check-type timeout (or null number))
   (when (pdf-info-running-p)
     (let ((pdf-info-asynchronous
-           (if timeout (lambda (&rest _)))))
+           (if timeout (lambda (&rest _))
+             pdf-info-asynchronous)))
       (pdf-info-query 'quit)
       (when timeout
         (setq timeout (+ (float-time) (max 0 timeout)))
