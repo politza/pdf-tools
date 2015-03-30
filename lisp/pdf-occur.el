@@ -522,7 +522,7 @@ matches linked with PAGE."
                                (if (/= 1 pdf-occur-number-of-matches) "es" "")
                                (pdf-occur-abbrev-file-name
                                 (caar pdf-occur-search-documents)))
-                     (format "%d match%s in %d searched documents"
+                     (format "%d match%s in %d documents"
                              pdf-occur-number-of-matches
                              (if (/= 1 pdf-occur-number-of-matches) "es" "")
                              (length pdf-occur-search-documents)))
