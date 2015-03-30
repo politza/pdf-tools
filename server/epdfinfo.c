@@ -1640,15 +1640,15 @@ cmd_closeall (const epdfinfo_t *ctx, const command_arg_t *args)
   OK ();
 }
 
+
 const command_arg_type_t cmd_search_regexp_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* first page */
     ARG_NATNUM,                 /* last page */
     ARG_NONEMPTY_STRING,        /* regexp */
-    ARG_BOOL,                   /* ignore-case */
-    ARG_BOOL,                   /* extended regexp */
-    ARG_BOOL,                   /* REG_NEWLINE */
+    ARG_NATNUM,                 /* compile flags */
+    ARG_NATNUM                  /* match flags */
   };
 
 static void
@@ -1657,111 +1657,135 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerDocument *doc = args[0].value.doc->pdf;
   int first = args[1].value.natnum;
   int last = args[2].value.natnum;
-  const char *regexp = args[3].value.string;
-  gboolean ignore_case = args[4].value.flag;
-  gboolean extended_regexp = args[5].value.flag;
-  gboolean treat_newline = args[6].value.flag;
+  const gchar *regexp = args[3].value.string;
+  GRegexCompileFlags cflags = args[4].value.natnum;
+  GRegexMatchFlags mflags = args[5].value.natnum;
   double width, height;
-  int pn, re_error;
-  regex_t *re = g_malloc0(sizeof (regex_t));
-  int cflags = 0;
+  int pn;
+  GError *gerror = NULL;
+  GRegex *re = NULL;
 
   NORMALIZE_PAGE_ARG (doc, &first, &last);
-  if (ignore_case)
-    cflags |= REG_ICASE;
-  if (extended_regexp)
-    cflags |= REG_EXTENDED;
-  if (treat_newline)
-    cflags |= REG_NEWLINE;
 
-  if ((re_error = regcomp (re, regexp, cflags)))
-    {
-      char *re_error_msg = g_malloc (sizeof (256));
-      regerror (re_error, re, re_error_msg, 256);
-      printf_error_response ("Invalid regexp: %s", re_error_msg);
-      g_free (re_error_msg);
-      goto error;
-    }
-
+  re = g_regex_new (regexp, cflags, mflags, &gerror);
+  perror_if_not (NULL == gerror, "Invalid regexp: %s", gerror->message);
+  
   OK_BEGIN ();
   for (pn = first; pn <= last; ++pn)
     {
       PopplerPage *page = poppler_document_get_page(doc, pn - 1);
-      char *text, *text_p;
+      char *text;
       PopplerRectangle *rectangles = NULL;
       guint nrectangles;
-      regmatch_t match;
-      int offset = 0;
-      int eflags = 0;
+      GMatchInfo *match = NULL;
 
       if (! page)
         continue;
 
       text = poppler_page_get_text (page);
-      text_p = text;
       poppler_page_get_text_layout (page, &rectangles, &nrectangles);
       poppler_page_get_size (page, &width, &height);
-
-      while (*text_p && ! regexec (re, text_p, 1, &match, eflags))
+      g_regex_match (re, text, 0, &match);
+      
+      while (g_match_info_matches (match))
         {
           const double scale = 100.0;
-          gint start = g_utf8_strlen (text_p, match.rm_so);
-          gint len = g_utf8_strlen (text_p + match.rm_so, match.rm_eo - match.rm_so);
-          cairo_region_t *region = cairo_region_create ();
+          gint start, end, ustart, ulen;
+          gchar *string = NULL;
+          gchar *line = NULL;
           int i;
-            
+
+          /* Does this ever happen ? */
+          if (! g_match_info_fetch_pos (match, 0, &start, &end))
+            continue;
+          
+          string = g_match_info_fetch (match, 0);
+          ustart = g_utf8_strlen (text, start);
+          ulen = g_utf8_strlen (string, -1);
+
+          cairo_region_t *region = cairo_region_create ();
           /* Merge matched glyph rectangles. Scale them so we're able
              to use cairo . */
-          assert (start + offset + len <= nrectangles);
-          for (i = start + offset; i < start + offset + len; ++i)
+          if (ulen > 0)
             {
-              PopplerRectangle *r = rectangles + i;
-              cairo_rectangle_int_t c;
+              assert (ustart < nrectangles
+                      && ustart + ulen <= nrectangles);
+              line = poppler_page_get_selected_text
+                     (page, POPPLER_SELECTION_LINE, rectangles + ustart);
 
-              c.x = (int) (scale * r->x1 + 0.5); 
-              c.y = (int) (scale * r->y1 + 0.5); 
-              c.width = (int) (scale * (r->x2 - r->x1) + 0.5); 
-              c.height = (int) (scale * (r->y2 - r->y1) + 0.5); 
+              for (i = ustart; i < ustart + ulen; ++i)
+                {
+                  PopplerRectangle *r = rectangles + i;
+                  cairo_rectangle_int_t c;
+
+                  c.x = (int) (scale * r->x1 + 0.5); 
+                  c.y = (int) (scale * r->y1 + 0.5); 
+                  c.width = (int) (scale * (r->x2 - r->x1) + 0.5); 
+                  c.height = (int) (scale * (r->y2 - r->y1) + 0.5); 
               
-              cairo_region_union_rectangle (region, &c);
+                  cairo_region_union_rectangle (region, &c);
+                }
+
             }
 
-          if (len != 0)
-            {
-              char endc = *(text_p + match.rm_eo);
-              
-              printf ("%d:", pn);
-              *(text_p + match.rm_eo) = '\0';
-              print_response_string (text_p + match.rm_so, COLON);
-              *(text_p + match.rm_eo) = endc;
-              region_print (region, width * scale, height * scale);
-              putchar ('\n');
-              
-              offset += start + len;
-              text_p = g_utf8_offset_to_pointer (text_p, start + len);
-            }
-          else               /* Empty match, advance one character. */
-            {
-              text_p = g_utf8_find_next_char (text_p + match.rm_eo, NULL);
-              offset += start + 1;
-            }
-          if (treat_newline)
-            eflags = *(text_p - 1) == '\n' ? 0 : REG_NOTBOL;
+          printf ("%d:", pn);
+          print_response_string (string, COLON);
+          print_response_string (strchomp (line), COLON);
+          region_print (region, width * scale, height * scale);
+          putchar ('\n');
           cairo_region_destroy (region);
+          g_free (string);
+          g_free (line);
+          g_match_info_next (match, NULL);
         }
       g_free (rectangles);
       g_object_unref (page);
       g_free (text);
+      g_match_info_free (match);
     }
   OK_END ();
 
  error:
-  if (re)
-    {
-      regfree (re);
-      g_free (re);
-    }
+  if (re) g_regex_unref (re);
+  if (gerror) g_error_free (gerror);
 }
+
+const command_arg_type_t cmd_regexp_flags_spec[] =
+  {
+  };
+
+static void
+cmd_regexp_flags (const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  OK_BEGIN ();
+  printf ("caseless:%d\n", G_REGEX_CASELESS);          
+  printf ("multiline:%d\n", G_REGEX_MULTILINE);         
+  printf ("dotall:%d\n", G_REGEX_DOTALL);            
+  printf ("extended:%d\n", G_REGEX_EXTENDED);          
+  printf ("anchored:%d\n", G_REGEX_ANCHORED);          
+  printf ("dollar-endonly:%d\n", G_REGEX_DOLLAR_ENDONLY);
+  printf ("ungreedy:%d\n", G_REGEX_UNGREEDY);
+  printf ("raw:%d\n", G_REGEX_RAW);
+  printf ("no-auto-capture:%d\n", G_REGEX_NO_AUTO_CAPTURE);
+  printf ("optimize:%d\n", G_REGEX_OPTIMIZE);
+  printf ("dupnames:%d\n", G_REGEX_DUPNAMES);
+  printf ("newline-cr:%d\n", G_REGEX_NEWLINE_CR);
+  printf ("newline-lf:%d\n", G_REGEX_NEWLINE_LF);
+  printf ("newline-crlf:%d\n", G_REGEX_NEWLINE_CRLF);
+
+  printf ("match-anchored:%d\n", G_REGEX_MATCH_ANCHORED);
+  printf ("match-notbol:%d\n", G_REGEX_MATCH_NOTBOL);
+  printf ("match-noteol:%d\n", G_REGEX_MATCH_NOTEOL);
+  printf ("match-notempty:%d\n", G_REGEX_MATCH_NOTEMPTY);
+  printf ("match-partial:%d\n", G_REGEX_MATCH_PARTIAL);
+  printf ("match-newline-cr:%d\n", G_REGEX_MATCH_NEWLINE_CR);
+  printf ("match-newline-lf:%d\n", G_REGEX_MATCH_NEWLINE_LF);
+  printf ("match-newline-crlf:%d\n", G_REGEX_MATCH_NEWLINE_CRLF);
+  printf ("match-newline-any:%d\n", G_REGEX_MATCH_NEWLINE_ANY);
+
+  OK_END ();
+}
+
 
 const command_arg_type_t cmd_search_string_spec[] =
   {
@@ -1806,7 +1830,7 @@ cmd_search_string(const epdfinfo_t *ctx, const command_arg_t *args)
 
       for (item = list; item; item = item->next)
         {
-          gchar *line;
+          gchar *line, *match;
           PopplerRectangle *r = item->data;
           gdouble y1 =  r->y1;
 
@@ -1816,11 +1840,15 @@ cmd_search_string(const epdfinfo_t *ctx, const command_arg_t *args)
           printf ("%d:", pn);
           line = strchomp (poppler_page_get_selected_text
                            (page, POPPLER_SELECTION_LINE, r));
+          match = strchomp (poppler_page_get_selected_text
+                           (page, POPPLER_SELECTION_GLYPH, r));
+          print_response_string (match, COLON);
           print_response_string (line, COLON);
           printf ("%f %f %f %f\n",
                   r->x1 / width, r->y1 / height,
                   r->x2 / width, r->y2 / height);
           g_free (line);
+          g_free (match);
           poppler_rectangle_free (r);
         }
       g_list_free (list);
@@ -3217,6 +3245,8 @@ static const command_t commands [] =
      G_N_ELEMENTS (cmd_search_string_spec)},
     {"search-regexp", cmd_search_regexp, cmd_search_regexp_spec,
      G_N_ELEMENTS (cmd_search_regexp_spec)},
+    {"regexp-flags", cmd_regexp_flags, cmd_regexp_flags_spec,
+     G_N_ELEMENTS (cmd_regexp_flags_spec)},
     {"metadata", cmd_metadata, cmd_metadata_spec,
      G_N_ELEMENTS (cmd_metadata_spec)},
     {"outline", cmd_outline, cmd_outline_spec,

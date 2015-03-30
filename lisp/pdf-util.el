@@ -570,6 +570,24 @@ Singal an error, if color is invalid."
              (mapcar (lambda (c) (lsh c -8))
                      values)))))
 
+(defun pdf-util-highlight-regexp-in-string (regexp string &optional face)
+  "Highlight all occurrences of REGEXP in STRING using FACE.
+
+FACE defaults to the `match' face.  Returns the new fontified
+string."
+  (with-temp-buffer
+    (save-excursion (insert string))
+    (while (and (not (eobp))
+                (re-search-forward regexp nil t))
+      (if (= (match-beginning 0)
+             (match-end 0))
+          (forward-char)
+        (put-text-property
+         (match-beginning 0)
+         (point)
+         'face (or face 'match))))
+    (buffer-string)))
+
 (defun pdf-util-color-completions ()
   "Return a fontified list of defined colors."
   (let ((color-list (list-colors-duplicates))
@@ -1050,10 +1068,12 @@ Return the converted PNG image as a string.  See also
         (list left top right bot)))))
 
 (defun pdf-util-edges-union (&rest edges)
-  (list (apply 'min (mapcar 'car edges))
-        (apply 'min (mapcar 'cadr edges))
-        (apply 'max (mapcar 'cl-caddr edges))
-        (apply 'max (mapcar 'cl-cadddr edges))))
+  (if (null (cdr edges))
+      (car edges)
+    (list (apply 'min (mapcar 'car edges))
+          (apply 'min (mapcar 'cadr edges))
+          (apply 'max (mapcar 'cl-caddr edges))
+          (apply 'max (mapcar 'cl-cadddr edges)))))
 
 (defun pdf-util-edges-intersection-area (e1 e2)
   (let ((inters (pdf-util-edges-intersection e1 e2)))

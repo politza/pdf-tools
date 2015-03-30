@@ -379,18 +379,25 @@ interrupted."
                  ,(mapcar 'string-to-number
                           (split-string (car elt) " " t))))
              response))
-    ((search-string search-regexp)
-     (let ((matches
-            (mapcar
-             (lambda (r)
-               `(,(string-to-number (car r))
-                 ,(cadr r)
-                 ,@(mapcar (lambda (m)
-                             (mapcar 'string-to-number
-                                     (split-string m " " t)))
-                           (cddr r))))
+    (regexp-flags
+     (mapcar (lambda (elt)
+               (cons (intern (car elt))
+                     (string-to-number (cadr elt))))
              response))
-           result)
+    ((search-string search-regexp)
+     (let* ((matches
+             (mapcar
+              (lambda (r)
+                `(,(string-to-number (nth 0 r))
+                  ,(let (case-fold-search)
+                     (pdf-util-highlight-regexp-in-string
+                      (regexp-quote (nth 1 r)) (nth 2 r)))
+                  ,@(mapcar (lambda (m)
+                              (mapcar 'string-to-number
+                                      (split-string m " " t)))
+                            (cddr (cdr r)))))
+              response))
+            result)
        (while matches
          (let ((page (caar matches))
                items)
@@ -758,9 +765,10 @@ See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
-looks like \(TEXT EDGES\), where EDGES represent the coordinates
+looks like \(LINE EDGES\), where EDGES represent the coordinates
 of the match as a list of four relative values \(LEFT TOP RIGHT
-BOTTOM\). TEXT is the complete line where STRING was found.
+BOTTOM\). LINE is the matched line, containing `match' face
+properties on the matched parts.
 
 Search is case-insensitive, unless `case-fold-search' is nil and
 searching case-sensitive is supported by the server."
@@ -774,45 +782,119 @@ searching case-sensitive is supported by the server."
      string
      (if case-fold-search 1 0))))
 
-(defun pdf-info-search-regexp (regexp &optional pages  
-                                      extended-regexp-p
-                                      dont-treat-newline-p
-                                      file-or-buffer)
-  "Search for REGEXP in PAGES of docüment FILE-OR-BUFFER.
+(defvar pdf-info-regexp-compile-flags nil
+  "PCRE compile flags.
+
+Don't use this, but the equally named function.")
+
+(defvar pdf-info-regexp-match-flags nil
+  "PCRE match flags.
+
+Don't use this, but the equally named function.")
+
+(defun pdf-info-regexp-compile-flags ()
+  (or pdf-info-regexp-compile-flags
+      (let* ((flags (pdf-info-query 'regexp-flags))
+             (match (cl-remove-if-not
+                     (lambda (flag)
+                       (string-match-p
+                        "\\`match-" (symbol-name (car flag))))
+                     flags))
+             (compile (cl-set-difference flags match)))
+        (setq pdf-info-regexp-compile-flags compile
+              pdf-info-regexp-match-flags match)
+        pdf-info-regexp-compile-flags)))
+
+(defun pdf-info-regexp-match-flags ()
+  (or pdf-info-regexp-match-flags
+      (progn
+        (pdf-info-regexp-compile-flags)
+        pdf-info-regexp-match-flags)))
+
+(defvar pdf-info-regexp-flags '(multiline)
+  "Compile- and match-flags for the PCRE engine.
+
+This is a list of symbols denoting compile- and match-flags when
+searching for regular expressions.
+
+You should not change this directly, but rather `let'-bind it
+around a call to `pdf-info-search-regexp'.
+
+Valid compile-flags are: 
+
+newline-crlf, newline-lf, newline-cr, dupnames, optimize,
+no-auto-capture, raw, ungreedy, dollar-endonly, anchored,
+extended, dotall, multiline and caseless.
+
+Note that the last one, caseless, is handled special, as it is
+always added if `case-fold-search' is non-nil.
+
+And valid match-flags: 
+
+match-anchored, match-notbol, match-noteol, match-notempty,
+match-partial, match-newline-cr, match-newline-lf,
+match-newline-crlf and match-newline-any.
+
+See the glib documentation at url
+`https://developer.gnome.org/glib/stable/glib-Perl-compatible-regular-expressions.html'.")
+
+(defun pdf-info-search-regexp (pcre &optional pages  
+                                    no-error
+                                    file-or-buffer)
+  "Search for a PCRE on PAGES of docüment FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats.
 
 This function returns a list \(\((PAGE . MATCHES\) ... \), where
 MATCHES represents a list of matches on PAGE.  Each MATCHES item
-looks like \(TEXT EDGES EDGES ...\), where the EDGES elements
+looks like \(LINE EDGES EDGES ...\), where the EDGES elements
 represent the coordinates of the match, each one beeing a list of
-four relative values \(LEFT TOP RIGHT BOTTOM\). TEXT is the
-matched text.
+four relative values \(LEFT TOP RIGHT BOTTOM\).  LINE is the
+matched line, containing `match' face properties on the matched
+parts.
 
-If EXTENDED-REGEXP-P is non nil, treat REGEXP as a extended
-regular expression, otherwise REGEXP should be a POSIX regular
-expression.  Note that there are in any case subtle differences
-compared to an Emacs regexp.
+Uses the flags in `pdf-info-regexp-flags', which see.  If
+`case-fold-search' is non-nil, the caseless flag is added.
 
-If DONT-TREAT-NEWLINE-P is non-nil, `^' and `$' match at the
-beginning resp. end of a page only and `.' and `[^...]' match
-newlines.  Otherwise, the text is divided into multiple lines, so
-that `^' and `$' match before and after a newline.  Also, `.' and
-`[^...]' don't match newlines in this case.
-
-Search is case-insensitive, unless `case-fold-search' is nil and
-searching case-sensitive is supported by the server."
-
-  (let ((pages (pdf-info-normalize-page-range pages)))
-    (pdf-info-query
-     'search-regexp
-     (pdf-info--normalize-file-or-buffer file-or-buffer)
-     (car pages)
-     (cdr pages)
-     regexp
-     (if case-fold-search 1 0)
-     (if extended-regexp-p 1 0)
-     (if dont-treat-newline-p 0 1))))
+If NO-ERROR is non-nil, catch errors due to invalid regexps and
+return nil.  If it is the symbol `invalid-regexp', then re-signal
+this kind of error as a `invalid-regexp' error."
+  
+  (cl-labels ((orflags (flags alist)
+                (cl-reduce
+                 (lambda (v flag)
+                   (let ((n
+                          (cdr (assq flag alist))))
+                     (if n (logior n v) v)))
+                 (cons 0 flags))))
+    (let ((pages (pdf-info-normalize-page-range pages)))
+      (condition-case err
+          (pdf-info-query
+           'search-regexp
+           (pdf-info--normalize-file-or-buffer file-or-buffer)
+           (car pages)
+           (cdr pages)
+           pcre
+           (orflags `(,(if case-fold-search 
+                           'caseless)
+                      ,@pdf-info-regexp-flags)
+                    (pdf-info-regexp-compile-flags))
+           (orflags pdf-info-regexp-flags
+                    (pdf-info-regexp-match-flags)))
+        (error
+         (let ((re
+                (concat "\\`epdfinfo: *Invalid *regexp: *"
+                        ;; glib error
+                        "\\(?:Error while compiling regular expression"
+                        " *%s *\\)?\\(.*\\)")))
+           (if (or (null no-error)
+                   (not (string-match
+                         (format re (regexp-quote pcre))
+                         (cadr err))))
+               (signal (car err) (cdr err))
+             (if (eq no-error 'invalid-regexp)
+                 (signal 'invalid-regexp
+                         (list (match-string 1 (cadr err))))))))))))
 
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
