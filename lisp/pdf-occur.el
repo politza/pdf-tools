@@ -391,7 +391,8 @@ I.e. all marked buffers are in PDFView mode."
   (interactive
    (list (pdf-occur-want-regexp-search-p)))
   (let* ((buffer (or (ibuffer-get-marked-buffers)
-                     (list (ibuffer-current-buffer))))
+                     (and (ibuffer-current-buffer)
+                          (list (ibuffer-current-buffer)))))
          (pdf-only-p (mapcar (lambda (buf)
                                (with-current-buffer buf
                                  (derived-mode-p 'pdf-view-mode)))
