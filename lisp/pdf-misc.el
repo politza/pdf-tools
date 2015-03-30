@@ -21,9 +21,9 @@
 ;;; Commentary:
 ;; 
 
+
 (require 'pdf-view)
 (require 'pdf-util)
-(require 'pdf-occur)
 (require 'imenu)
 
 

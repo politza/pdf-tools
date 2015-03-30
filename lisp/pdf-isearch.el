@@ -375,8 +375,15 @@ there was no previous search, this function returns t."
   "Like `message', but Isearch friendly."
   (unless args (setq args (list fmt) fmt "%s"))
   (let ((msg (apply 'format fmt args)))
-    (if isearch-mode
+    (if (cl-some (lambda (buf)
+                   (buffer-local-value 'isearch-mode buf))
+                 (mapcar 'window-buffer (window-list)))
         (let ((isearch-message-suffix-add
+               (format " [%s]" msg)))
+          (isearch-message)
+          (sit-for 1))
+      (message "%s" msg))))
+
 (defun pdf-isearch-empty-match-p (matches)
   (cl-every
    (lambda (match)
@@ -385,11 +392,18 @@ there was no previous search, this function returns t."
                match))
    matches))
 
-               (format " [%s]" msg)))
-          (isearch-message)
-          (sit-for 1))
-      (message "%s" msg))))
-
+(defun pdf-isearch-occur ()
+  "Run `occur' using the last search string or regexp."
+  (interactive)
+  (let ((case-fold-search isearch-case-fold-search)
+	(search-spaces-regexp
+	 (if (if isearch-regexp
+		 isearch-regexp-lax-whitespace
+	       isearch-lax-whitespace)
+	     search-whitespace-regexp)))
+    (save-selected-window
+      (pdf-occur isearch-string isearch-regexp))
+    (isearch-message)))
 
 
 ;; * ================================================================== *
@@ -610,8 +624,12 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 
 (defvar pdf-isearch--hl-matches-tick 0)
 
-(defun pdf-isearch-hl-matches (current matches)
+(defun pdf-isearch-hl-matches (current matches &optional occur-hack-p)
   "Highlighting edges CURRENT and MATCHES."
+  (cl-check-type current pdf-isearch-match)
+  (cl-check-type matches (list-of pdf-isearch-match))
+  (setq current (copy-sequence current)
+        matches (copy-sequence matches))
   (let* ((width (car (pdf-view-image-size)))
          (page (pdf-view-current-page))
          (window (selected-window))
@@ -627,7 +645,8 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                            buffer))
               (with-selected-window window
                 (when (and (eq major-mode 'pdf-view-mode)
-                           isearch-mode
+                           (or isearch-mode
+                               occur-hack-p)
                            (eq page (pdf-view-current-page)))
                   (pdf-view-display-image
                    (pdf-view-create-image data))))))))
