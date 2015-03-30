@@ -99,22 +99,28 @@ searching across multiple lines.")
 
 (defvar pdf-isearch-active-mode-map
   (let ((kmap (make-sparse-keymap)))
+    (set-keymap-parent kmap isearch-mode-map)
     (define-key kmap (kbd "C-d") 'pdf-view-dark-minor-mode)
     (define-key kmap (kbd "C-b") 'pdf-isearch-batch-mode)
     (define-key kmap (kbd "C-v") 'pdf-view-scroll-up-or-next-page)
     (define-key kmap (kbd "M-v") 'pdf-view-scroll-down-or-previous-page)
+    (define-key kmap (kbd "M-s o") 'pdf-isearch-occur)
     kmap)
   "Keymap used in `pdf-isearch-active-mode'.
 
-This keymap is used, when actually isearching.  For a command in
-this map to work, it usually needs to have a non-nil
-isearch-scroll property.")
+This keymap is used, when isearching in PDF buffers.  It's parent
+keymap is `isearch-mode-map'.")
 
-(progn
-  (put 'pdf-isearch-batch-mode 'isearch-scroll t)
-  (put 'pdf-view-dark-minor-mode 'isearch-scroll t)
-  (put 'pdf-view-scroll-up-or-next-page 'isearch-scroll t)
-  (put 'pdf-view-scroll-down-or-previous-page 'isearch-scroll t))
+(define-minor-mode pdf-isearch-active-mode "" nil nil nil
+  (cond
+   (pdf-isearch-active-mode
+    (set (make-local-variable 'isearch-mode-map)
+         pdf-isearch-active-mode-map)
+    (setq overriding-terminal-local-map
+          isearch-mode-map))
+   (t
+    ;;(setq overriding-terminal-local-map nil) ?
+    (kill-local-variable 'isearch-mode-map))))
 
 ;;;###autoload
 (define-minor-mode pdf-isearch-minor-mode
@@ -183,8 +189,6 @@ While in `isearch-mode' the following keys are available.
     (remove-hook 'isearch-update-post-hook 'pdf-isearch-update t)
     (remove-hook 'isearch-mode-hook 'pdf-isearch-mode-initialize t)
     (remove-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup t))))
-
-(define-minor-mode pdf-isearch-active-mode "" nil nil nil)
 
 (define-minor-mode pdf-isearch-batch-mode
   "Isearch PDF documents batch-wise.
