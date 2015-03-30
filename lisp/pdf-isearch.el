@@ -89,6 +89,8 @@ searching across multiple lines.")
 ;; * Modes
 ;; * ================================================================== *
 
+(declare-function pdf-occur "pdf-occur.el")
+                  
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap (kbd "C-s") 'isearch-forward)

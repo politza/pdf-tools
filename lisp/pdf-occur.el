@@ -25,6 +25,7 @@
 (require 'pdf-view)
 (require 'pdf-util)
 (require 'pdf-info)
+(require 'pdf-isearch)
 (require 'tablist)
 (require 'ibuf-ext)
 (require 'dired)
