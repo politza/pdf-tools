@@ -1109,14 +1109,40 @@ The size is in PDF points."
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page)) 
 
-(defun pdf-info-quit ()
-  "Quit the epdfinfo server."
-  (when (and (processp (pdf-info-process))
-             (eq (process-status (pdf-info-process))
-                 'run))
-    (pdf-info-query 'quit)
-    (tq-close pdf-info--queue)
-    (setq pdf-info--queue nil)))
+(defun pdf-info-running-p ()
+  "Return non-nil, if the server is running."
+  (and (processp (pdf-info-process))
+       (eq (process-status (pdf-info-process))
+           'run)))
+
+(defun pdf-info-quit (&optional timeout)
+  "Quit the epdfinfo server.
+
+This blocks until all outstanding requests are answered.  Unless
+TIMEOUT is non-nil, in which case we wait at most TIMEOUT seconds
+before killing the server."
+  (cl-check-type timeout (or null number))
+  (when (pdf-info-running-p)
+    (let ((pdf-info-asynchronous
+           (if timeout (lambda (&rest _)))))
+      (pdf-info-query 'quit)
+      (when timeout
+        (setq timeout (+ (float-time) (max 0 timeout)))
+        (while (and (pdf-info-running-p)
+                    (> timeout (float-time)))
+          (accept-process-output (pdf-info-process) 0.5 nil t)))))
+  (when (processp (pdf-info-process))
+    (tq-close pdf-info--queue))
+  (setq pdf-info--queue nil))
+
+(defun pdf-info-kill ()
+  "Kill the epdfinfo server.
+
+Immediately delete the server process, see also `pdf-info-quit',
+for a more sane way to exit the program."
+  (when (processp (pdf-info-process))
+    (tq-close pdf-info--queue))
+  (setq pdf-info--queue nil))
 
 (defun pdf-info-getannots (&optional pages file-or-buffer)
   "Return the annotations on PAGE.
