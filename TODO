@@ -1,16 +1,10 @@
 -*- org -*-
 
 * pdf-isearch
-** Allow for entering multibyte characters with some input-methods.
-   The PDF buffer is in unibyte mode prohibiting the user from
-   inserting multibyte characters in the minibuffer with some
+** Allow for entering multi-byte characters with some input-methods.
+   The PDF buffer is in uni-byte mode prohibiting the user from
+   inserting multi-byte characters in the minibuffer with some
    input-methods, while editing the search string.
-** Implement regexp search
-   + Use pdf-info-search-regexp if isearch-regexp is non-nil.
-   + Make search-regexp use glib's regexp function. 
-   + Make functions handle a list of edges per match.
-* pdf-occur
-** Implement regexp search
 * PDF Forms
   Recent poppler versions have some support for editing forms.
 * pdf-annot
@@ -21,15 +15,11 @@
 * epdfinfo
 ** Maybe split the code up in several files.
 * pdf-view
-** Provide some kind of multipage view  
-** Make persisten scrolling relative
+** Provide some kind of multi-page view  
+** Make persistent scrolling relative
    Currently the scrolling is kept when changing the image's size (in
    pdf-view-display-image), which is actually not so desirable, since
    it is absolute.  This results e.g. in the image popping out of the
    window, when it is shrunken.
-** Fix resizing issues
-*** window parameter pdf-view-window-size
-    There is currently no check whether the window changed buffer in
-    pdf-view-maybe-redisplay-resized-windows.
 * pdf-info
 ** Add a report/debug command, displaying a list of open files and other information.
