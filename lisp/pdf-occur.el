@@ -141,6 +141,7 @@ Some useful keys are:
                           '(display-buffer-same-window)))
                      (pdf-occur-goto-occurrence)))))))
 
+;;;###autoload
 (defun pdf-occur (string &optional regexp-p)
   "List lines matching STRING or PCRE.
 
@@ -160,6 +161,7 @@ the prefix-arg is inverted."
   (pdf-occur-search (list (current-buffer)) string regexp-p))
 
 (defvar ibuffer-filtering-qualifiers)
+;;;###autoload
 (defun pdf-occur-multi-command ()
   "Perform `pdf-occur' on multiple buffer.
 
@@ -341,6 +343,7 @@ Compatibility function for \\[next-error] invocations."
 ;; * Integration with other modes
 ;; * ================================================================== *
 
+;;;###autoload
 (define-minor-mode pdf-occur-global-minor-mode
   "Enable integration of Pdf Occur with other modes.
 
@@ -370,6 +373,7 @@ in all current and future ibuffer/dired buffer."  nil nil nil
     map)
   "Keymap used in `pdf-occur-ibuffer-minor-mode'.")
 
+;;;###autoload
 (define-minor-mode pdf-occur-ibuffer-minor-mode
   "Hack into ibuffer's do-occur binding.
 
@@ -403,6 +407,7 @@ I.e. all marked buffers are in PDFView mode."
     map)
   "Keymap used in `pdf-occur-dired-minor-mode'.")
 
+;;;###autoload
 (define-minor-mode pdf-occur-dired-minor-mode
   "Hack into dired's `dired-do-search' binding.
 
