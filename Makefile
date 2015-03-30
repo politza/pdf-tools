@@ -3,7 +3,7 @@ EFLAGS = -Q -L $(PWD)/lisp --batch
 
 # Note: If you change this, also change it in lisp/pdf-tools.el and
 # server/configure.ac .
-PACKAGE_VERSION = 0.50
+PACKAGE_VERSION = 0.60
 PKGFILE_CONTENT = (define-package "pdf-tools" "$(PACKAGE_VERSION)"	\
 		   "Support library for PDF documents."			\
 		   (quote ((emacs "24.3")))				\

@@ -1,5 +1,22 @@
 -*- org -*-
 
+* Version 0.60
+** Regexp support
+   You may now search for perl-compatible regular expressions (PCRE)
+   in PDF documents, both via Isearch and Occur.  If that scares you,
+   customize the variable pdf-occur-prefer-string-search.
+** Occur
+*** Asynchronous search
+    Searching is performed asynchronously in a private server
+    instance, i.e. it doesn't block neither ordinary editing nor
+    pdf-view-mode.
+*** Moccur
+    Added the ability to search multiple documents in one occur
+    buffer.
+** Isearch
+*** Occur Integration
+    M-s o now starts occur, while keeping the isearch session, like it
+    is in text-buffers.
 * Version 0.50
 ** PDF Tools is now available on MELPA.
 ** SyncTeX
