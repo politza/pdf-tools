@@ -236,10 +236,11 @@ error."
                         (closure (tq-queue-head-closure tq)))
                     (delete-region (point-min) (point))
                     (tq-queue-pop tq)
-                    (condition-case err
+                    (condition-case-unless-debug err
                         (funcall fn closure answer)
-                      (error (message "Error while processing tq callback: %s"
-                                      (error-message-string err))))
+                      (error
+                       (message "Error while processing tq callback: %s"
+                                (error-message-string err))))
                     (tq-process-buffer tq))))))))))
 
 
