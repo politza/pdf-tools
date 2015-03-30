@@ -534,7 +534,7 @@ matches linked with PAGE."
                                             pdf-occur-search-pages-left)
                                   "Searching")
                                 "]")
-                        'face 'font-lock-warning-face)))))
+                        'face 'compilation-mode-line-run)))))
     (force-mode-line-update)))
 
 (defun pdf-occur-search-finished (&optional abort-p)
