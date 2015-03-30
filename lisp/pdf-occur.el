@@ -647,6 +647,8 @@ matches linked with PAGE."
 (defun pdf-occur-tablist-do-delete (&optional arg)
   "Delete ARG documents from the search list."
   (interactive "P")
+  (when (pdf-occur-search-in-progress-p)
+    (user-error "Can't delete while a search is in progress."))
   (let* ((items (tablist-get-marked-items arg))
          (documents (cl-remove-duplicates
                      (mapcar (lambda (entry)
