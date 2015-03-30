@@ -189,7 +189,7 @@ For a programmatic search of multiple documents see
     (error "Nothing to search for"))
   (let* ((2-columns-p (= 1 (length pdf-occur-search-documents)))
          (filename-width
-          (min 36
+          (min 24
                (apply 'max
                  (mapcar 'length
                          (mapcar 'pdf-occur-abbrev-file-name
