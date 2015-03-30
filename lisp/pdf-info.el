@@ -784,7 +784,8 @@ A No-op, if BUFFER has not running server instance."
   "Return a list of symbols describing compile-time features."
   (or pdf-info-features
       (setq pdf-info-features
-            (pdf-info-query 'features))))
+            (let (pdf-info-asynchronous)
+              (pdf-info-query 'features)))))
                           
 (defun pdf-info-writable-annotations-p ()
   (not (null (memq 'writable-annotations (pdf-info-features)))))
@@ -881,7 +882,8 @@ Don't use this, but the equally named function.")
 
 (defun pdf-info-regexp-compile-flags ()
   (or pdf-info-regexp-compile-flags
-      (let* ((flags (pdf-info-query 'regexp-flags))
+      (let* (pdf-info-asynchronous
+             (flags (pdf-info-query 'regexp-flags))
              (match (cl-remove-if-not
                      (lambda (flag)
                        (string-match-p
