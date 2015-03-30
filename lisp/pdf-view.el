@@ -283,7 +283,7 @@ PNG images in Emacs buffers."
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
   (add-hook 'write-contents-functions
             'pdf-view--write-contents-function nil t)
-  (add-hook 'kill-buffer-hook 'pdf-info-close nil t)
+  (add-hook 'kill-buffer-hook 'pdf-view-close-document nil t)
   (add-hook 'after-revert-hook 'pdf-view--after-revert-hook nil t)
   (pdf-view-add-hotspot-function
    'pdf-view-text-regions-hotspots-function -9)
@@ -337,6 +337,11 @@ a local copy of a remote file."
 (defun pdf-view--after-revert-hook ()
   (pdf-info-close)
   (pdf-view-redisplay t))
+
+(defun pdf-view-close-document ()
+  "Like `pdf-info-close', but returns immediately."
+  (let ((pdf-info-asynchronous 'ignore))
+    (pdf-info-quit)))
 
 
 ;; * ================================================================== *
