@@ -341,7 +341,7 @@ See `pdf-links-action-perform' for the interface."
     (isearch-forward)
     (unless (or quit-p (null pdf-isearch-current-match))
       (let* ((page (pdf-view-current-page))
-             (match  pdf-isearch-current-match)
+             (match (car pdf-isearch-current-match))
              (size (pdf-view-image-size))
              (links (sort (cl-remove-if
                            (lambda (e)
@@ -365,13 +365,16 @@ See `pdf-links-action-perform' for the interface."
                 (pdf-view-image-size))))
     (cl-remove-if-not
      (lambda (m)
-       (cl-some (lambda (l)
-                  (pdf-util-with-edges (l m)
-                    (let ((area (min (* l-width l-height)
-                                     (* m-width m-height))))
-                      (>  (/  (pdf-util-edges-intersection-area m l)
-                              (float area)) 0.5))))
-                links))
+       (cl-some
+        (lambda (edges)
+          (cl-some (lambda (link)
+                     (pdf-util-with-edges (link edges)
+                       (let ((area (min (* link-width link-height)
+                                        (* edges-width edges-height))))
+                         (>  (/  (pdf-util-edges-intersection-area edges link)
+                                 (float area)) 0.5))))
+                   links))
+        m))
      matches)))
 
 (provide 'pdf-links)
