@@ -646,6 +646,9 @@ string."
      dx dy)))
 
 (defvar pdf-util--face-colors-cache (make-hash-table))
+
+(defadvice enable-theme (after pdf-util-clear-faces-cache activate)
+  (clrhash pdf-util--face-colors-cache))
   
 (defun pdf-util-face-colors (face &optional dark-p)
   "Return both colors of FACE as a cons.
