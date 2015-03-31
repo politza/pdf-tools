@@ -1926,7 +1926,7 @@ AWINDOW is deleted."
     (tablist-window-attach newwin window)
     newwin))
 
-(defmacro tablist-generate-sorter (column compare-fn &optional read-fn)
+(defun tablist-generate-sorter (column compare-fn &optional read-fn)
   "Generate a sort function for `tabulated-list' entries.
 
 Example:
@@ -1936,18 +1936,12 @@ Example:
 would create a sort function sorting `tabulated-list-entries' on
 the 0-th column as numbers by the less-than relation."
 
-  (let ((column-sym (make-symbol "column"))
-        (compare-fn-sym (make-symbol "compare-fn"))
-        (read-fn-sym (make-symbol "read-fn")))
-    `(let ((,column-sym ,column)
-           (,compare-fn-sym ,compare-fn)
-           (,read-fn-sym (or ,read-fn 'identity)))
-       (lambda (e1 e2)
-         (funcall ,compare-fn-sym
-                  (funcall ,read-fn-sym
-                           (aref (cadr e1) ,column-sym))
-                  (funcall ,read-fn-sym
-                           (aref (cadr e2) ,column-sym)))))))
+  (lambda (e1 e2)
+    (funcall compare-fn
+             (funcall (or read-fn 'identity)
+                      (aref (cadr e1) column))
+             (funcall read-fn
+                      (aref (cadr e2) column)))))
 
 (provide 'tablist)
 ;;; tablist.el ends here
