@@ -331,6 +331,8 @@ MODES defaults to `pdf-tools-enabled-modes'."
   (interactive)
   (pdf-tools-set-modes-enabled nil modes))
 
+(declare-function pdf-occur-global-minor-mode "pdf-occur.el")
+
 ;;;###autoload
 (defun pdf-tools-install (&optional force-compile-p skip-dependencies-p no-error)
   "Install PDF-Tools in all current and future PDF buffers.
