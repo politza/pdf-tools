@@ -298,7 +298,7 @@ mktempfile()
  */
 static cairo_surface_t*
 image_render_page(PopplerDocument *pdf, PopplerPage *page,
-                  int width, gboolean do_render_annotaions)
+                  int width, const render_options_t *options)
 {
   cairo_t *cr = NULL;
   cairo_surface_t *surface = NULL;
@@ -335,7 +335,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   cairo_translate (cr, 0, 0);
   cairo_scale (cr, scale, scale);
   /* Render w/o annotations. */
-  if (! do_render_annotaions)
+  if (options && options->printed)
     poppler_page_render_for_printing_with_options
       (page, cr, POPPLER_PRINT_DOCUMENT);
   else
@@ -349,8 +349,11 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   /* This makes the colors look right. */
   cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
   cairo_set_source_rgb (cr, 1., 1., 1.);
-
   cairo_paint (cr);
+
+  if (options && options->usecolors)
+    ;/* image_recolor (cr); */
+  
   cairo_destroy (cr);
 
   return surface;
@@ -2846,7 +2849,8 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   cairo_surface_t *surface = NULL;
 
   perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width, 1);
+  surface = image_render_page (doc->pdf, page, width,
+                               &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
 
   image_write_print_response (surface, PNG);
@@ -2884,7 +2888,8 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, width, 1);
+  surface = image_render_page (doc->pdf, page, width,
+                               &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
   cr = cairo_create (surface);
   cairo_scale (cr, width / pt_width, width / pt_width);
@@ -2968,7 +2973,8 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
   int i = 0;
 
   perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width, 1);
+  surface = image_render_page (doc->pdf, page, width,
+                               &doc->options.render);
   height = cairo_image_surface_get_height (surface);
   cr = cairo_create (surface);
 
@@ -3066,7 +3072,8 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, (int) pt_width, 1);
+  surface = image_render_page (doc->pdf, page, (int) pt_width,
+                               &doc->options.render);
 
   perror_if_not (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS,
                 "Failed to render page");
@@ -3221,6 +3228,91 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   return;
 }
 
+const command_arg_type_t cmd_getoptions_spec[] =
+  {
+    ARG_DOC,
+  };
+
+static void
+cmd_getoptions(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  document_t *doc = args[0].value.doc;
+  const document_options_t* opts = &doc->options;
+  OK_BEGIN ();
+  printf ("\\:render/foreground:#%.2x%.2x%.2x\n",
+          (opts->render.fg.red >> 8),
+          (opts->render.fg.green >> 8),
+          (opts->render.fg.blue >> 8));
+  printf ("\\:render/background:#%.2x%.2x%.2x\n",
+          (opts->render.bg.red >> 8),
+          (opts->render.bg.green >> 8),
+          (opts->render.bg.blue >> 8));
+  printf ("\\:render/usecolors:%d\n", (opts->render.usecolors ? 1 : 0));
+  printf ("\\:render/printed:%d\n", (opts->render.printed ? 1 : 0));
+  OK_END ();
+}
+
+const command_arg_type_t cmd_setoptions_spec[] =
+  {
+    ARG_DOC,
+    ARG_REST                    /* key value pairs */
+  };
+
+static void
+cmd_setoptions(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  int i = 0;
+  document_t *doc = args[0].value.doc;
+  int nrest = args[1].value.rest.nargs;
+  char * const *rest = args[1].value.rest.args;
+  command_arg_t arg;
+  gchar *error_msg = NULL;
+  document_options_t opts = doc->options;
+
+  perror_if_not (nrest % 2 == 0, "Expected even number of option value pairs");
+  
+  while (i < nrest)
+    {
+      perror_if_not (command_arg_parse_arg
+                     (ctx, rest[i], &arg, ARG_NONEMPTY_STRING, &error_msg),
+                     "%s", error_msg);
+      
+      ++i;
+      
+      if ((! strcmp (arg.value.string, ":render/foreground"))
+          ||(! strcmp (arg.value.string, ":render/background")))
+        {
+          gboolean fg = ! strcmp (arg.value.string, ":render/foreground");
+          perror_if_not (command_arg_parse_arg
+                         (ctx, rest[i], &arg, ARG_COLOR, &error_msg),
+                         "%s", error_msg);
+          if (fg)
+            opts.render.fg = arg.value.color;
+          else
+            opts.render.bg = arg.value.color;
+        }
+      else if ((! strcmp (arg.value.string, ":render/usecolors"))
+               || (! strcmp (arg.value.string, ":render/printed")))
+        {
+          gboolean usecolors = ! strcmp (arg.value.string, ":render/usecolors");
+          perror_if_not (command_arg_parse_arg
+                         (ctx, rest[i], &arg, ARG_BOOL, &error_msg),
+                         "%s", error_msg);
+          if (usecolors)
+            opts.render.usecolors = arg.value.flag;
+          else
+            opts.render.printed = arg.value.flag;
+        }
+
+      ++i;
+    }
+  doc->options = opts;
+  OK ();
+
+ error:
+  if (error_msg) g_free (error_msg);
+}
+
 
 
 
@@ -3239,6 +3331,10 @@ static const command_t commands [] =
      G_N_ELEMENTS (cmd_close_spec)},
     {"quit", cmd_quit, cmd_quit_spec,
      G_N_ELEMENTS (cmd_quit_spec)},
+    {"getoptions", cmd_getoptions, cmd_getoptions_spec,
+     G_N_ELEMENTS (cmd_getoptions_spec)},
+    {"setoptions", cmd_setoptions, cmd_setoptions_spec,
+     G_N_ELEMENTS (cmd_setoptions_spec)},
 
     /* General Informations */
     {"search-string", cmd_search_string, cmd_search_string_spec,
@@ -3310,7 +3406,7 @@ static const command_t commands [] =
 
 int main(int argc, char **argv)
 {
-  epdfinfo_t ctx;
+  epdfinfo_t ctx = {0};
   char *line = NULL;
   ssize_t read;
   size_t line_size;
@@ -3330,6 +3426,7 @@ int main(int argc, char **argv)
 #if ! GLIB_CHECK_VERSION(2,36,0)
   g_type_init ();
 #endif
+
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);

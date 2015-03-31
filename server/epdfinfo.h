@@ -149,6 +149,18 @@ typedef struct
 
 typedef struct
 {
+  PopplerColor bg, fg;
+  gboolean usecolors;
+  gboolean printed;
+} render_options_t;
+
+typedef struct
+{
+  render_options_t render;
+} document_options_t;
+
+typedef struct
+{
   PopplerDocument *pdf;
   char *filename;
   char *passwd;
@@ -157,6 +169,7 @@ typedef struct
     GHashTable *keys;             /* key => page */
     GList **pages;                /* page array  */
   } annotations;
+  document_options_t options;
 } document_t;
 
 typedef enum

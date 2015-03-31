@@ -462,6 +462,18 @@ interrupted."
     ((save) (caar response))
     ((renderpage renderpage-text-regions renderpage-highlight)
      (pdf-util-munch-file (caar response)))
+    (setoptions nil)
+    (getoptions
+     (let (options)
+       (dolist (key-value response)
+         (let ((key (intern (car key-value)))
+               (value (cadr key-value)))
+           (cl-case key
+             ((:render/printed :render/usecolors)
+              (setq value (equal value "1"))))
+           (push value options)
+           (push key options)))
+       options))                 
     (t response)))
 
 
@@ -1465,6 +1477,39 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
    'boundingbox
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page))
+
+(defun pdf-info-getoptions (&optional file-or-buffer)
+  (pdf-info-query
+   'getoptions
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))
+
+(defun pdf-info-setoptions (&optional file-or-buffer &rest options)
+  (when (symbolp file-or-buffer)
+    (push file-or-buffer options)
+    (setq file-or-buffer nil))
+  (unless (= (% (length options) 2) 0)
+    (error "Missing a option value"))           
+  (apply 'pdf-info-query
+    'setoptions
+    (pdf-info--normalize-file-or-buffer file-or-buffer)
+    (let (soptions)
+      (while options
+        (let ((key (pop options))
+              (value (pop options)))
+          (unless (and (keywordp key)
+                       (not (eq key :)))
+            (error "Keyword expected: %s" key))
+          (cl-case key
+            ((:render/foreground :render/background)
+             (push (pdf-util-hexcolor value)
+                   soptions))
+            ((:render/usecolors :render/printed)
+             (push (if value 1 0) soptions))
+            (t (push value soptions)))
+          (push key soptions)))
+      soptions)))
+          
+          
 
 (provide 'pdf-info)
 
