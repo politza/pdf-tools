@@ -354,6 +354,10 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
              "%s" "No executable `epdfinfo' found"))
    (t
     (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
+    ;; FIXME: Generalize this sometime.
+    (when (memq 'pdf-occur-global-minor-mode
+                pdf-tools-enabled-modes)
+      (pdf-occur-global-minor-mode 1))
     (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
     (dolist (buf (buffer-list))
       (with-current-buffer buf
@@ -367,6 +371,7 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (pdf-info-quit)
   (setq-default auto-mode-alist
     (remove pdf-tools-auto-mode-alist-entry auto-mode-alist))
+  (pdf-occur-global-minor-mode -1)
   (remove-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
     (with-current-buffer buf
