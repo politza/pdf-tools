@@ -387,12 +387,13 @@ there was no previous search, this function returns t."
       (message "%s" msg))))
 
 (defun pdf-isearch-empty-match-p (matches)
-  (cl-every
-   (lambda (match)
-     (cl-every (lambda (edges)
-                 (cl-every 'zerop edges))
-               match))
-   matches))
+  (and matches
+       (cl-every
+        (lambda (match)
+          (cl-every (lambda (edges)
+                      (cl-every 'zerop edges))
+                    match))
+        matches)))
 
 (defun pdf-isearch-occur ()
   "Run `occur' using the last search string or regexp."
