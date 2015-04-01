@@ -767,32 +767,12 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
                        "Expected a relative position or rectangle: %s", arg);
       }
       break;
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-    case ARG_QUADRILATERAL:     /* fall through */
-#endif
     case ARG_EDGES:
       {
         PopplerRectangle *r = &cmd_arg->value.rectangle;
         cerror_if_not (parse_edges (arg, r),
                        error_msg,
                        "Expected a relative rectangle: %s", arg);
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-        if (type == ARG_QUADRILATERAL)
-          {
-            PopplerQuadrilateral q;
-
-            q.p1.x = r->x1;
-            q.p1.y = r->y1;
-            q.p2.x = r->x2;
-            q.p2.y = r->y1;
-            q.p3.x = r->x1;
-            q.p3.y = r->y2;
-            q.p4.x = r->x2;
-            q.p4.y = r->y2;
-
-            cmd_arg->value.quadrilateral = q;
-          }
-#endif
       }
       break;
     case ARG_EDGE_OR_NEGATIVE:
@@ -889,6 +869,86 @@ command_arg_parse(epdfinfo_t *ctx, char **args, int nargs,
  failure:
   free_command_args (cmd_args, cmd->nargs);
   return NULL;
+}
+
+static void
+command_arg_print(const command_arg_t *arg)
+{
+  switch (arg->type)
+    {
+    case ARG_INVALID:
+      printf ("[invalid]");
+      break;
+    case ARG_DOC:
+      print_response_string (arg->value.doc->filename, NONE);
+      break;
+    case ARG_BOOL:
+      printf ("%d", arg->value.flag ? 1 : 0);
+      break;
+    case ARG_NONEMPTY_STRING:   /* fall */
+    case ARG_STRING:
+      print_response_string (arg->value.string, NONE);
+      break;
+    case ARG_NATNUM:
+      printf ("%ld", arg->value.natnum);
+      break;
+    case ARG_EDGE_OR_NEGATIVE:  /* fall */
+    case ARG_EDGE:
+      printf ("%f", arg->value.edge);
+      break;
+    case ARG_EDGES_OR_POSITION: /* fall */
+    case ARG_EDGES:
+      {
+        const PopplerRectangle *r = &arg->value.rectangle;
+        if (r->x2 < 0 && r->y2 < 0)
+          printf ("%f %f", r->x1, r->y1);
+        else
+          printf ("%f %f %f %f", r->x1, r->y1, r->x2, r->y2);
+        break;
+      }
+    case ARG_COLOR:
+      {
+        const PopplerColor *c = &arg->value.color;
+        printf ("#%.2x%.2x%.2x", c->red >> 8,
+                c->green >> 8, c->blue >> 8);
+        break;
+      }
+    case ARG_REST:
+      {
+        int i;
+        for (i = 0; i < arg->value.rest.nargs; ++i)
+          print_response_string (arg->value.rest.args[i], COLON);
+        if (arg->value.rest.nargs > 0)
+          print_response_string (arg->value.rest.args[i], NONE);
+        break;
+      }
+    default:
+      internal_error ("switch fell through");
+    }
+}
+
+static size_t
+command_arg_type_size(command_arg_type_t type)
+{
+  command_arg_t arg;
+  switch (type)
+    {
+    case ARG_INVALID: return 0;
+    case ARG_DOC: return sizeof (arg.value.doc);
+    case ARG_BOOL: return sizeof (arg.value.flag);
+    case ARG_NONEMPTY_STRING:   /* fall */
+    case ARG_STRING: return sizeof (arg.value.string);
+    case ARG_NATNUM: return sizeof (arg.value.natnum);
+    case ARG_EDGE_OR_NEGATIVE:  /* fall */
+    case ARG_EDGE: return sizeof (arg.value.edge);
+    case ARG_EDGES_OR_POSITION: /* fall */
+    case ARG_EDGES: return sizeof (arg.value.rectangle);
+    case ARG_COLOR: return sizeof (arg.value.color);
+    case ARG_REST: return sizeof (arg.value.rest);
+    default:
+      internal_error ("switch fell through");
+      return 0;
+    }
 }
 
 
@@ -3228,6 +3288,14 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   return;
 }
 
+const document_option_t document_options [] =
+  {
+    DEC_DOPT (":render/usecolors", ARG_BOOL, render.usecolors),
+    DEC_DOPT (":render/printed", ARG_BOOL, render.printed),
+    DEC_DOPT (":render/foreground", ARG_COLOR, render.fg),
+    DEC_DOPT (":render/background", ARG_COLOR, render.bg),
+  };
+
 const command_arg_type_t cmd_getoptions_spec[] =
   {
     ARG_DOC,
@@ -3237,18 +3305,20 @@ static void
 cmd_getoptions(const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
-  const document_options_t* opts = &doc->options;
+  int i;
   OK_BEGIN ();
-  printf ("\\:render/foreground:#%.2x%.2x%.2x\n",
-          (opts->render.fg.red >> 8),
-          (opts->render.fg.green >> 8),
-          (opts->render.fg.blue >> 8));
-  printf ("\\:render/background:#%.2x%.2x%.2x\n",
-          (opts->render.bg.red >> 8),
-          (opts->render.bg.green >> 8),
-          (opts->render.bg.blue >> 8));
-  printf ("\\:render/usecolors:%d\n", (opts->render.usecolors ? 1 : 0));
-  printf ("\\:render/printed:%d\n", (opts->render.printed ? 1 : 0));
+  for (i = 0; i < G_N_ELEMENTS (document_options); ++i)
+    {
+      command_arg_t arg;
+      
+      arg.type = document_options[i].type;
+      memcpy (&arg.value,
+              ((char*) &doc->options) + document_options[i].offset,
+              command_arg_type_size (arg.type));
+      print_response_string (document_options[i].name, COLON);
+      command_arg_print (&arg);
+      puts("");
+    }
   OK_END ();
 }
 
@@ -3265,49 +3335,40 @@ cmd_setoptions(const epdfinfo_t *ctx, const command_arg_t *args)
   document_t *doc = args[0].value.doc;
   int nrest = args[1].value.rest.nargs;
   char * const *rest = args[1].value.rest.args;
-  command_arg_t arg;
   gchar *error_msg = NULL;
   document_options_t opts = doc->options;
-
-  perror_if_not (nrest % 2 == 0, "Expected even number of option value pairs");
+  const size_t nopts = G_N_ELEMENTS (document_options);
+  
+  perror_if_not (nrest % 2 == 0, "Even number of key/value pairs expected");
   
   while (i < nrest)
     {
-      perror_if_not (command_arg_parse_arg
-                     (ctx, rest[i], &arg, ARG_NONEMPTY_STRING, &error_msg),
-                     "%s", error_msg);
-      
-      ++i;
-      
-      if ((! strcmp (arg.value.string, ":render/foreground"))
-          ||(! strcmp (arg.value.string, ":render/background")))
-        {
-          gboolean fg = ! strcmp (arg.value.string, ":render/foreground");
-          perror_if_not (command_arg_parse_arg
-                         (ctx, rest[i], &arg, ARG_COLOR, &error_msg),
-                         "%s", error_msg);
-          if (fg)
-            opts.render.fg = arg.value.color;
-          else
-            opts.render.bg = arg.value.color;
-        }
-      else if ((! strcmp (arg.value.string, ":render/usecolors"))
-               || (! strcmp (arg.value.string, ":render/printed")))
-        {
-          gboolean usecolors = ! strcmp (arg.value.string, ":render/usecolors");
-          perror_if_not (command_arg_parse_arg
-                         (ctx, rest[i], &arg, ARG_BOOL, &error_msg),
-                         "%s", error_msg);
-          if (usecolors)
-            opts.render.usecolors = arg.value.flag;
-          else
-            opts.render.printed = arg.value.flag;
-        }
+      int j;
+      command_arg_t key, value;
 
+      perror_if_not (command_arg_parse_arg
+                     (ctx, rest[i], &key, ARG_NONEMPTY_STRING, &error_msg),
+                     "%s", error_msg);
+
+      ++i;
+      for (j = 0; j < nopts; ++j)
+        {
+          const document_option_t *dopt = &document_options[j];
+          if (! strcmp (key.value.string, dopt->name))
+            {
+              perror_if_not (command_arg_parse_arg
+                             (ctx, rest[i], &value, dopt->type, &error_msg),
+                             "%s", error_msg);
+              memcpy (((char*) &opts) + dopt->offset,
+                      &value.value, command_arg_type_size (value.type));
+              break;
+            }
+        }
+      perror_if_not (j < nopts, "Unknown option: %s", key.value.string);
       ++i;
     }
   doc->options = opts;
-  OK ();
+  cmd_getoptions (ctx, args);
 
  error:
   if (error_msg) g_free (error_msg);
@@ -3323,85 +3384,49 @@ cmd_setoptions(const epdfinfo_t *ctx, const command_arg_t *args)
 static const command_t commands [] =
   {
     /* Basic */
-    {"features", cmd_features, cmd_features_spec,
-     G_N_ELEMENTS (cmd_features_spec)},
-    {"open", cmd_open, cmd_open_spec,
-     G_N_ELEMENTS (cmd_open_spec)},
-    {"close", cmd_close, cmd_close_spec,
-     G_N_ELEMENTS (cmd_close_spec)},
-    {"quit", cmd_quit, cmd_quit_spec,
-     G_N_ELEMENTS (cmd_quit_spec)},
-    {"getoptions", cmd_getoptions, cmd_getoptions_spec,
-     G_N_ELEMENTS (cmd_getoptions_spec)},
-    {"setoptions", cmd_setoptions, cmd_setoptions_spec,
-     G_N_ELEMENTS (cmd_setoptions_spec)},
+    DEC_CMD (features),
+    DEC_CMD (open),
+    DEC_CMD (close),
+    DEC_CMD (quit),
+    DEC_CMD (getoptions),
+    DEC_CMD (setoptions),
 
     /* General Informations */
-    {"search-string", cmd_search_string, cmd_search_string_spec,
-     G_N_ELEMENTS (cmd_search_string_spec)},
-    {"search-regexp", cmd_search_regexp, cmd_search_regexp_spec,
-     G_N_ELEMENTS (cmd_search_regexp_spec)},
-    {"regexp-flags", cmd_regexp_flags, cmd_regexp_flags_spec,
-     G_N_ELEMENTS (cmd_regexp_flags_spec)},
-    {"metadata", cmd_metadata, cmd_metadata_spec,
-     G_N_ELEMENTS (cmd_metadata_spec)},
-    {"outline", cmd_outline, cmd_outline_spec,
-     G_N_ELEMENTS (cmd_outline_spec)},
-    {"number-of-pages", cmd_number_of_pages, cmd_number_of_pages_spec,
-     G_N_ELEMENTS (cmd_number_of_pages_spec)},
-    {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec ,
-     G_N_ELEMENTS (cmd_pagelinks_spec)},
-    {"gettext", cmd_gettext, cmd_gettext_spec,
-     G_N_ELEMENTS (cmd_gettext_spec)},
-    {"getselection", cmd_getselection, cmd_getselection_spec,
-     G_N_ELEMENTS (cmd_getselection_spec)},
-    {"pagesize", cmd_pagesize, cmd_pagesize_spec,
-     G_N_ELEMENTS (cmd_pagesize_spec)},
-    {"boundingbox", cmd_boundingbox, cmd_boundingbox_spec,
-     G_N_ELEMENTS (cmd_boundingbox_spec)},
-    {"charlayout", cmd_charlayout, cmd_charlayout_spec,
-     G_N_ELEMENTS (cmd_charlayout_spec)},
+    DEC_CMD2 (search_string, "search-string"),
+    DEC_CMD2 (search_regexp, "search-regexp"),
+    DEC_CMD2 (regexp_flags, "regexp-flags"),
+    DEC_CMD (metadata),
+    DEC_CMD (outline),
+    DEC_CMD2 (number_of_pages, "number-of-pages"),
+    DEC_CMD (pagelinks),
+    DEC_CMD (gettext),
+    DEC_CMD (getselection),
+    DEC_CMD (pagesize),
+    DEC_CMD (boundingbox),
+    DEC_CMD (charlayout),
 
     /* Annotations */
-    {"getannots", cmd_getannots, cmd_getannots_spec,
-     G_N_ELEMENTS (cmd_getannots_spec)},
-    {"getannot", cmd_getannot, cmd_getannot_spec,
-     G_N_ELEMENTS (cmd_getannot_spec)},
+    DEC_CMD (getannots),
+    DEC_CMD (getannot),
 #ifdef HAVE_POPPLER_ANNOT_WRITE
-    {"addannot", cmd_addannot, cmd_addannot_spec,
-     G_N_ELEMENTS (cmd_addannot_spec)},
-    {"delannot", cmd_delannot, cmd_delannot_spec,
-     G_N_ELEMENTS (cmd_delannot_spec)},
-    {"editannot", cmd_editannot, cmd_editannot_spec,
-     G_N_ELEMENTS (cmd_editannot_spec)},
-    {"save", cmd_save, cmd_save_spec,
-     G_N_ELEMENTS (cmd_save_spec)} ,
+    DEC_CMD (addannot),
+    DEC_CMD (delannot),
+    DEC_CMD (editannot),
+    DEC_CMD (save),
 #endif
 
     /* Attachments */
-    {"getattachment-from-annot", cmd_getattachment_from_annot,
-     cmd_getattachment_from_annot_spec,
-     G_N_ELEMENTS (cmd_getattachment_from_annot_spec)},
-    {"getattachments", cmd_getattachments, cmd_getattachments_spec,
-     G_N_ELEMENTS (cmd_getattachments_spec)},
+    DEC_CMD2 (getattachment_from_annot, "getattachment-from-annot"),
+    DEC_CMD (getattachments),
 
     /* Synctex */
-    {"synctex-forward-search", cmd_synctex_forward_search,
-     cmd_synctex_forward_search_spec,
-     G_N_ELEMENTS (cmd_synctex_forward_search_spec)},
-    {"synctex-backward-search", cmd_synctex_backward_search,
-     cmd_synctex_backward_search_spec,
-     G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
+    DEC_CMD2 (synctex_forward_search, "synctex-forward-search"),
+    DEC_CMD2 (synctex_backward_search, "synctex-backward-search"),
 
     /* Rendering */
-    {"renderpage", cmd_renderpage, cmd_renderpage_spec,
-     G_N_ELEMENTS (cmd_renderpage_spec)},
-    {"renderpage-text-regions", cmd_renderpage_text_regions,
-     cmd_renderpage_text_regions_spec,
-     G_N_ELEMENTS (cmd_renderpage_text_regions_spec)},
-    {"renderpage-highlight", cmd_renderpage_highlight,
-     cmd_renderpage_highlight_spec,
-     G_N_ELEMENTS (cmd_renderpage_highlight_spec)}
+    DEC_CMD (renderpage),
+    DEC_CMD2 (renderpage_text_regions, "renderpage-text-regions"),
+    DEC_CMD2 (renderpage_highlight, "renderpage-highlight")
   };
 
 int main(int argc, char **argv)
