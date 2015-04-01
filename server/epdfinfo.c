@@ -764,32 +764,12 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
                        "Expected a relative position or rectangle: %s", arg);
       }
       break;
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-    case ARG_QUADRILATERAL:     /* fall through */
-#endif
     case ARG_EDGES:
       {
         PopplerRectangle *r = &cmd_arg->value.rectangle;
         cerror_if_not (parse_edges (arg, r),
                        error_msg,
                        "Expected a relative rectangle: %s", arg);
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-        if (type == ARG_QUADRILATERAL)
-          {
-            PopplerQuadrilateral q;
-
-            q.p1.x = r->x1;
-            q.p1.y = r->y1;
-            q.p2.x = r->x2;
-            q.p2.y = r->y1;
-            q.p3.x = r->x1;
-            q.p3.y = r->y2;
-            q.p4.x = r->x2;
-            q.p4.y = r->y2;
-
-            cmd_arg->value.quadrilateral = q;
-          }
-#endif
       }
       break;
     case ARG_EDGE_OR_NEGATIVE:

@@ -172,9 +172,6 @@ typedef enum
     ARG_EDGES,
     ARG_EDGES_OR_POSITION,
     ARG_COLOR,
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-    ARG_QUADRILATERAL,
-#endif
     ARG_REST
   } command_arg_type_t;
 
