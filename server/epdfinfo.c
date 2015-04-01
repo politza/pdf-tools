@@ -3215,8 +3215,6 @@ static const command_t commands [] =
     DEC_CMD (open),
     DEC_CMD (close),
     DEC_CMD (quit),
-    DEC_CMD (getoptions),
-    DEC_CMD (setoptions),
 
     /* Searching */
     DEC_CMD2 (search_string, "search-string"),
