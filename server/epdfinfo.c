@@ -3211,86 +3211,54 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
 static const command_t commands [] =
   {
     /* Basic */
-    {"features", cmd_features, cmd_features_spec,
-     G_N_ELEMENTS (cmd_features_spec)},
-    {"open", cmd_open, cmd_open_spec,
-     G_N_ELEMENTS (cmd_open_spec)},
-    {"close", cmd_close, cmd_close_spec,
-     G_N_ELEMENTS (cmd_close_spec)},
-    {"quit", cmd_quit, cmd_quit_spec,
-     G_N_ELEMENTS (cmd_quit_spec)},
+    DEC_CMD (features),
+    DEC_CMD (open),
+    DEC_CMD (close),
+    DEC_CMD (quit),
+    DEC_CMD (getoptions),
+    DEC_CMD (setoptions),
 
     /* General Informations */
-    {"search-string", cmd_search_string, cmd_search_string_spec,
-     G_N_ELEMENTS (cmd_search_string_spec)},
-    {"search-regexp", cmd_search_regexp, cmd_search_regexp_spec,
-     G_N_ELEMENTS (cmd_search_regexp_spec)},
-    {"regexp-flags", cmd_regexp_flags, cmd_regexp_flags_spec,
-     G_N_ELEMENTS (cmd_regexp_flags_spec)},
-    {"metadata", cmd_metadata, cmd_metadata_spec,
-     G_N_ELEMENTS (cmd_metadata_spec)},
-    {"outline", cmd_outline, cmd_outline_spec,
-     G_N_ELEMENTS (cmd_outline_spec)},
-    {"number-of-pages", cmd_number_of_pages, cmd_number_of_pages_spec,
-     G_N_ELEMENTS (cmd_number_of_pages_spec)},
-    {"pagelinks", cmd_pagelinks, cmd_pagelinks_spec ,
-     G_N_ELEMENTS (cmd_pagelinks_spec)},
-    {"gettext", cmd_gettext, cmd_gettext_spec,
-     G_N_ELEMENTS (cmd_gettext_spec)},
-    {"getselection", cmd_getselection, cmd_getselection_spec,
-     G_N_ELEMENTS (cmd_getselection_spec)},
-    {"pagesize", cmd_pagesize, cmd_pagesize_spec,
-     G_N_ELEMENTS (cmd_pagesize_spec)},
-    {"boundingbox", cmd_boundingbox, cmd_boundingbox_spec,
-     G_N_ELEMENTS (cmd_boundingbox_spec)},
-    {"charlayout", cmd_charlayout, cmd_charlayout_spec,
-     G_N_ELEMENTS (cmd_charlayout_spec)},
+    DEC_CMD2 (search_string, "search-string"),
+    DEC_CMD2 (search_regexp, "search-regexp"),
+    DEC_CMD2 (regexp_flags, "regexp-flags"),
+    DEC_CMD (metadata),
+    DEC_CMD (outline),
+    DEC_CMD2 (number_of_pages, "number-of-pages"),
+    DEC_CMD (pagelinks),
+    DEC_CMD (gettext),
+    DEC_CMD (getselection),
+    DEC_CMD (pagesize),
+    DEC_CMD (boundingbox),
+    DEC_CMD (charlayout),
 
     /* Annotations */
-    {"getannots", cmd_getannots, cmd_getannots_spec,
-     G_N_ELEMENTS (cmd_getannots_spec)},
-    {"getannot", cmd_getannot, cmd_getannot_spec,
-     G_N_ELEMENTS (cmd_getannot_spec)},
+    DEC_CMD (getannots),
+    DEC_CMD (getannot),
 #ifdef HAVE_POPPLER_ANNOT_WRITE
-    {"addannot", cmd_addannot, cmd_addannot_spec,
-     G_N_ELEMENTS (cmd_addannot_spec)},
-    {"delannot", cmd_delannot, cmd_delannot_spec,
-     G_N_ELEMENTS (cmd_delannot_spec)},
-    {"editannot", cmd_editannot, cmd_editannot_spec,
-     G_N_ELEMENTS (cmd_editannot_spec)},
-    {"save", cmd_save, cmd_save_spec,
-     G_N_ELEMENTS (cmd_save_spec)} ,
+    DEC_CMD (addannot),
+    DEC_CMD (delannot),
+    DEC_CMD (editannot),
+    DEC_CMD (save),
 #endif
 
     /* Attachments */
-    {"getattachment-from-annot", cmd_getattachment_from_annot,
-     cmd_getattachment_from_annot_spec,
-     G_N_ELEMENTS (cmd_getattachment_from_annot_spec)},
-    {"getattachments", cmd_getattachments, cmd_getattachments_spec,
-     G_N_ELEMENTS (cmd_getattachments_spec)},
+    DEC_CMD2 (getattachment_from_annot, "getattachment-from-annot"),
+    DEC_CMD (getattachments),
 
     /* Synctex */
-    {"synctex-forward-search", cmd_synctex_forward_search,
-     cmd_synctex_forward_search_spec,
-     G_N_ELEMENTS (cmd_synctex_forward_search_spec)},
-    {"synctex-backward-search", cmd_synctex_backward_search,
-     cmd_synctex_backward_search_spec,
-     G_N_ELEMENTS (cmd_synctex_backward_search_spec)},
+    DEC_CMD2 (synctex_forward_search, "synctex-forward-search"),
+    DEC_CMD2 (synctex_backward_search, "synctex-backward-search"),
 
     /* Rendering */
-    {"renderpage", cmd_renderpage, cmd_renderpage_spec,
-     G_N_ELEMENTS (cmd_renderpage_spec)},
-    {"renderpage-text-regions", cmd_renderpage_text_regions,
-     cmd_renderpage_text_regions_spec,
-     G_N_ELEMENTS (cmd_renderpage_text_regions_spec)},
-    {"renderpage-highlight", cmd_renderpage_highlight,
-     cmd_renderpage_highlight_spec,
-     G_N_ELEMENTS (cmd_renderpage_highlight_spec)}
+    DEC_CMD (renderpage),
+    DEC_CMD2 (renderpage_text_regions, "renderpage-text-regions"),
+    DEC_CMD2 (renderpage_highlight, "renderpage-highlight")
   };
 
 int main(int argc, char **argv)
 {
-  epdfinfo_t ctx;
+  epdfinfo_t ctx = {0};
   char *line = NULL;
   ssize_t read;
   size_t line_size;

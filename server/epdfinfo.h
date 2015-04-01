@@ -137,6 +137,15 @@
       }                                                         \
   } while (0)
 
+/* Declare commands */
+#define DEC_CMD(name)                            \
+  {#name, cmd_ ## name, cmd_ ## name ## _spec,  \
+   G_N_ELEMENTS (cmd_ ## name ## _spec)}
+
+#define DEC_CMD2(command, name)                          \
+  {name, cmd_ ## command, cmd_ ## command ## _spec,     \
+   G_N_ELEMENTS (cmd_ ## command ## _spec)}
+
 enum suffix_char { NONE, COLON, NEWLINE};
 
 enum image_type { PPM, PNG };
