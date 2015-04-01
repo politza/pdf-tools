@@ -137,6 +137,19 @@
       }                                                         \
   } while (0)
 
+/* Declare commands */
+#define DEC_CMD(name)                            \
+  {#name, cmd_ ## name, cmd_ ## name ## _spec,  \
+   G_N_ELEMENTS (cmd_ ## name ## _spec)}
+
+#define DEC_CMD2(command, name)                          \
+  {name, cmd_ ## command, cmd_ ## command ## _spec,     \
+   G_N_ELEMENTS (cmd_ ## command ## _spec)}
+
+/* Declare option */
+#define DEC_DOPT(name, type, sname)                      \
+  {name, type, offsetof (document_options_t, sname)}
+
 enum suffix_char { NONE, COLON, NEWLINE};
 
 enum image_type { PPM, PNG };
@@ -146,6 +159,29 @@ typedef struct
   PopplerAnnotMapping *amap;
   gchar *key;
 } annotation_t;
+
+typedef enum
+  {
+    ARG_INVALID = 0,
+    ARG_DOC,
+    ARG_BOOL,
+    ARG_STRING,
+    ARG_NONEMPTY_STRING,
+    ARG_NATNUM,
+    ARG_EDGE,
+    ARG_EDGE_OR_NEGATIVE,
+    ARG_EDGES,
+    ARG_EDGES_OR_POSITION,
+    ARG_COLOR,
+    ARG_REST
+  } command_arg_type_t;
+
+typedef struct
+{
+  const char *name; 
+  command_arg_type_t type;
+  size_t offset;
+} document_option_t;
 
 typedef struct
 {
@@ -171,25 +207,6 @@ typedef struct
   } annotations;
   document_options_t options;
 } document_t;
-
-typedef enum
-  {
-    ARG_INVALID = 0,
-    ARG_DOC,
-    ARG_BOOL,
-    ARG_STRING,
-    ARG_NONEMPTY_STRING,
-    ARG_NATNUM,
-    ARG_EDGE,
-    ARG_EDGE_OR_NEGATIVE,
-    ARG_EDGES,
-    ARG_EDGES_OR_POSITION,
-    ARG_COLOR,
-#ifdef HAVE_POPPLER_ANNOT_MARKUP
-    ARG_QUADRILATERAL,
-#endif
-    ARG_REST
-  } command_arg_type_t;
 
 typedef struct
 {

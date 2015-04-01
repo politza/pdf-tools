@@ -462,8 +462,7 @@ interrupted."
     ((save) (caar response))
     ((renderpage renderpage-text-regions renderpage-highlight)
      (pdf-util-munch-file (caar response)))
-    (setoptions nil)
-    (getoptions
+    ((setoptions getoptions)
      (let (options)
        (dolist (key-value response)
          (let ((key (intern (car key-value)))
@@ -473,7 +472,7 @@ interrupted."
               (setq value (equal value "1"))))
            (push value options)
            (push key options)))
-       options))                 
+       options))
     (t response)))
 
 
