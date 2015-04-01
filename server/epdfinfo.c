@@ -3218,10 +3218,12 @@ static const command_t commands [] =
     DEC_CMD (getoptions),
     DEC_CMD (setoptions),
 
-    /* General Informations */
+    /* Searching */
     DEC_CMD2 (search_string, "search-string"),
     DEC_CMD2 (search_regexp, "search-regexp"),
     DEC_CMD2 (regexp_flags, "regexp-flags"),
+
+    /* General Informations */
     DEC_CMD (metadata),
     DEC_CMD (outline),
     DEC_CMD2 (number_of_pages, "number-of-pages"),
