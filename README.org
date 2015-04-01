@@ -26,9 +26,9 @@
     View PDF documents in a buffer with DocView-like bindings.
 *** Isearch 
     Interactively search PDF documents like any other buffer, either
-    for a string or PCRE.
+    for a string or a PCRE.
 *** Occur
-    List lines matching a string or regexp in one or mor PDF
+    List lines matching a string or regexp in one or more PDF
     documents.
 *** Follow links
     Click on highlighted links, moving to some part of a different
