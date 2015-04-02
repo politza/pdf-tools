@@ -832,6 +832,22 @@ respective sequence."
                         (elt seq2 j)) alignment))))
         (cons (mref d len1 len2) alignment)))))
 
+
+(defun pdf-util-pcre-quote (string)
+  "Escape STRING for use as a PCRE.
+
+See also `regexp-quote'."
+  
+  (let ((to-escape
+         (eval-when-compile (append "\0\\|()[]{}^$*+?." nil)))
+        (chars (append string nil))
+        escaped)
+    (dolist (ch chars)
+      (when (memq ch to-escape)
+        (push ?\\ escaped))
+      (push ch escaped))
+    (apply 'string (nreverse escaped))))
+
 
 ;; * ================================================================== *
 ;; * Imagemagick's convert
