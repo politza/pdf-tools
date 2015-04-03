@@ -63,6 +63,18 @@
   :group 'pdf-isearch
   :group 'pdf-tools-faces)
 
+(defcustom pdf-isearch-hyphenation-character "-­"
+  "Characters used as hyphens when word searching."
+  :group 'pdf-isearch
+  :type 'string)
+
+(defvar pdf-isearch-search-fun-function nil
+  "Search function used when searching.
+
+Like `isearch-search-fun-function', though it should return a
+function \(FN STRING &optional PAGES\), which in turn should
+return a result like `pdf-info-search-regexp'.")
+
 
 ;; * ================================================================== *
 ;; * Internal Variables
@@ -81,8 +93,7 @@ searching across multiple lines.")
   "A list of matches of the last search.")
 
 (defvar-local pdf-isearch-current-parameter nil
-  "A list of search parameter \(search-string regex-p case-fold\).")
-
+  "A list of search parameter \(search-string regex-p case-fold word-search\).")
 
 
 ;; * ================================================================== *
@@ -151,7 +162,8 @@ dark colors, are used (see e.g. `frame-background-mode'), instead
 of the light ones.
 
 \\{pdf-isearch-minor-mode-map}
-While in `isearch-mode' the following keys are available.
+While in `isearch-mode' the following keys are available. Note
+that not every isearch command work as expected.
 
 \\{pdf-isearch-active-mode-map}"
   :group 'pdf-isearch
@@ -248,7 +260,8 @@ This is a Isearch interface function."
              same-search-p
              isearch-forward)
             pdf-isearch-current-parameter
-            (list string isearch-regexp isearch-case-fold-search))
+            (list string isearch-regexp
+                  isearch-case-fold-search isearch-word))
       (cond
        (next-match
         (setq pdf-isearch-current-match next-match)
@@ -335,12 +348,15 @@ Parameter inspected are `isearch-string' (unless
 IGNORE-SEARCH-STRING-P is t) and `isearch-case-fold-search'.  If
 there was no previous search, this function returns t."
   (or (null pdf-isearch-current-parameter)
-      (if ignore-search-string-p
-          (equal (cdr pdf-isearch-current-parameter)
-                 (list isearch-regexp isearch-case-fold-search))
-        (equal pdf-isearch-current-parameter
-               (list isearch-string isearch-regexp
-                     isearch-case-fold-search)))))
+      (let ((parameter (list isearch-string
+                             isearch-regexp
+                             isearch-case-fold-search
+                             isearch-word)))
+        (if ignore-search-string-p
+            (equal (cdr pdf-isearch-current-parameter)
+                   (cdr parameter))
+          (equal pdf-isearch-current-parameter
+                 parameter)))))
 
 (defun pdf-isearch-next-match (last-page this-page last-match
                                          all-matches continued-p
@@ -368,7 +384,8 @@ there was no previous search, this function returns t."
   "Update search and redisplay, if necessary."
   (unless (pdf-isearch-same-search-p t)
     (setq pdf-isearch-current-parameter
-          (list isearch-string isearch-regexp isearch-case-fold-search)
+          (list isearch-string isearch-regexp
+                isearch-case-fold-search isearch-word)
           pdf-isearch-current-matches
           (pdf-isearch-search-page isearch-string))
     (pdf-isearch-redisplay)))
@@ -399,13 +416,16 @@ there was no previous search, this function returns t."
   "Run `occur' using the last search string or regexp."
   (interactive)
   (let ((case-fold-search isearch-case-fold-search)
-	(search-spaces-regexp
-	 (if (if isearch-regexp
-		 isearch-regexp-lax-whitespace
-	       isearch-lax-whitespace)
-	     search-whitespace-regexp)))
+        (regexp
+         (cond
+          ((functionp isearch-word)
+           (funcall isearch-word isearch-string))
+          (isearch-word (pdf-isearch-word-search-regexp
+                         isearch-string nil
+                         pdf-isearch-hyphenation-character))
+          (isearch-regexp isearch-string))))
     (save-selected-window
-      (pdf-occur isearch-string isearch-regexp))
+      (pdf-occur (or regexp isearch-string) regexp))
     (isearch-message)))
 
 
@@ -423,13 +443,77 @@ coordinates, sorted top to bottom, then left to right."
   (let* ((case-fold-search isearch-case-fold-search)
          (matches
           (cdr (assq page
-                     (if isearch-regexp
-                         (pdf-info-search-regexp
-                          string page 'invalid-regexp)
-                       (pdf-info-search-string string page))))))
+                     (funcall (pdf-isearch-search-fun)
+                              string page)))))
     (mapcar (lambda (edge-list)
               (pdf-util-scale-relative-to-pixel edge-list 'round))
             (mapcar 'cdr matches))))
+
+(defun pdf-isearch-search-fun ()
+  (funcall (or pdf-isearch-search-fun-function
+               'pdf-isearch-search-fun-default)))
+  
+(defun pdf-isearch-search-fun-default ()
+  "Return default functions to use for the search."
+  (cond
+   (isearch-word
+    (lambda (string &optional pages)
+      ;; Use lax versions to not fail at the end of the word while
+      ;; the user adds and removes characters in the search string
+      ;; (or when using nonincremental word isearch)
+      (let ((lax (not (or isearch-nonincremental
+			  (null (car isearch-cmds))
+			  (eq (length isearch-string)
+			      (length (isearch--state-string
+                                       (car isearch-cmds))))))))
+        (pdf-info-search-regexp
+	 (if (functionp isearch-word)
+	     (funcall isearch-word string lax)
+	   (car (push (pdf-isearch-word-search-regexp
+                       string lax pdf-isearch-hyphenation-character)
+                      regexp)))
+	 pages 'invalid-regexp))))
+   ;; ((and isearch-regexp isearch-regexp-lax-whitespace
+   ;;       search-whitespace-regexp)
+   ;;  (if isearch-forward
+   ;;      're-search-forward-lax-whitespace
+   ;;    're-search-backward-lax-whitespace))
+   (isearch-regexp
+    (lambda (string &optional pages)
+      (pdf-info-search-regexp string pages 'invalid-regexp)))
+   ;; ((and isearch-lax-whitespace search-whitespace-regexp)
+   ;;  (if isearch-forward
+   ;;      'search-forward-lax-whitespace
+   ;;    'search-backward-lax-whitespace))
+   (t
+    'pdf-info-search-string)))
+
+
+(defun pdf-isearch-word-search-regexp (string &optional lax hyphenization-chars)
+  "Return a PCRE which matches words, ignoring punctuation."
+  (let ((hyphenization-regexp
+         (and hyphenization-chars
+              (format "(?:[%s]\\n)?"
+                      (replace-regexp-in-string
+                       "[]^\\\\-]" "\\\\\\&"
+                       hyphenization-chars t)))))
+    (cond
+     ((equal string "") "")
+     ((string-match-p "\\`\\W+\\'" string) "\\W+")
+     (t (concat
+         (if (string-match-p "\\`\\W" string) "\\W+"
+           (unless lax "\\b"))
+         (mapconcat (lambda (word)
+                      (if hyphenization-regexp
+                          (mapconcat
+                           (lambda (ch)
+                             (pdf-util-pcre-quote (string ch)))
+                           (append word nil)
+                           hyphenization-regexp)
+                        (pdf-util-pcre-quote word)))
+                    (split-string string "\\W+" t) "\\W+")
+         (if (string-match-p "\\W\\'" string) "\\W+"
+           (unless lax "\\b")))))))
 
 (defun pdf-isearch-find-next-matching-page (string page &optional interactive-p)
   "Find STRING after or before page PAGE, according to FORWARD-P.
@@ -444,9 +528,7 @@ is no such page."
                           (1+ page))
                   (cons (1- page)
                         (1- page))))
-         (fn (if isearch-regexp
-                 'pdf-info-search-regexp
-               'pdf-info-search-string))
+         (fn (pdf-isearch-search-fun))
          matched-page
          reporter)
 
