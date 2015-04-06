@@ -104,9 +104,7 @@ searching across multiple lines.")
                   
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
-    (define-key kmap (kbd "C-s") 'isearch-forward)
-    (define-key kmap (kbd "C-r") 'isearch-backward)
-    (define-key kmap (kbd "M-s o") 'pdf-occur)
+    (define-key kmap [remap occur] 'pdf-occur)
     kmap)
   "Keymap used in `pdf-isearch-minor-mode'.")
 
@@ -115,14 +113,15 @@ searching across multiple lines.")
     (set-keymap-parent kmap isearch-mode-map)
     (define-key kmap (kbd "C-d") 'pdf-view-dark-minor-mode)
     (define-key kmap (kbd "C-b") 'pdf-isearch-batch-mode)
-    (define-key kmap (kbd "C-v") 'pdf-view-scroll-up-or-next-page)
-    (define-key kmap (kbd "M-v") 'pdf-view-scroll-down-or-previous-page)
     (define-key kmap (kbd "M-s o") 'pdf-isearch-occur)
     kmap)
   "Keymap used in `pdf-isearch-active-mode'.
 
 This keymap is used, when isearching in PDF buffers.  It's parent
 keymap is `isearch-mode-map'.")
+
+(put 'image-scroll-up 'isearch-scroll t)
+(put 'image-scroll-down 'isearch-scroll t)
 
 (define-minor-mode pdf-isearch-active-mode "" nil nil nil
   (cond
