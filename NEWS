@@ -17,6 +17,10 @@
 *** Occur Integration
     M-s o now starts occur, while keeping the isearch session, like it
     is in text-buffers.
+*** Word search
+    M-s w now does a word search, which will also find hyphenated
+    words (as determined by pdf-isearch-hyphenation-character), though
+    not at page boundaries.
 * Version 0.50
 ** PDF Tools is now available on MELPA.
 ** SyncTeX
