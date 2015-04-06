@@ -671,10 +671,12 @@ it is assumed to be ordered with respect to FORWARD-P."
           (pdf-util-with-edges (edges)
             (when (if forward-p
                       (or (>= edges-top matched-bot)
-                          (and (>= edges-top matched-top)
+                          (and (or (>= edges-top matched-top)
+                                   (>= edges-bot matched-bot))
                                (>= edges-right matched-right)))
                     (or (<= edges-bot matched-top)
-                        (and (<= edges-top matched-top)
+                        (and (or (<= edges-bot matched-bot)
+                                 (<= edges-top matched-top))
                              (<= edges-left matched-left))))
               (cl-return next))))))))
 
