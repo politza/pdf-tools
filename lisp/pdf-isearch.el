@@ -468,9 +468,8 @@ coordinates, sorted top to bottom, then left to right."
         (pdf-info-search-regexp
 	 (if (functionp isearch-word)
 	     (funcall isearch-word string lax)
-	   (car (push (pdf-isearch-word-search-regexp
-                       string lax pdf-isearch-hyphenation-character)
-                      regexp)))
+	   (pdf-isearch-word-search-regexp
+            string lax pdf-isearch-hyphenation-character))
 	 pages 'invalid-regexp))))
    ;; ((and isearch-regexp isearch-regexp-lax-whitespace
    ;;       search-whitespace-regexp)
