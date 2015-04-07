@@ -1561,8 +1561,6 @@ cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
   if (! *passwd)
     passwd = NULL;
 
-  perror_if_not (*filename == '/',
-                "Filename must be absolute:%s", filename);
   doc = document_open(ctx, filename, passwd, &gerror);
   perror_if_not (doc, "Error opening %s:%s", filename,
                 gerror ? gerror->message : "unknown error");
