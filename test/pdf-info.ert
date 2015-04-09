@@ -3,23 +3,6 @@
 (require 'pdf-info)
 (require 'ert)
 
-;; Fake skipped as accepted failures if skip-unless is not available.
-(unless (fboundp 'ert--skip-unless)
-  (defun skip-unless (arg)
-    (unless arg
-      (setf (ert-test-expected-result-type
-             (car ert--running-tests))
-            :failed)
-      (ert-fail (list nil)))))
-
-(defun pdf-test-relative-edges-p (edges)
-  (and (consp edges)
-       (cl-every (lambda (x)
-                   (and (numberp x)
-                        (<= x 1)
-                        (>= x 0)))
-                 edges)))
-
 (ert-deftest pdf-info-open/close ()
   (pdf-test-with-test-pdf
     (should-not (pdf-info-open))

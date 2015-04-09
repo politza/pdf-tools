@@ -20,8 +20,24 @@
                                (delete-directory package-user-dir t))))
 (package-initialize)
 (package-install-file pdf-tools-package)
-(dolist (file (directory-files "." t "\\.ert\\'"))
-  (load-file file))
+
+;; FIXME: Move functions to new, loadable file.
+;; Fake skipped as accepted failures if skip-unless is not available.
+(unless (fboundp 'ert--skip-unless)
+  (defun skip-unless (arg)
+    (unless arg
+      (setf (ert-test-expected-result-type
+             (car ert--running-tests))
+            :failed)
+      (ert-fail (list nil)))))
+
+(defun pdf-test-relative-edges-p (edges)
+  (and (consp edges)
+       (cl-every (lambda (x)
+                   (and (numberp x)
+                        (<= x 1)
+                        (>= x 0)))
+                 edges)))
 
 (defmacro pdf-test-with-test-pdf (&rest body)
   (declare (indent 0) (debug t))
@@ -36,6 +52,9 @@
            (set-buffer-modified-p nil)
            (kill-buffer))
          (pdf-info-quit)))))
+
+(dolist (file (directory-files "." t "\\.ert\\'"))
+  (load-file file))
 
 (ert-run-tests-batch-and-exit t)
     
