@@ -200,6 +200,19 @@
         (when (file-exists-p tempfile)
           (delete-file tempfile))))))
 
+(ert-deftest pdf-info-check-epdfinfo ()
+  (should (progn (pdf-info-check-epdfinfo) t))
+  (should-error
+   (let (pdf-info-epdfinfo-program)
+     (pdf-info-check-epdfinfo)))
+  (should-error
+   (let ((pdf-info-epdfinfo-program 42))
+     (pdf-info-check-epdfinfo)))
+  (should-error
+   (let ((pdf-info-epdfinfo-program
+          (make-temp-name "pdf-info")))
+     (pdf-info-check-epdfinfo))))
+
 ;; FIXME: Write me.
 ;; (ert-deftest pdf-info-getattachment-from-annot ()
 ;;   (pdf-test-with-test-pdf

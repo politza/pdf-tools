@@ -167,6 +167,29 @@ server, that it never ran.")
        (not (eq t pdf-info--queue))
        (tq-process pdf-info--queue)))
 
+(defun pdf-info-check-epdfinfo (&optional interactive-p)
+  (interactive "p")
+  (let ((executable pdf-info-epdfinfo-program))
+    (unless (stringp executable)
+      (error "pdf-info-epdfinfo-program is unset or not a string"))
+    (unless (file-executable-p executable)
+      (error "pdf-info-epdfinfo-program is not executable"))
+    (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo")))
+      (unwind-protect 
+          (with-temp-buffer
+            (with-temp-file tempfile
+              (insert "quit\n"))
+            (unless (= 0 (call-process
+                          executable tempfile (current-buffer)))
+              (error "Error running `%s': %s"
+                     pdf-info-epdfinfo-program
+                     (buffer-string))))              
+        (when (file-exists-p tempfile)
+          (delete-file tempfile)))))
+  (when interactive-p
+    (message "The epdfinfo programm appears to be working."))
+  nil)
+    
 (defun pdf-info-process-assert-running (&optional force)
   "Assert a running process.
 
@@ -197,10 +220,7 @@ error."
       (when (eq pdf-info-restart-process-p 'ask)
         (setq pdf-info-restart-process-p nil))
       (error "The epdfinfo server quit"))
-    (unless (and pdf-info-epdfinfo-program
-                 (file-executable-p pdf-info-epdfinfo-program))
-      (error "The variable pdf-info-epdfinfo-program is unset or not executable: %s"
-             pdf-info-epdfinfo-program))
+    (pdf-info-check-epdfinfo)
     (let* ((process-connection-type)    ;Avoid 4096 Byte bug #12440.
            (proc (start-process
                   "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
