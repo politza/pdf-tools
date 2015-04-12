@@ -404,13 +404,14 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
     {
     case PPM:
       {
-        unsigned char rgb[3];
+        unsigned char *buffer = g_malloc (width * height * 3);
+        unsigned char *buffer_p = buffer;
+        
         fprintf (file, "P6\n%d %d\n255\n", width, height);
-        for (i = 0; i < width * height; ++i, data += 4)
-          {
-            ARGB_TO_RGB (rgb, data);
-            fwrite (rgb, 1, 3, file);
-          }
+        for (i = 0; i < width * height; ++i, data += 4, buffer_p += 3)
+          ARGB_TO_RGB (buffer_p, data);
+        fwrite (buffer, 1, width * height * 3, file);
+        g_free (buffer);
         success = 1;
       }
       break;
