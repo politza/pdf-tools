@@ -77,6 +77,13 @@ will be logged to the buffer \"*pdf-info-log*\"."
   :group 'pdf-info
   :type 'boolean)
 
+(defcustom pdf-info-log-entry-max 512
+  "Maximum number of characters in a single log entry.
+
+This variable has no effect if `pdf-info-log' is nil."
+  :group 'pdf-info
+  :type 'integer)
+
 (defcustom pdf-info-restart-process-p 'ask
   "What to do when the epdfinfo server died.
 
@@ -587,8 +594,10 @@ This is a no-op, if `pdf-info-log' is nil."
             (if query-p
                 'font-lock-keyword-face
               'font-lock-function-name-face))
-           (if (> (length string) 512)
-               (concat (substring string 0 512)
+           (if (and (numberp pdf-info-log-entry-max)
+                    (> (length string)
+                       pdf-info-log-entry-max))
+               (concat (substring string 0 pdf-info-log-entry-max)
                        "...[truncated]\n")
              string)))
         (when (and (window-live-p window)
