@@ -1,5 +1,6 @@
 
 (require 'package)
+(require 'ert)
 
 (unless (= 1 (length command-line-args-left))
   (error "Missing package tar or too many arguments"))
