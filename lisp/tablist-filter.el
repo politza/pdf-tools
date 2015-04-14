@@ -22,8 +22,9 @@
 
 ;;
 
+(let (python-mode-hook)
 (require 'semantic/wisent/comp)
-(require 'semantic/wisent/wisent)
+(require 'semantic/wisent/wisent))
 
 ;;; Code:
 
