@@ -99,7 +99,8 @@
 #  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)
 #endif
 
-#if (defined (__APPLE__) || defined (__CYGWIN__))
+#if (defined (__APPLE__) || defined (__CYGWIN__) || defined (__FreeBSD__) \
+	|| defined (__OpeneBSD__))
 #  define error(status, errno, fmt, args...)                    \
   do {                                                          \
     int error = (errno);                                        \
