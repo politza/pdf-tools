@@ -17,7 +17,8 @@
 
 #include <assert.h>
 #include <err.h>
-#if ! (defined (__APPLE__) || defined (__CYGWIN__))
+#if ! (defined (__APPLE__) || defined (__CYGWIN__) || defined (__FreeBSD__) \
+	|| defined (__OpeneBSD__))
 #  include <error.h>
 #endif
 #include <glib.h>
