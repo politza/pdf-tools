@@ -15,9 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
+#include <config.h>
+
 #include <assert.h>
 #include <err.h>
-#if ! (defined (__APPLE__) || defined (__CYGWIN__))
+#ifdef HAVE_ERROR_H
 #  include <error.h>
 #endif
 #include <glib.h>
@@ -37,7 +39,6 @@
 #include <regex.h>
 #include "synctex_parser.h"
 #include "epdfinfo.h"
-#include "config.h"
 
 
 /* ================================================================== *

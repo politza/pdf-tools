@@ -56,6 +56,14 @@ fi
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h strings.h])
 
+AC_MSG_CHECKING([for error.h])
+AC_LANG_PUSH([C])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <error.h>],[error (0, 0, "");])],
+                   [AC_DEFINE([HAVE_ERROR_H],1, [Define to 1 if error.h is useable.])
+                    AC_MSG_RESULT([yes])],
+                   AC_MSG_RESULT([no]))
+AC_LANG_POP([C])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
