@@ -50,7 +50,7 @@ fi
 
 if test "$HAVE_POPPLER_ANNOT_MARKUP" = yes; then
   AC_DEFINE([HAVE_POPPLER_ANNOT_MARKUP],1,
-    [Define to 1 to enable adding of markup annotations (requires poppler-glib >= 0.19.4).])
+    [Define to 1 to enable adding of markup annotations (requires poppler-glib >= 0.26).])
 fi
 
 # Checks for header files.
