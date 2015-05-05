@@ -186,6 +186,7 @@ Edge values are image coordinates.")
     (define-key map (kbd "M-<")       'pdf-view-first-page)
     (define-key map (kbd "M->")       'pdf-view-last-page)
     (define-key map [remap goto-line] 'pdf-view-goto-page)
+    (define-key map (kbd "M-g l")     'pdf-view-goto-label)
     (define-key map (kbd "RET")       'image-next-line)
     ;; Zoom in/out.
     (define-key map "+"               'pdf-view-enlarge)
@@ -549,6 +550,19 @@ at the top edge of the page moves to the previous page."
 	    (image-bol 1))
 	  (set-window-hscroll (selected-window) hscroll)))
     (image-previous-line arg)))
+
+(defun pdf-view-goto-label (label)
+  "Goto the page corresponding to LABEL.
+
+Usually the label of a document's page is the same as it's
+displayed page number."
+  (interactive
+   (list (let ((labels (pdf-info-pagelabels)))
+           (completing-read "Goto label: " labels nil t))))
+  (let ((index (cl-position label (pdf-info-pagelabels) :test 'equal)))
+    (unless index
+      (error "No such label: %s" label))
+    (pdf-view-goto-page (1+ index))))  
 
 
 ;; * ================================================================== *

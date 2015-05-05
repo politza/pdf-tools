@@ -3201,6 +3201,29 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   return;
 }
 
+const command_arg_type_t cmd_pagelabels_spec[] =
+  {
+    ARG_DOC,
+  };
+
+static void
+cmd_pagelabels(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  PopplerDocument *doc = args[0].value.doc->pdf;
+  int i;
+
+  OK_BEGIN ();
+  for (i = 0; i < poppler_document_get_n_pages (doc); ++i)
+    {
+      PopplerPage *page = poppler_document_get_page(doc, i);
+      gchar *label = poppler_page_get_label (page);
+
+      print_response_string (label ? label : "", NEWLINE);
+      g_object_unref (page);
+      g_free (label);
+    }
+  OK_END ();
+}
 
 
 
@@ -3231,7 +3254,8 @@ static const command_t commands [] =
     DEC_CMD (pagesize),
     DEC_CMD (boundingbox),
     DEC_CMD (charlayout),
-
+    DEC_CMD (pagelabels),
+    
     /* Annotations */
     DEC_CMD (getannots),
     DEC_CMD (getannot),

@@ -21,6 +21,13 @@
     M-s w now does a word search, which will also find hyphenated
     words (as determined by pdf-isearch-hyphenation-character), though
     not at page boundaries.
+** View
+*** Navigate by pagelabels
+    M-g l may be used to jump to a page by label, i.e. it's displayed
+    number.
+** Outline
+   New option `pdf-outline-display-labels', determining whether to
+   display labels instead of plain page-numbers.
 * Version 0.50
 ** PDF Tools is now available on MELPA.
 ** SyncTeX

@@ -489,6 +489,7 @@ interrupted."
     ((save) (caar response))
     ((renderpage renderpage-text-regions renderpage-highlight)
      (pdf-util-munch-file (caar response)))
+    (pagelabels (mapcar 'car response))
     (t response)))
 
 
@@ -1494,6 +1495,16 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
    'boundingbox
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page))
+
+(defun pdf-info-pagelabels (&optional file-or-buffer)
+  "Return a list of pagelabels.
+
+Returns a list of strings corresponding to the labels of the
+pages in FILE-OR-BUFFER."
+  
+  (pdf-info-query
+   'pagelabels
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))
 
 (provide 'pdf-info)
 
