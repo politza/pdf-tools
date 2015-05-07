@@ -713,30 +713,28 @@ MATCH-BG LAZY-FG LAZY-BG\)."
   "Highlighting edges CURRENT and MATCHES."
   (cl-check-type current pdf-isearch-match)
   (cl-check-type matches (list-of pdf-isearch-match))
-  (setq current (copy-sequence current)
-        matches (copy-sequence matches))
-  (let* ((width (car (pdf-view-image-size)))
-         (page (pdf-view-current-page))
-         (window (selected-window))
-         (buffer (current-buffer))
-         (tick (cl-incf pdf-isearch--hl-matches-tick))
-         (pdf-info-asynchronous
-          (lambda (status data)
-            (when (and (null status)
-                       (eq tick pdf-isearch--hl-matches-tick)
-                       (buffer-live-p buffer)
-                       (window-live-p window)
-                       (eq (window-buffer window)
-                           buffer))
-              (with-selected-window window
-                (when (and (eq major-mode 'pdf-view-mode)
-                           (or isearch-mode
-                               occur-hack-p)
-                           (eq page (pdf-view-current-page)))
-                  (pdf-view-display-image
-                   (pdf-view-create-image data))))))))
-    (cl-destructuring-bind (fg1 bg1 fg2 bg2)
-        (pdf-isearch-current-colors)
+  (cl-destructuring-bind (fg1 bg1 fg2 bg2)
+      (pdf-isearch-current-colors)
+    (let* ((width (car (pdf-view-image-size)))
+           (page (pdf-view-current-page))
+           (window (selected-window))
+           (buffer (current-buffer))
+           (tick (cl-incf pdf-isearch--hl-matches-tick))
+           (pdf-info-asynchronous
+            (lambda (status data)
+              (when (and (null status)
+                         (eq tick pdf-isearch--hl-matches-tick)
+                         (buffer-live-p buffer)
+                         (window-live-p window)
+                         (eq (window-buffer window)
+                             buffer))
+                (with-selected-window window
+                  (when (and (eq major-mode 'pdf-view-mode)
+                             (or isearch-mode
+                                 occur-hack-p)
+                             (eq page (pdf-view-current-page)))
+                    (pdf-view-display-image
+                     (pdf-view-create-image data))))))))
       (pdf-info-renderpage-text-regions
        page width t nil
        `(,fg1 ,bg1 ,@(pdf-util-scale-pixel-to-relative
