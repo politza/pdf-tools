@@ -28,6 +28,9 @@
 
 ;;; Code:
 
+(defvar wisent-eoi-term)
+(declare-function wisent-parse "semantic/wisent/wisent.el")
+
 (defvar tablist-filter-binary-operator
   '((== . tablist-filter-op-equal)
     (=~ . tablist-filter-op-regexp)
@@ -103,7 +106,7 @@
   (when interactive
     (message "Parser reinitialized."))
   nil)
-    
+
 (defun tablist-filter-wisent-lexer ()
   (cl-destructuring-bind (unary-op binary-op keywords)
       tablist-filter-lexer-regexps
