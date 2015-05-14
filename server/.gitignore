@@ -19,3 +19,4 @@ ar-lib
 compile
 config.h.in~
 .clang_complete
+callgrind.out.*
