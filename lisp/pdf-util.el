@@ -646,6 +646,9 @@ string."
      dx dy)))
 
 (defvar pdf-util--face-colors-cache (make-hash-table))
+
+(defadvice enable-theme (after pdf-util-clear-faces-cache activate)
+  (clrhash pdf-util--face-colors-cache))
   
 (defun pdf-util-face-colors (face &optional dark-p)
   "Return both colors of FACE as a cons.
@@ -828,6 +831,22 @@ respective sequence."
             (push (cons (elt seq1 i)
                         (elt seq2 j)) alignment))))
         (cons (mref d len1 len2) alignment)))))
+
+
+(defun pdf-util-pcre-quote (string)
+  "Escape STRING for use as a PCRE.
+
+See also `regexp-quote'."
+  
+  (let ((to-escape
+         (eval-when-compile (append "\0\\|()[]{}^$*+?." nil)))
+        (chars (append string nil))
+        escaped)
+    (dolist (ch chars)
+      (when (memq ch to-escape)
+        (push ?\\ escaped))
+      (push ch escaped))
+    (apply 'string (nreverse escaped))))
 
 
 ;; * ================================================================== *

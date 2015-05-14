@@ -65,6 +65,13 @@
   :group 'pdf-outline
   :type display-buffer--action-custom-type)
 
+(defcustom pdf-outline-display-labels nil
+  "Whether the outline should display labels instead of page numbers.
+
+Usually a page's label is it's displayed page number."
+  :group 'pdf-outline
+  :type 'boolean)
+
 (defvar pdf-outline-minor-mode-map
   (let ((km (make-sparse-keymap)))
     (define-key km (kbd "o") 'pdf-outline)
@@ -239,7 +246,9 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
     buf))
   
 (defun pdf-outline-insert-outline (pdf-file)
-  (let ((outline (cl-remove-if-not
+  (let ((labels (and pdf-outline-display-labels
+                     (pdf-info-pagelabels pdf-file)))
+        (outline (cl-remove-if-not
                   (lambda (type)
                     (eq type 'goto-dest))
                   (pdf-info-outline pdf-file)
@@ -252,7 +261,10 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
           (make-string (* (1- lvl) pdf-outline-buffer-indent) ?\s)
           title
           (if (> page 0)
-              (format " (%d)" page)
+              (format " (%s)"
+                      (if labels
+                          (nth (1- page) labels)
+                        page))
             "(invalid)"))
          'type 'pdf-outline
          'help-echo (pdf-links-action-to-string (cdr item))
@@ -442,16 +454,21 @@ Then quit the outline window."
     (use-local-map (keymap-parent (current-local-map)))))
   
 
-(defun pdf-outline-imenu-create-item (_lvl link)
+(defun pdf-outline-imenu-create-item (_lvl link &optional labels)
   (cl-destructuring-bind ( _type title page _top)
       link
-    (list (format "%s (%d)" title page)
+    (list (format "%s (%s)" title (if labels
+                                      (nth (1- page) labels)
+                                    page))
           0
           'pdf-outline-imenu-activate-link
           link)))
   
 (defun pdf-outline-imenu-create-index-flat ()
-  (let ((outline (cl-remove-if-not
+  (let ((labels (and pdf-outline-display-labels
+                     (pdf-info-pagelabels
+                       (pdf-view-buffer-file-name))))
+        (outline (cl-remove-if-not
                   (lambda (type)
                     (eq type 'goto-dest))
                   (pdf-info-outline (pdf-view-buffer-file-name))
@@ -459,7 +476,7 @@ Then quit the outline window."
         index)
     (dolist (o outline)
       (push (pdf-outline-imenu-create-item
-             (car o) (cdr o))
+             (car o) (cdr o) labels)
             index))
     (nreverse index)))
         
@@ -471,9 +488,11 @@ Then quit the outline window."
      (lambda (type)
        (eq type 'goto-dest))
      (pdf-info-outline (pdf-view-buffer-file-name))
-     :key 'cadr))))
+     :key 'cadr))
+   (and pdf-outline-display-labels
+        (pdf-info-pagelabels (pdf-view-buffer-file-name)))))
 
-(defun pdf-outline-imenu-create-index-tree-1 (nodes)
+(defun pdf-outline-imenu-create-index-tree-1 (nodes &optional labels)
   (mapcar (lambda (node)
             (let (children)
               (when (consp (car node))
@@ -482,11 +501,11 @@ Then quit the outline window."
               (let ((title (nth 2 node))
                     (item
                      (pdf-outline-imenu-create-item
-                      (car node) (cdr node))))
+                      (car node) (cdr node) labels)))
                 (if children
                     (cons title
                           (cons item (pdf-outline-imenu-create-index-tree-1
-                                     children)))
+                                      children labels)))
                   item))))
           nodes))
 

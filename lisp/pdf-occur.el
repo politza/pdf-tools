@@ -393,10 +393,11 @@ I.e. all marked buffers are in PDFView mode."
   (let* ((buffer (or (ibuffer-get-marked-buffers)
                      (and (ibuffer-current-buffer)
                           (list (ibuffer-current-buffer)))))
-         (pdf-only-p (mapcar (lambda (buf)
-                               (with-current-buffer buf
-                                 (derived-mode-p 'pdf-view-mode)))
-                             buffer)))
+         (pdf-only-p (cl-every
+                      (lambda (buf)
+                        (with-current-buffer buf
+                          (derived-mode-p 'pdf-view-mode)))
+                      buffer)))
     (if (not pdf-only-p)
         (call-interactively 'ibuffer-do-occur)
       (let ((regexp (pdf-occur-read-string regexp-p)))

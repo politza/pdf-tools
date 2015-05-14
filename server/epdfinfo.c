@@ -15,9 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
+#include <config.h>
+
 #include <assert.h>
 #include <err.h>
-#if ! (defined (__APPLE__) || defined (__CYGWIN__))
+#ifdef HAVE_ERROR_H
 #  include <error.h>
 #endif
 #include <glib.h>
@@ -37,7 +39,6 @@
 #include <regex.h>
 #include "synctex_parser.h"
 #include "epdfinfo.h"
-#include "config.h"
 
 
 /* ================================================================== *
@@ -298,7 +299,8 @@ mktempfile()
  */
 static cairo_surface_t*
 image_render_page(PopplerDocument *pdf, PopplerPage *page,
-                  int width, const render_options_t *options)
+                  int width, gboolean do_render_annotaions,
+                  const render_options_t *options)
 {
   cairo_t *cr = NULL;
   cairo_surface_t *surface = NULL;
@@ -335,7 +337,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   cairo_translate (cr, 0, 0);
   cairo_scale (cr, scale, scale);
   /* Render w/o annotations. */
-  if (options && options->printed)
+  if (! do_render_annotaions || (options && options->printed))
     poppler_page_render_for_printing_with_options
       (page, cr, POPPLER_PRINT_DOCUMENT);
   else
@@ -349,6 +351,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   /* This makes the colors look right. */
   cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
   cairo_set_source_rgb (cr, 1., 1., 1.);
+
   cairo_paint (cr);
 
   if (options && options->usecolors)
@@ -407,13 +410,14 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
     {
     case PPM:
       {
-        unsigned char rgb[3];
+        unsigned char *buffer = g_malloc (width * height * 3);
+        unsigned char *buffer_p = buffer;
+        
         fprintf (file, "P6\n%d %d\n255\n", width, height);
-        for (i = 0; i < width * height; ++i, data += 4)
-          {
-            ARGB_TO_RGB (rgb, data);
-            fwrite (rgb, 1, 3, file);
-          }
+        for (i = 0; i < width * height; ++i, data += 4, buffer_p += 3)
+          ARGB_TO_RGB (buffer_p, data);
+        fwrite (buffer, 1, width * height * 3, file);
+        g_free (buffer);
         success = 1;
       }
       break;
@@ -1644,8 +1648,6 @@ cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
   if (! *passwd)
     passwd = NULL;
 
-  perror_if_not (*filename == '/',
-                "Filename must be absolute:%s", filename);
   doc = document_open(ctx, filename, passwd, &gerror);
   perror_if_not (doc, "Error opening %s:%s", filename,
                 gerror ? gerror->message : "unknown error");
@@ -2909,7 +2911,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   cairo_surface_t *surface = NULL;
 
   perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width,
+  surface = image_render_page (doc->pdf, page, width, 1,
                                &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
 
@@ -2948,7 +2950,7 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, width,
+  surface = image_render_page (doc->pdf, page, width, 1,
                                &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
   cr = cairo_create (surface);
@@ -3033,7 +3035,7 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
   int i = 0;
 
   perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width,
+  surface = image_render_page (doc->pdf, page, width, 1,
                                &doc->options.render);
   height = cairo_image_surface_get_height (surface);
   cr = cairo_create (surface);
@@ -3132,7 +3134,7 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, (int) pt_width,
+  surface = image_render_page (doc->pdf, page, (int) pt_width, 1,
                                &doc->options.render);
 
   perror_if_not (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS,
@@ -3374,6 +3376,29 @@ cmd_setoptions(const epdfinfo_t *ctx, const command_arg_t *args)
   if (error_msg) g_free (error_msg);
 }
 
+const command_arg_type_t cmd_pagelabels_spec[] =
+  {
+    ARG_DOC,
+  };
+
+static void
+cmd_pagelabels(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  PopplerDocument *doc = args[0].value.doc->pdf;
+  int i;
+
+  OK_BEGIN ();
+  for (i = 0; i < poppler_document_get_n_pages (doc); ++i)
+    {
+      PopplerPage *page = poppler_document_get_page(doc, i);
+      gchar *label = poppler_page_get_label (page);
+
+      print_response_string (label ? label : "", NEWLINE);
+      g_object_unref (page);
+      g_free (label);
+    }
+  OK_END ();
+}
 
 
 
@@ -3391,10 +3416,12 @@ static const command_t commands [] =
     DEC_CMD (getoptions),
     DEC_CMD (setoptions),
 
-    /* General Informations */
+    /* Searching */
     DEC_CMD2 (search_string, "search-string"),
     DEC_CMD2 (search_regexp, "search-regexp"),
     DEC_CMD2 (regexp_flags, "regexp-flags"),
+
+    /* General Informations */
     DEC_CMD (metadata),
     DEC_CMD (outline),
     DEC_CMD2 (number_of_pages, "number-of-pages"),
@@ -3405,6 +3432,18 @@ static const command_t commands [] =
     DEC_CMD (boundingbox),
     DEC_CMD (charlayout),
 
+    /* General Informations */
+    DEC_CMD (metadata),
+    DEC_CMD (outline),
+    DEC_CMD2 (number_of_pages, "number-of-pages"),
+    DEC_CMD (pagelinks),
+    DEC_CMD (gettext),
+    DEC_CMD (getselection),
+    DEC_CMD (pagesize),
+    DEC_CMD (boundingbox),
+    DEC_CMD (charlayout),
+    DEC_CMD (pagelabels),
+    
     /* Annotations */
     DEC_CMD (getannots),
     DEC_CMD (getannot),

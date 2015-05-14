@@ -77,6 +77,13 @@ will be logged to the buffer \"*pdf-info-log*\"."
   :group 'pdf-info
   :type 'boolean)
 
+(defcustom pdf-info-log-entry-max 512
+  "Maximum number of characters in a single log entry.
+
+This variable has no effect if `pdf-info-log' is nil."
+  :group 'pdf-info
+  :type 'integer)
+
 (defcustom pdf-info-restart-process-p 'ask
   "What to do when the epdfinfo server died.
 
@@ -167,6 +174,29 @@ server, that it never ran.")
        (not (eq t pdf-info--queue))
        (tq-process pdf-info--queue)))
 
+(defun pdf-info-check-epdfinfo (&optional interactive-p)
+  (interactive "p")
+  (let ((executable pdf-info-epdfinfo-program))
+    (unless (stringp executable)
+      (error "pdf-info-epdfinfo-program is unset or not a string"))
+    (unless (file-executable-p executable)
+      (error "pdf-info-epdfinfo-program is not executable"))
+    (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo")))
+      (unwind-protect 
+          (with-temp-buffer
+            (with-temp-file tempfile
+              (insert "quit\n"))
+            (unless (= 0 (call-process
+                          executable tempfile (current-buffer)))
+              (error "Error running `%s': %s"
+                     pdf-info-epdfinfo-program
+                     (buffer-string))))              
+        (when (file-exists-p tempfile)
+          (delete-file tempfile)))))
+  (when interactive-p
+    (message "The epdfinfo programm appears to be working."))
+  nil)
+    
 (defun pdf-info-process-assert-running (&optional force)
   "Assert a running process.
 
@@ -197,10 +227,7 @@ error."
       (when (eq pdf-info-restart-process-p 'ask)
         (setq pdf-info-restart-process-p nil))
       (error "The epdfinfo server quit"))
-    (unless (and pdf-info-epdfinfo-program
-                 (file-executable-p pdf-info-epdfinfo-program))
-      (error "The variable pdf-info-epdfinfo-program is unset or not executable: %s"
-             pdf-info-epdfinfo-program))
+    (pdf-info-check-epdfinfo)
     (let* ((process-connection-type)    ;Avoid 4096 Byte bug #12440.
            (proc (start-process
                   "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
@@ -473,6 +500,7 @@ interrupted."
            (push value options)
            (push key options)))
        options))
+    (pagelabels (mapcar 'car response))
     (t response)))
 
 
@@ -578,8 +606,10 @@ This is a no-op, if `pdf-info-log' is nil."
             (if query-p
                 'font-lock-keyword-face
               'font-lock-function-name-face))
-           (if (> (length string) 512)
-               (concat (substring string 0 512)
+           (if (and (numberp pdf-info-log-entry-max)
+                    (> (length string)
+                       pdf-info-log-entry-max))
+               (concat (substring string 0 pdf-info-log-entry-max)
                        "...[truncated]\n")
              string)))
         (when (and (window-live-p window)
@@ -1509,6 +1539,16 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
       soptions)))
           
           
+
+(defun pdf-info-pagelabels (&optional file-or-buffer)
+  "Return a list of pagelabels.
+
+Returns a list of strings corresponding to the labels of the
+pages in FILE-OR-BUFFER."
+  
+  (pdf-info-query
+   'pagelabels
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))
 
 (provide 'pdf-info)
 

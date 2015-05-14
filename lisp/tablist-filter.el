@@ -22,10 +22,14 @@
 
 ;;
 
+(let (python-mode-hook)
 (require 'semantic/wisent/comp)
-(require 'semantic/wisent/wisent)
+(require 'semantic/wisent/wisent))
 
 ;;; Code:
+
+(defvar wisent-eoi-term)
+(declare-function wisent-parse "semantic/wisent/wisent.el")
 
 (defvar tablist-filter-binary-operator
   '((== . tablist-filter-op-equal)
@@ -102,7 +106,7 @@
   (when interactive
     (message "Parser reinitialized."))
   nil)
-    
+
 (defun tablist-filter-wisent-lexer ()
   (cl-destructuring-bind (unary-op binary-op keywords)
       tablist-filter-lexer-regexps

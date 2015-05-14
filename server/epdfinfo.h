@@ -99,7 +99,7 @@
 #  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)
 #endif
 
-#if (defined (__APPLE__) || defined (__CYGWIN__))
+#ifndef HAVE_ERROR_H
 #  define error(status, errno, fmt, args...)                    \
   do {                                                          \
     int error = (errno);                                        \
