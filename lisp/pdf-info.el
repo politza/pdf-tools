@@ -181,7 +181,8 @@ server, that it never ran.")
       (error "pdf-info-epdfinfo-program is unset or not a string"))
     (unless (file-executable-p executable)
       (error "pdf-info-epdfinfo-program is not executable"))
-    (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo")))
+    (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo"))
+          (default-directory "~"))
       (unwind-protect 
           (with-temp-buffer
             (with-temp-file tempfile
@@ -229,6 +230,7 @@ error."
       (error "The epdfinfo server quit"))
     (pdf-info-check-epdfinfo)
     (let* ((process-connection-type)    ;Avoid 4096 Byte bug #12440.
+           (default-directory "~")
            (proc (start-process
                   "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
       (with-current-buffer " *epdfinfo*"
