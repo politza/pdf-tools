@@ -363,7 +363,8 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
     (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
     (dolist (buf (buffer-list))
       (with-current-buffer buf
-        (when (and (pdf-tools-pdf-buffer-p)
+        (when (and (not (derived-mode-p 'pdf-view-mode))
+                   (pdf-tools-pdf-buffer-p)
                    (buffer-file-name))
           (pdf-view-mode)))))))
 
