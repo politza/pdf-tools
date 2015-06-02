@@ -146,6 +146,10 @@
   {name, cmd_ ## command, cmd_ ## command ## _spec,     \
    G_N_ELEMENTS (cmd_ ## command ## _spec)}
 
+/* Declare option */
+#define DEC_DOPT(name, type, sname)                      \
+  {name, type, offsetof (document_options_t, sname)}
+
 enum suffix_char { NONE, COLON, NEWLINE};
 
 enum image_type { PPM, PNG };
@@ -155,18 +159,6 @@ typedef struct
   PopplerAnnotMapping *amap;
   gchar *key;
 } annotation_t;
-
-typedef struct
-{
-  PopplerDocument *pdf;
-  char *filename;
-  char *passwd;
-  struct
-  {
-    GHashTable *keys;             /* key => page */
-    GList **pages;                /* page array  */
-  } annotations;
-} document_t;
 
 typedef enum
   {
@@ -183,6 +175,38 @@ typedef enum
     ARG_COLOR,
     ARG_REST
   } command_arg_type_t;
+
+typedef struct
+{
+  const char *name; 
+  command_arg_type_t type;
+  size_t offset;
+} document_option_t;
+
+typedef struct
+{
+  PopplerColor bg, fg;
+  gboolean usecolors;
+  gboolean printed;
+} render_options_t;
+
+typedef struct
+{
+  render_options_t render;
+} document_options_t;
+
+typedef struct
+{
+  PopplerDocument *pdf;
+  char *filename;
+  char *passwd;
+  struct
+  {
+    GHashTable *keys;             /* key => page */
+    GList **pages;                /* page array  */
+  } annotations;
+  document_options_t options;
+} document_t;
 
 typedef struct
 {

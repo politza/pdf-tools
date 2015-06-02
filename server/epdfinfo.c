@@ -287,6 +287,64 @@ mktempfile()
   return filename;
 }
 
+static void
+image_recolor(cairo_surface_t* surface, const render_options_t *options)
+{
+  /* uses a representation of a rgb color as follows:
+     - a lightness scalar (between 0,1), which is a weighted average of r, g, b,
+     - a hue vector, which indicates a radian direction from the grey axis,
+       inside the equal lightness plane.
+     - a saturation scalar between 0,1. It is 0 when grey, 1 when the color is
+       in the boundary of the rgb cube.
+  */
+
+  const unsigned int page_width = cairo_image_surface_get_width (surface);
+  const unsigned int page_height = cairo_image_surface_get_height (surface);
+  const int rowstride  = cairo_image_surface_get_stride(surface);
+  unsigned char* image = cairo_image_surface_get_data(surface);
+
+  /* RGB weights for computing lightness. Must sum to one */
+  static const double a[] = {0.30, 0.59, 0.11};
+
+  const double f = 65535.;
+  const double rgb1[] = {
+    options->fg.red/f, options->fg.green/f, options->fg.blue/f
+  };
+  const double rgb2[] = {
+    options->bg.red/f, options->bg.green/f, options->bg.blue/f
+  };
+
+  const double rgb_diff[] = {
+    rgb2[0] - rgb1[0],
+    rgb2[1] - rgb1[1],
+    rgb2[2] - rgb1[2]
+  };
+
+  unsigned int y;
+  for (y = 0; y < page_height * rowstride; y += rowstride) {
+    unsigned char* data = image + y;
+
+    unsigned int x;
+    for (x = 0; x < page_width; x++, data += 4) {
+      /* Careful. data color components blue, green, red. */
+      const double rgb[3] = {
+        (double) data[2] / 256.,
+        (double) data[1] / 256.,
+        (double) data[0] / 256.
+      };
+
+      /* compute h, s, l data   */
+      double l = a[0]*rgb[0] + a[1]*rgb[1] + a[2]*rgb[2];
+
+      /* linear interpolation between dark and light with color ligtness as
+       * a parameter */
+      data[2] = (unsigned char)round(255.*(l * rgb_diff[0] + rgb1[0]));
+      data[1] = (unsigned char)round(255.*(l * rgb_diff[1] + rgb1[1]));
+      data[0] = (unsigned char)round(255.*(l * rgb_diff[2] + rgb1[2]));
+    }
+  }
+}
+
 /**
  * Render a PDF page.
  *
@@ -299,7 +357,8 @@ mktempfile()
  */
 static cairo_surface_t*
 image_render_page(PopplerDocument *pdf, PopplerPage *page,
-                  int width, gboolean do_render_annotaions)
+                  int width, gboolean do_render_annotaions,
+                  const render_options_t *options)
 {
   cairo_t *cr = NULL;
   cairo_surface_t *surface = NULL;
@@ -336,7 +395,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   cairo_translate (cr, 0, 0);
   cairo_scale (cr, scale, scale);
   /* Render w/o annotations. */
-  if (! do_render_annotaions)
+  if (! do_render_annotaions || (options && options->printed))
     poppler_page_render_for_printing_with_options
       (page, cr, POPPLER_PRINT_DOCUMENT);
   else
@@ -352,6 +411,10 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   cairo_set_source_rgb (cr, 1., 1., 1.);
 
   cairo_paint (cr);
+
+  if (options && options->usecolors)
+    image_recolor (surface, options);
+  
   cairo_destroy (cr);
 
   return surface;
@@ -868,6 +931,86 @@ command_arg_parse(epdfinfo_t *ctx, char **args, int nargs,
  failure:
   free_command_args (cmd_args, cmd->nargs);
   return NULL;
+}
+
+static void
+command_arg_print(const command_arg_t *arg)
+{
+  switch (arg->type)
+    {
+    case ARG_INVALID:
+      printf ("[invalid]");
+      break;
+    case ARG_DOC:
+      print_response_string (arg->value.doc->filename, NONE);
+      break;
+    case ARG_BOOL:
+      printf ("%d", arg->value.flag ? 1 : 0);
+      break;
+    case ARG_NONEMPTY_STRING:   /* fall */
+    case ARG_STRING:
+      print_response_string (arg->value.string, NONE);
+      break;
+    case ARG_NATNUM:
+      printf ("%ld", arg->value.natnum);
+      break;
+    case ARG_EDGE_OR_NEGATIVE:  /* fall */
+    case ARG_EDGE:
+      printf ("%f", arg->value.edge);
+      break;
+    case ARG_EDGES_OR_POSITION: /* fall */
+    case ARG_EDGES:
+      {
+        const PopplerRectangle *r = &arg->value.rectangle;
+        if (r->x2 < 0 && r->y2 < 0)
+          printf ("%f %f", r->x1, r->y1);
+        else
+          printf ("%f %f %f %f", r->x1, r->y1, r->x2, r->y2);
+        break;
+      }
+    case ARG_COLOR:
+      {
+        const PopplerColor *c = &arg->value.color;
+        printf ("#%.2x%.2x%.2x", c->red >> 8,
+                c->green >> 8, c->blue >> 8);
+        break;
+      }
+    case ARG_REST:
+      {
+        int i;
+        for (i = 0; i < arg->value.rest.nargs; ++i)
+          print_response_string (arg->value.rest.args[i], COLON);
+        if (arg->value.rest.nargs > 0)
+          print_response_string (arg->value.rest.args[i], NONE);
+        break;
+      }
+    default:
+      internal_error ("switch fell through");
+    }
+}
+
+static size_t
+command_arg_type_size(command_arg_type_t type)
+{
+  command_arg_t arg;
+  switch (type)
+    {
+    case ARG_INVALID: return 0;
+    case ARG_DOC: return sizeof (arg.value.doc);
+    case ARG_BOOL: return sizeof (arg.value.flag);
+    case ARG_NONEMPTY_STRING:   /* fall */
+    case ARG_STRING: return sizeof (arg.value.string);
+    case ARG_NATNUM: return sizeof (arg.value.natnum);
+    case ARG_EDGE_OR_NEGATIVE:  /* fall */
+    case ARG_EDGE: return sizeof (arg.value.edge);
+    case ARG_EDGES_OR_POSITION: /* fall */
+    case ARG_EDGES: return sizeof (arg.value.rectangle);
+    case ARG_COLOR: return sizeof (arg.value.color);
+    case ARG_REST: return sizeof (arg.value.rest);
+    default:
+      internal_error ("switch fell through");
+      return 0;
+    }
 }
 
 
@@ -2826,7 +2969,8 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   cairo_surface_t *surface = NULL;
 
   perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width, 1);
+  surface = image_render_page (doc->pdf, page, width, 1,
+                               &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
 
   image_write_print_response (surface, PNG);
@@ -2864,7 +3008,8 @@ cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, width, 1);
+  surface = image_render_page (doc->pdf, page, width, 1,
+                               &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
   cr = cairo_create (surface);
   cairo_scale (cr, width / pt_width, width / pt_width);
@@ -2948,7 +3093,8 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
   int i = 0;
 
   perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width, 1);
+  surface = image_render_page (doc->pdf, page, width, 1,
+                               &doc->options.render);
   height = cairo_image_surface_get_height (surface);
   cr = cairo_create (surface);
 
@@ -3046,7 +3192,8 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, (int) pt_width, 1);
+  surface = image_render_page (doc->pdf, page, (int) pt_width, 1,
+                               &doc->options.render);
 
   perror_if_not (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS,
                 "Failed to render page");
@@ -3201,6 +3348,92 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   return;
 }
 
+const document_option_t document_options [] =
+  {
+    DEC_DOPT (":render/usecolors", ARG_BOOL, render.usecolors),
+    DEC_DOPT (":render/printed", ARG_BOOL, render.printed),
+    DEC_DOPT (":render/foreground", ARG_COLOR, render.fg),
+    DEC_DOPT (":render/background", ARG_COLOR, render.bg),
+  };
+
+const command_arg_type_t cmd_getoptions_spec[] =
+  {
+    ARG_DOC,
+  };
+
+static void
+cmd_getoptions(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  document_t *doc = args[0].value.doc;
+  int i;
+  OK_BEGIN ();
+  for (i = 0; i < G_N_ELEMENTS (document_options); ++i)
+    {
+      command_arg_t arg;
+      
+      arg.type = document_options[i].type;
+      memcpy (&arg.value,
+              ((char*) &doc->options) + document_options[i].offset,
+              command_arg_type_size (arg.type));
+      print_response_string (document_options[i].name, COLON);
+      command_arg_print (&arg);
+      puts("");
+    }
+  OK_END ();
+}
+
+const command_arg_type_t cmd_setoptions_spec[] =
+  {
+    ARG_DOC,
+    ARG_REST                    /* key value pairs */
+  };
+
+static void
+cmd_setoptions(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  int i = 0;
+  document_t *doc = args[0].value.doc;
+  int nrest = args[1].value.rest.nargs;
+  char * const *rest = args[1].value.rest.args;
+  gchar *error_msg = NULL;
+  document_options_t opts = doc->options;
+  const size_t nopts = G_N_ELEMENTS (document_options);
+  
+  perror_if_not (nrest % 2 == 0, "Even number of key/value pairs expected");
+  
+  while (i < nrest)
+    {
+      int j;
+      command_arg_t key, value;
+
+      perror_if_not (command_arg_parse_arg
+                     (ctx, rest[i], &key, ARG_NONEMPTY_STRING, &error_msg),
+                     "%s", error_msg);
+
+      ++i;
+      for (j = 0; j < nopts; ++j)
+        {
+          const document_option_t *dopt = &document_options[j];
+          if (! strcmp (key.value.string, dopt->name))
+            {
+              perror_if_not (command_arg_parse_arg
+                             (ctx, rest[i], &value, dopt->type, &error_msg),
+                             "%s", error_msg);
+              memcpy (((char*) &opts) + dopt->offset,
+                      &value.value, command_arg_type_size (value.type));
+              break;
+            }
+        }
+      perror_if_not (j < nopts, "Unknown option: %s", key.value.string);
+      ++i;
+    }
+  doc->options = opts;
+  cmd_getoptions (ctx, args);
+
+ error:
+  if (error_msg) g_free (error_msg);
+}
+
 const command_arg_type_t cmd_pagelabels_spec[] =
   {
     ARG_DOC,
@@ -3238,11 +3471,24 @@ static const command_t commands [] =
     DEC_CMD (open),
     DEC_CMD (close),
     DEC_CMD (quit),
+    DEC_CMD (getoptions),
+    DEC_CMD (setoptions),
 
     /* Searching */
     DEC_CMD2 (search_string, "search-string"),
     DEC_CMD2 (search_regexp, "search-regexp"),
     DEC_CMD2 (regexp_flags, "regexp-flags"),
+
+    /* General Informations */
+    DEC_CMD (metadata),
+    DEC_CMD (outline),
+    DEC_CMD2 (number_of_pages, "number-of-pages"),
+    DEC_CMD (pagelinks),
+    DEC_CMD (gettext),
+    DEC_CMD (getselection),
+    DEC_CMD (pagesize),
+    DEC_CMD (boundingbox),
+    DEC_CMD (charlayout),
 
     /* General Informations */
     DEC_CMD (metadata),
@@ -3302,6 +3548,7 @@ int main(int argc, char **argv)
 #if ! GLIB_CHECK_VERSION(2,36,0)
   g_type_init ();
 #endif
+
   ctx.documents = g_hash_table_new (g_str_hash, g_str_equal);
 
   setvbuf (stdout, NULL, _IOFBF, BUFSIZ);

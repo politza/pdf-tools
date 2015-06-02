@@ -899,6 +899,14 @@ This tells the various modes to use their face's dark colors."
       (pdf-isearch-message
        (if pdf-view-dark-minor-mode "dark mode" "light mode")))))
 
+(define-minor-mode pdf-view-printer-minor-mode
+  "Display the PDF as it would be printed."
+  nil nil nil
+  (pdf-util-assert-pdf-buffer)
+  (pdf-info-setoptions :render/printed pdf-view-printer-minor-mode)
+  (pdf-cache-clear-images) 
+  (pdf-view-redisplay t))
+
 
 ;; * ================================================================== *
 ;; * Hotspot handling
