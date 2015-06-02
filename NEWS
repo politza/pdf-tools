@@ -25,6 +25,10 @@
 *** Navigate by pagelabels
     M-g l may be used to jump to a page by label, i.e. it's displayed
     number.
+*** Rendering
+    Added the ability to display the page as it would be printed
+    (e.g. w/o annotations) and to apply a color filter
+    (pdf-view-printer-minor-mode resp. pdf-view-midnight-minor-mode).
 ** Outline
    New option `pdf-outline-display-labels', determining whether to
    display labels instead of plain page-numbers.
