@@ -5,8 +5,8 @@
 ;; Author: Andreas Politz <politza@fh-trier.de>
 ;; Keywords: files, multimedia
 ;; Package: pdf-tools
-;; Version: 0.60
-;; Package-Requires: ((emacs "24.3") (tablist "0.60"))
+;; Version: 0.70
+;; Package-Requires: ((emacs "24.3") (tablist "0.70"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by

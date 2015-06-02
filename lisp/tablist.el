@@ -5,7 +5,7 @@
 ;; Author: Andreas Politz <politza@fh-trier.de>
 ;; Keywords: extensions, lisp
 ;; Package: tablist
-;; Version: 0.60
+;; Version: 0.70
 ;; Package-Requires: ((emacs "24.3"))
 
 ;; This program is free software; you can redistribute it and/or modify
