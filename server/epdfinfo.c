@@ -288,61 +288,67 @@ mktempfile()
 }
 
 static void
-image_recolor(cairo_surface_t* surface, const render_options_t *options)
+image_recolor (cairo_surface_t * surface, const PopplerColor * fg,
+	       const PopplerColor * bg)
 {
   /* uses a representation of a rgb color as follows:
      - a lightness scalar (between 0,1), which is a weighted average of r, g, b,
      - a hue vector, which indicates a radian direction from the grey axis,
-       inside the equal lightness plane.
+     inside the equal lightness plane.
      - a saturation scalar between 0,1. It is 0 when grey, 1 when the color is
-       in the boundary of the rgb cube.
-  */
+     in the boundary of the rgb cube.
+   */
 
   const unsigned int page_width = cairo_image_surface_get_width (surface);
   const unsigned int page_height = cairo_image_surface_get_height (surface);
-  const int rowstride  = cairo_image_surface_get_stride(surface);
-  unsigned char* image = cairo_image_surface_get_data(surface);
+  const int rowstride = cairo_image_surface_get_stride (surface);
+  unsigned char *image = cairo_image_surface_get_data (surface);
 
   /* RGB weights for computing lightness. Must sum to one */
-  static const double a[] = {0.30, 0.59, 0.11};
+  static const double a[] = { 0.30, 0.59, 0.11 };
 
   const double f = 65535.;
-  const double rgb1[] = {
-    options->fg.red/f, options->fg.green/f, options->fg.blue/f
+  const double rgb_fg[] = {
+    fg->red / f, fg->green / f, fg->blue / f
   };
-  const double rgb2[] = {
-    options->bg.red/f, options->bg.green/f, options->bg.blue/f
+  const double rgb_bg[] = {
+    bg->red / f, bg->green / f, bg->blue / f
   };
 
   const double rgb_diff[] = {
-    rgb2[0] - rgb1[0],
-    rgb2[1] - rgb1[1],
-    rgb2[2] - rgb1[2]
+    rgb_bg[0] - rgb_fg[0],
+    rgb_bg[1] - rgb_fg[1],
+    rgb_bg[2] - rgb_fg[2]
   };
 
   unsigned int y;
-  for (y = 0; y < page_height * rowstride; y += rowstride) {
-    unsigned char* data = image + y;
+  for (y = 0; y < page_height * rowstride; y += rowstride)
+    {
+      unsigned char *data = image + y;
 
-    unsigned int x;
-    for (x = 0; x < page_width; x++, data += 4) {
-      /* Careful. data color components blue, green, red. */
-      const double rgb[3] = {
-        (double) data[2] / 256.,
-        (double) data[1] / 256.,
-        (double) data[0] / 256.
-      };
+      unsigned int x;
+      for (x = 0; x < page_width; x++, data += 4)
+	{
+	  /* Careful. data color components blue, green, red. */
+	  const double rgb[3] = {
+	    (double) data[2] / 256.,
+	    (double) data[1] / 256.,
+	    (double) data[0] / 256.
+	  };
 
-      /* compute h, s, l data   */
-      double l = a[0]*rgb[0] + a[1]*rgb[1] + a[2]*rgb[2];
+	  /* compute h, s, l data   */
+	  double l = a[0] * rgb[0] + a[1] * rgb[1] + a[2] * rgb[2];
 
-      /* linear interpolation between dark and light with color ligtness as
-       * a parameter */
-      data[2] = (unsigned char)round(255.*(l * rgb_diff[0] + rgb1[0]));
-      data[1] = (unsigned char)round(255.*(l * rgb_diff[1] + rgb1[1]));
-      data[0] = (unsigned char)round(255.*(l * rgb_diff[2] + rgb1[2]));
+	  /* linear interpolation between dark and light with color ligtness as
+	   * a parameter */
+	  data[2] =
+	    (unsigned char) round (255. * (l * rgb_diff[0] + rgb_fg[0]));
+	  data[1] =
+	    (unsigned char) round (255. * (l * rgb_diff[1] + rgb_fg[1]));
+	  data[0] =
+	    (unsigned char) round (255. * (l * rgb_diff[2] + rgb_fg[2]));
+	}
     }
-  }
 }
 
 /**
@@ -413,7 +419,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   cairo_paint (cr);
 
   if (options && options->usecolors)
-    image_recolor (surface, options);
+    image_recolor (surface, &options->fg, &options->bg);
   
   cairo_destroy (cr);
 
