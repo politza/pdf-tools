@@ -115,6 +115,20 @@
      :help "Display documents outline"
      :visible (featurep 'pdf-outline)]
     "--"
+    ("Render Options"
+     ["Printed Mode" (lambda ()
+                       (interactive)
+                       (pdf-view-printer-minor-mode 'toggle))
+      :style toggle
+      :selected pdf-view-printer-minor-mode
+      :help "Display the PDF as it would be printed."]
+     ["Midnight Mode" (lambda ()
+                       (interactive)
+                       (pdf-view-midnight-minor-mode 'toggle))
+      :style toggle
+      :selected pdf-view-midnight-minor-mode
+      :help "Apply a color-filter appropriate for past midnight reading."])
+    "--"
     ["Copy region" pdf-view-kill-ring-save
      :keys "\\[kill-ring-save]"
      :active (pdf-view-active-region-p)]

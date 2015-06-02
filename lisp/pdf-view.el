@@ -96,6 +96,14 @@ dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :group 'pdf-tools-faces)
 
+(defcustom pdf-view-midnight-colors '("#839496" . "#002b36" )
+  "Colors used when `pdf-view-midnight-minor-mode' is activated.
+
+This should be a cons \(FOREGROUND . BACKGROUND\) of colors."
+  :group 'pdf-view
+  :type '(cons (color :tag "Foreground")
+               (color :tag "Background")))
+
 (defcustom pdf-view-change-page-hook nil
   "Hook run after changing to another page, but before displaying it.
 
@@ -214,6 +222,9 @@ Edge values are image coordinates.")
     ;; Other
     (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
     (define-key map (kbd "m") 'bookmark-set)
+    ;; Rendering
+    (define-key map (kbd "C-c C-r m") 'pdf-view-midnight-minor-mode)
+    (define-key map (kbd "C-c C-r p") 'pdf-view-printer-minor-mode)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
@@ -905,6 +916,25 @@ This tells the various modes to use their face's dark colors."
   (pdf-util-assert-pdf-buffer)
   (pdf-info-setoptions :render/printed pdf-view-printer-minor-mode)
   (pdf-cache-clear-images) 
+  (pdf-view-redisplay t))
+
+(define-minor-mode pdf-view-midnight-minor-mode
+  "Apply a color-filter appropriate for past midnight reading.
+
+The colors are determined by the variable
+`pdf-view-midnight-colors', which see. "
+
+  nil nil nil ;FIXME: Do we want lighters in these minor modes ?
+  (pdf-util-assert-pdf-buffer)
+  (cond
+   (pdf-view-midnight-minor-mode
+    (pdf-info-setoptions
+     :render/foreground (or (car pdf-view-midnight-colors) "black")
+     :render/background (or (cdr pdf-view-midnight-colors) "white")
+     :render/usecolors t))
+   (t
+    (pdf-info-setoptions :render/usecolors nil)))
+  (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
 
