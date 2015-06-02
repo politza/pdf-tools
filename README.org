@@ -47,16 +47,12 @@
 *** SyncTeX
     Jump from a position on a page directly to the TeX source and
     vice-versa.
-*** Recolor
-    It is possible to process the colors of the page before it is
-    displayed, which is useful in certain cases, such as reading in
-    low light conditions.
     
-#+end_src
 *** Misc
    + Display PDF's metadata.
    + Mark a region and kill the text from the PDF.
    + Keep track of visited pages via a history.
+   + Apply a color filter for reading in low light conditions.
 ** Installation
    The package may be installed via melpa and it will try to build the
    server part when it is actiated the first time, though next section
