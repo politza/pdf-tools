@@ -49,15 +49,9 @@
     vice-versa.
 *** Recolor
     It is possible to process the colors of the page before it is
-    displayed, which is useful in certain cases (such as reading in
-    low light conditions.) This is an example that switches black and
-    white:
-#+begin_src elisp
-(add-hook 'pdf-tools-enabled-hook
-	   (lambda ()
-	     (pdf-info-setoptions :render/usecolors t
-		                  :render/foreground "white"
-		                  :render/background "black")))
+    displayed, which is useful in certain cases, such as reading in
+    low light conditions.
+    
 #+end_src
 *** Misc
    + Display PDF's metadata.
