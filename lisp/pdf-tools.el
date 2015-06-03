@@ -222,7 +222,7 @@ PDF buffers."
             (fundamental-mode)
             (let ((ov (make-overlay (point-min) (point-max))))
               (overlay-put ov 'pdf-view t)
-              (overlay-put ov 'display "Reompiling, stand by...")))))
+              (overlay-put ov 'display "Recompiling, stand by...")))))
       (pdf-info-quit)
       (setq pdf-info-epdfinfo-program
             (expand-file-name "epdfinfo" package-dir))
