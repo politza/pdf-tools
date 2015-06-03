@@ -912,7 +912,7 @@ This tells the various modes to use their face's dark colors."
 
 (define-minor-mode pdf-view-printer-minor-mode
   "Display the PDF as it would be printed."
-  nil nil nil
+  nil " Prn" nil
   (pdf-util-assert-pdf-buffer)
   (pdf-info-setoptions :render/printed pdf-view-printer-minor-mode)
   (pdf-cache-clear-images) 
@@ -924,7 +924,7 @@ This tells the various modes to use their face's dark colors."
 The colors are determined by the variable
 `pdf-view-midnight-colors', which see. "
 
-  nil nil nil ;FIXME: Do we want lighters in these minor modes ?
+  nil " Mid" nil
   (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-view-midnight-minor-mode
@@ -936,6 +936,13 @@ The colors are determined by the variable
     (pdf-info-setoptions :render/usecolors nil)))
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
+
+(and (char-displayable-p ?⎙)
+     (setcdr (assq 'pdf-view-printer-minor-mode minor-mode-alist)
+             (list " ⎙" )))
+(and (char-displayable-p ?🌙)
+     (setcdr (assq 'pdf-view-midnight-minor-mode minor-mode-alist)
+             (list  " 🌙" )))
 
 
 ;; * ================================================================== *
