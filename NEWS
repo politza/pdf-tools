@@ -1,5 +1,11 @@
 -*- org -*-
 
+* Version 0.70
+** View
+*** Register integration
+    The keys m and ' now set resp. jump to a register corresponging to
+    a position in the PDF. Also '' is handled special: It jumps to the
+    position before the last register-jump.
 * Version 0.60
 ** Regexp support
    You may now search for perl-compatible regular expressions (PCRE)

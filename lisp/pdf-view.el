@@ -150,6 +150,9 @@ Edge values are image coordinates.")
 (defvar-local pdf-view--hotspot-functions nil
   "Alist of hotspot functions.")
 
+(defvar-local pdf-view--register-jump-origin nil
+  "Bookmark of the position before a register jump.")
+
 (defmacro pdf-view-current-page (&optional window)
   `(image-mode-window-get 'page ,window))
 (defmacro pdf-view-current-overlay (&optional window)
@@ -221,7 +224,9 @@ Edge values are image coordinates.")
     (define-key map [remap mark-whole-buffer] 'pdf-view-mark-whole-page)
     ;; Other
     (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
-    (define-key map (kbd "m") 'bookmark-set)
+    (define-key map (kbd "m") 'pdf-view-position-to-register)
+    
+    (define-key map (kbd "'") 'pdf-view-jump-to-register-command)
     ;; Rendering
     (define-key map (kbd "C-c C-r m") 'pdf-view-midnight-minor-mode)
     (define-key map (kbd "C-c C-r p") 'pdf-view-printer-minor-mode)
@@ -1095,7 +1100,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
 
 
 ;; * ================================================================== *
-;; * Bookmark Integration
+;; * Bookmark + Register Integration
 ;; * ================================================================== *
 
 (declare-function bookmark-make-record-default
@@ -1103,24 +1108,34 @@ Deactivate the region if DEACTIVATE-P is non-nil."
 (declare-function bookmark-prop-get "bookmark" (bookmark prop))
 (declare-function bookmark-default-handler "bookmark" (bmk))
 
-(defun pdf-view-bookmark-make-record ()
+(defun pdf-view-bookmark-make-record  (&optional no-page no-slice no-size no-origin)
+  "Create a bookmark PDF record.
+
+The optional, boolean args exclude certain attributes."
   (let ((displayed-p (eq (current-buffer)
                          (window-buffer))))
-    (nconc (bookmark-make-record-default)
-           `((page . ,(pdf-view-current-page))
-             (slice . ,(and displayed-p
-                            (pdf-view-current-slice)))
-             (size . ,pdf-view-display-size)
-             (origin . ,(and displayed-p
-                             (let ((edges (pdf-util-image-displayed-edges nil t)))
-                               (pdf-util-scale-pixel-to-relative
-                                (cons (car edges) (cadr edges)) nil t))))
-             (handler . pdf-view-bookmark-jump)))))
+    (cons (buffer-name)
+          (append (bookmark-make-record-default nil t 1)
+                  `(,(unless no-page
+                       (cons 'page (pdf-view-current-page)))
+                    ,(unless no-slice
+                       (cons 'slice (and displayed-p
+                                         (pdf-view-current-slice))))
+                    ,(unless no-size
+                       (cons 'size pdf-view-display-size))
+                    ,(unless no-origin
+                       (cons 'origin
+                             (and displayed-p
+                                  (let ((edges (pdf-util-image-displayed-edges nil t)))
+                                    (pdf-util-scale-pixel-to-relative
+                                     (cons (car edges) (cadr edges)) nil t)))))
+                    (handler . pdf-view-bookmark-jump))))))
 
 ;;;###autoload
 (defun pdf-view-bookmark-jump (bmk)
-  ;; This implements the `handler' function interface for record type
-  ;; returned by `pdf-view-bookmark-make-record', which see.
+  "The bookmark handler-function interface for PDF bookmarks.
+
+See also `pdf-view-bookmark-make-record'."
   (let ((page (bookmark-prop-get bmk 'page))
 	(slice (bookmark-prop-get bmk 'slice))
         (size (bookmark-prop-get bmk 'size))
@@ -1129,15 +1144,17 @@ Deactivate the region if DEACTIVATE-P is non-nil."
     (fset show-fn-sym
 	  (lambda ()
 	    (remove-hook 'bookmark-after-jump-hook show-fn-sym)
-	    (when (not (eq major-mode 'pdf-view-mode))
+	    (unless (derived-mode-p 'pdf-view-mode)
 	      (pdf-view-mode))
 	    (with-selected-window
 		(or (get-buffer-window (current-buffer) 0)
 		    (selected-window))
-	      (setq-local pdf-view-display-size size)
+	      (when size
+                (setq-local pdf-view-display-size size))
               (when slice
-                (apply 'pdf-view-set-slice slice) )
-	      (pdf-view-goto-page page)
+                (apply 'pdf-view-set-slice slice))
+	      (when (numberp page)
+                (pdf-view-goto-page page))
               (when origin
                 (let ((size (pdf-view-image-size t)))
                   (image-set-window-hscroll
@@ -1148,6 +1165,54 @@ Deactivate the region if DEACTIVATE-P is non-nil."
                              (frame-char-height)))))))))
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
     (bookmark-default-handler bmk)))
+
+(defun pdf-view-registerv-make ()
+  "Create a PDF register entry of the current position."
+  (registerv-make
+   (pdf-view-bookmark-make-record nil t t)
+   :print-func (lambda (bmk)
+                 (let* ((file (bookmark-prop-get bmk 'filename))
+                        (buffer (find-buffer-visiting file))
+                        (page (bookmark-prop-get bmk 'page)))
+                   (princ (format "PDF position: %s, page %d"
+                                  (if buffer
+                                      (buffer-name buffer)
+                                    file)
+                                  (or page 1)))))
+   :jump-func (lambda (bmk)
+                (setq pdf-view--register-jump-origin
+                      (pdf-view-registerv-make))
+                (bookmark-jump bmk))
+   :insert-func (lambda (bmk)
+                  (insert (format "%S" bmk)))))
+
+(defun pdf-view-position-to-register (register)
+  "Store current PDF position in register REGISTER.
+
+See also `point-to-register'."
+  (interactive
+   (list (register-read-with-preview "Position to register: ")))
+  (set-register register (pdf-view-registerv-make)))
+
+(defun pdf-view-jump-to-register-command ()
+  "Move point to a position stored in a register."
+  ;;(declare (interactive-only jump-to-register))
+  (interactive)
+  (let* ((key last-command-event)
+         (provide-jump-back-p (and pdf-view--register-jump-origin
+                                   (characterp key)))
+         (register-alist
+          (if provide-jump-back-p
+              (cons (cons key pdf-view--register-jump-origin)
+                  (cl-remove key register-alist :key 'car))
+            register-alist)))
+    (jump-to-register
+     (register-read-with-preview
+      (format "Jump to register%s: "
+              (if provide-jump-back-p
+                  (format " (%c jumps back)" key)
+                "")))
+     current-prefix-arg)))
 
 (provide 'pdf-view)
 
