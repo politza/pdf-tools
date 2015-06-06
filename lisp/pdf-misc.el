@@ -123,8 +123,8 @@
       :selected pdf-view-printer-minor-mode
       :help "Display the PDF as it would be printed."]
      ["Midnight Mode" (lambda ()
-                       (interactive)
-                       (pdf-view-midnight-minor-mode 'toggle))
+                        (interactive)
+                        (pdf-view-midnight-minor-mode 'toggle))
       :style toggle
       :selected pdf-view-midnight-minor-mode
       :help "Apply a color-filter appropriate for past midnight reading."])
@@ -146,6 +146,8 @@
                             (equal last-command-event
                                    last-nonmenu-event))]
     ["Print" pdf-misc-print-document]
+    ["Create image" pdf-view-extract-region-image
+     :help "Create an image of the page or the selected region(s)."]
     "--"
     ["Revert buffer" pdf-view-revert-buffer
      :visible (pdf-info-writable-annotations-p)]

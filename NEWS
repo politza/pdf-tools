@@ -6,6 +6,8 @@
     The keys m and ' now set resp. jump to a register corresponging to
     a position in the PDF. Also '' is handled special: It jumps to the
     position before the last register-jump.
+*** Export parts of a page as an image
+    
 * Version 0.60
 ** Regexp support
    You may now search for perl-compatible regular expressions (PCRE)

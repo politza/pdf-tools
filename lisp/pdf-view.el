@@ -96,6 +96,13 @@ dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :group 'pdf-tools-faces)
 
+(defface pdf-view-rectangle
+  '((((background dark)) (:inherit highlight))
+    (((background light)) (:inherit highlight)))
+  "Face used to determine the colors of the highlighted rectangle."
+  :group 'pdf-view
+  :group 'pdf-tools-faces)
+
 (defcustom pdf-view-midnight-colors '("#839496" . "#002b36" )
   "Colors used when `pdf-view-midnight-minor-mode' is activated.
 
@@ -136,7 +143,14 @@ See also `pdf-view-change-page-hook' and
 (defvar-local pdf-view-active-region nil
   "The active region as a list of edges.
 
-Edge values are image coordinates.")
+Edge values are relative coordinates.")
+
+(defvar-local pdf-view--have-rectangle-region nil
+  "Non-nil if the region is currently rendered as a rectangle.
+
+This variable is set in `pdf-view-mouse-set-region' and used in
+`pdf-view-mouse-extend-region' to determine the right choice
+regarding display of the region in the later function.")
 
 (defvar-local pdf-view--buffer-file-name nil
   "Local copy of remote file or nil.")
@@ -218,6 +232,7 @@ Edge values are image coordinates.")
     (define-key map (kbd "r")         'revert-buffer)
     ;; Region
     (define-key map [down-mouse-1] 'pdf-view-mouse-set-region)
+    (define-key map [M-down-mouse-1] 'pdf-view-mouse-set-region-rectangle)
     (define-key map [C-down-mouse-1] 'pdf-view-mouse-extend-region)
     (define-key map [remap kill-region] 'pdf-view-kill-ring-save)
     (define-key map [remap kill-ring-save] 'pdf-view-kill-ring-save)
@@ -225,8 +240,9 @@ Edge values are image coordinates.")
     ;; Other
     (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
     (define-key map (kbd "m") 'pdf-view-position-to-register)
-    
     (define-key map (kbd "'") 'pdf-view-jump-to-register-command)
+    
+    (define-key map (kbd "C-c C-i") 'pdf-view-extract-region-image)
     ;; Rendering
     (define-key map (kbd "C-c C-r m") 'pdf-view-midnight-minor-mode)
     (define-key map (kbd "C-c C-r p") 'pdf-view-printer-minor-mode)
@@ -1014,23 +1030,31 @@ Deactivate the region if DEACTIVATE-P is non-nil."
     (deactivate-mark)
     (pdf-view-redisplay t)))
 
-(defun pdf-view-mouse-set-region (ev &optional allow-extend)
-  "Selects a region of text using the mouse."
+(defun pdf-view-mouse-set-region (event &optional allow-extend-p
+                                        render-rectangle-p)
+  "Selects a region of text using the mouse.
+
+Allow for stacking of regions, if ALLOW-EXTEND-P is non-nil.
+Highlight the region with a rectangle if RENDER-RECTANGLE-P
+is non-nil, otherwise highlight text only.
+
+Stores the region in `pdf-view-active-region'."
   (interactive "@e")
-  (unless (and (eventp ev)
-               (mouse-event-p ev))
-    (signal 'wrong-type-argument (list 'mouse-event-p ev)))
-  (unless (and allow-extend
+  (setq pdf-view--have-rectangle-region render-rectangle-p)
+  (unless (and (eventp event)
+               (mouse-event-p event))
+    (signal 'wrong-type-argument (list 'mouse-event-p event)))
+  (unless (and allow-extend-p
                (or (null (get this-command 'pdf-view-region-window))
                    (equal (get this-command 'pdf-view-region-window)
                           (selected-window))))
     (pdf-view-deactivate-region))
   (put this-command 'pdf-view-region-window
        (selected-window))
-  (unless (posn-image (event-start ev))
+  (unless (posn-image (event-start event))
     (error "No page at this position"))
   (let* ((window (selected-window))
-         (beg (posn-object-x-y (event-start ev)))
+         (beg (posn-object-x-y (event-start event)))
          pdf-view-continuous
          region)
     (when (pdf-util-track-mouse-dragging (event 0.15)
@@ -1039,36 +1063,50 @@ Deactivate the region if DEACTIVATE-P is non-nil."
               (when (and (eq window (posn-window pos))
                          (posn-image pos))
                 (setq region
-                      (list (min (car beg) (car end))
-                            (min (cdr beg) (cdr end))
-                            (max (car beg) (car end))
-                            (max (cdr beg) (cdr end))))
+                      (pdf-util-scale-pixel-to-relative
+                       (list (min (car beg) (car end))
+                             (min (cdr beg) (cdr end))
+                             (max (car beg) (car end))
+                             (max (cdr beg) (cdr end)))))
                 (pdf-view-display-region
-                 (cons region pdf-view-active-region))
+                 (cons region pdf-view-active-region)
+                 render-rectangle-p)
                 (pdf-util-scroll-to-edges region))))
       (push region pdf-view-active-region)
       (pdf-view--push-mark))))
 
-(defun pdf-view-mouse-extend-region (ev)
+(defun pdf-view-mouse-extend-region (event)
+  "Extend the currently active region."
   (interactive "@e")
-  (pdf-view-mouse-set-region ev t))
+  (pdf-view-mouse-set-region
+   event t pdf-view--have-rectangle-region))
 
-(defun pdf-view-display-region (&optional region)
+(defun pdf-view-mouse-set-region-rectangle (event)
+  "Like `pdf-view-mouse-set-region' but displays as a rectangle.
+
+This is more useful for commands like
+`pdf-view-extract-region-image'."
+  (interactive "@e")
+  (pdf-view-mouse-set-region event nil t))
+
+(defun pdf-view-display-region (&optional region rectangle-p)
   (unless region
     (pdf-view-assert-active-region)
     (setq region pdf-view-active-region))
-  (let ((colors (pdf-util-face-colors 'pdf-view-region
-                                      (bound-and-true-p pdf-view-dark-minor-mode)))
+  (let ((colors (pdf-util-face-colors
+                 (if rectangle-p 'pdf-view-rectangle 'pdf-view-region)
+                 (bound-and-true-p pdf-view-dark-minor-mode)))
         (page (pdf-view-current-page))
         (width (car (pdf-view-image-size))))
     (pdf-view-display-image
      (pdf-view-create-image
-         (pdf-info-renderpage-text-regions
-          page width
-          nil nil
-          `(,(car colors)
-            ,(cdr colors)
-            ,@(mapcar 'pdf-util-scale-pixel-to-relative region)))))))
+         (if rectangle-p
+             (pdf-info-renderpage-highlight
+              page width nil
+              `(,(car colors) ,(cdr colors) 0.35 ,@region))
+           (pdf-info-renderpage-text-regions
+            page width nil nil
+            `(,(car colors) ,(cdr colors) ,@region)))))))
     
 (defun pdf-view-kill-ring-save ()
   "Copy the region to the `kill-ring'."
@@ -1082,9 +1120,8 @@ Deactivate the region if DEACTIVATE-P is non-nil."
   "Mark the whole page."
   (interactive)
   (pdf-view-deactivate-region)
-  (let ((size (pdf-view-image-size)))
-    (setq pdf-view-active-region
-          (list (list 0 0 (car size) (cdr size)))))
+  (setq pdf-view-active-region
+        (list (list 0 0 1 1)))
   (pdf-view--push-mark)
   (pdf-view-display-region))
 
@@ -1092,12 +1129,72 @@ Deactivate the region if DEACTIVATE-P is non-nil."
   "Return the text of the active region as a list of strings."
   (pdf-view-assert-active-region)
   (mapcar
-   (lambda (r)
-     (pdf-info-gettext
-      (pdf-view-current-page)
-      (pdf-util-scale-pixel-to-relative r)))
+   (apply-partially 'pdf-info-gettext (pdf-view-current-page))
    pdf-view-active-region))
 
+(defun pdf-view-extract-region-image (regions &optional page size
+                                              output-buffer no-display-p)
+  "Create a PNG image of REGIONS.
+
+REGIONS have the same form as `pdf-view-active-region', which
+see.  PAGE and size are the page resp. base-size of the image
+from which the image-regions will be created; they default to
+`pdf-view-current-page' resp. `pdf-view-image-size'.
+
+Put the image in OUTPUT-BUFFER, defaulting to \"*PDF region
+image*\" and display it, unless NO-DISPLAY-P is non-nil.
+
+In case of multiple regions, the resulting image is constructed
+by joining them horizontally."
+
+  (interactive
+   (list (if (pdf-view-active-region-p)
+             (pdf-view-active-region t)
+           '((0 0 1 1)))))
+  (unless page
+    (setq page (pdf-view-current-page)))
+  (unless size
+    (setq size (pdf-view-image-size)))
+  (unless output-buffer
+    (setq output-buffer (get-buffer-create "*PDF region image*")))
+  (let* ((temps (mapcar (lambda (_) (make-temp-file "pdf-view"))
+                        (cons nil (cons  nil regions))))
+         (whole (car temps))
+         (result (cadr temps))
+         (slices (cddr temps)))
+    (unwind-protect
+        (progn
+          (write-region (pdf-info-renderpage page (car size))
+                        nil whole nil 'no-message)
+          (if (and (= (length regions) 1)
+                   (equal (car regions)
+                          '(0 0 1 1)))
+              (setq result whole)
+            (cl-mapcar (lambda (r slice)
+                         (pdf-util-convert
+                          whole slice
+                          :commands '("-crop" "%g")
+                          :apply (list r)))
+                       (pdf-util-scale regions size 'round)
+                       slices)
+            (if (cdr slices)
+                (pdf-util-convert
+                 (car slices)
+                 result
+                 :commands (append (cdr slices)
+                                   (list "-append"))
+                 :apply '((0 0 0 0)))
+              (setq result (car slices))))
+          (with-current-buffer output-buffer
+            (let ((inhibit-read-only t))
+              (erase-buffer))
+            (insert-file-contents-literally result)
+            (image-mode)
+            (unless no-display-p
+              (display-buffer (current-buffer)))))
+      (dolist (f temps)
+        (when (file-exists-p f)
+          (delete-file f))))))
 
 ;; * ================================================================== *
 ;; * Bookmark + Register Integration
