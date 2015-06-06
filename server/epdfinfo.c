@@ -268,6 +268,7 @@ mktempfile()
   int tries = 3;
   while (! filename && tries-- > 0)
     {
+
       filename =  tempnam(NULL, "epdfinfo");
       if (filename)
         {
@@ -3134,8 +3135,8 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
                                        ARG_EDGES, NULL))
         {
           PopplerRectangle *r = &rest_arg.value.rectangle;
-          const int yoffset = 3;
-          const int xoffset = 6;
+          const int yoffset = 0;
+          const int xoffset = 0;
           const double deg = M_PI / 180.0;
           double rad;
 
