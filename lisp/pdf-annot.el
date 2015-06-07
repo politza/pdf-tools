@@ -1069,7 +1069,7 @@ Return the new annotation."
   "Add a new markup annotation in the selected window.
 
 LIST-OF-EDGES determines the marked up area and should be a list
-of \(LEFT TOP RIGHT BOT\), each value a image coordinate.
+of \(LEFT TOP RIGHT BOT\), each value a relative coordinate.
 
 TYPE should be one of `squiggly', `underline', `strike-out' or
 `highlight'.
@@ -1091,7 +1091,7 @@ Return the new annotation."
   (pdf-util-assert-pdf-window)
   (pdf-annot-add-annotation
    type
-   (pdf-util-scale-pixel-to-relative list-of-edges)
+   list-of-edges
    (pdf-annot-merge-alists
     (and color `((color . ,color)))
     property-alist
