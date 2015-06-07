@@ -135,6 +135,17 @@ See also `pdf-view-change-page-hook' and
   :group 'pdf-view
   :type 'hook)
 
+(defcustom pdf-view-use-dedicated-register t
+  "Whether to use dedicated register for PDF positions.
+
+If this is non-nil, the commands `pdf-view-position-to-register'
+and `pdf-view-jump-to-register' use the buffer-local variable
+`pdf-view-register-alist' to store resp. retrieve marked
+positions.  Otherwise the common variable `register-alist' is
+used."
+  :group 'pdf-view
+  :type 'boolean)
+
 
 ;; * ================================================================== *
 ;; * Internal variables and macros
@@ -164,8 +175,8 @@ regarding display of the region in the later function.")
 (defvar-local pdf-view--hotspot-functions nil
   "Alist of hotspot functions.")
 
-(defvar-local pdf-view--register-jump-origin nil
-  "Bookmark of the position before a register jump.")
+(defvar-local pdf-view-register-alist nil
+  "Local, dedicated register for PDF positions.")
 
 (defmacro pdf-view-current-page (&optional window)
   `(image-mode-window-get 'page ,window))
@@ -240,7 +251,7 @@ regarding display of the region in the later function.")
     ;; Other
     (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
     (define-key map (kbd "m") 'pdf-view-position-to-register)
-    (define-key map (kbd "'") 'pdf-view-jump-to-register-command)
+    (define-key map (kbd "'") 'pdf-view-jump-to-register)
     
     (define-key map (kbd "C-c C-i") 'pdf-view-extract-region-image)
     ;; Rendering
@@ -1226,10 +1237,10 @@ The optional, boolean args exclude certain attributes."
                                   (let ((edges (pdf-util-image-displayed-edges nil t)))
                                     (pdf-util-scale-pixel-to-relative
                                      (cons (car edges) (cadr edges)) nil t)))))
-                    (handler . pdf-view-bookmark-jump))))))
+                    (handler . pdf-view-bookmark-jump-handler))))))
 
 ;;;###autoload
-(defun pdf-view-bookmark-jump (bmk)
+(defun pdf-view-bookmark-jump-handler (bmk)
   "The bookmark handler-function interface for PDF bookmarks.
 
 See also `pdf-view-bookmark-make-record'."
@@ -1237,6 +1248,7 @@ See also `pdf-view-bookmark-make-record'."
 	(slice (bookmark-prop-get bmk 'slice))
         (size (bookmark-prop-get bmk 'size))
         (origin (bookmark-prop-get bmk 'origin))
+	(file (bookmark-prop-get bmk 'filename))
 	(show-fn-sym (make-symbol "pdf-view-bookmark-after-jump-hook")))
     (fset show-fn-sym
 	  (lambda ()
@@ -1261,55 +1273,96 @@ See also `pdf-view-bookmark-make-record'."
                    (round (/ (* (cdr origin) (cdr size))
                              (frame-char-height)))))))))
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
-    (bookmark-default-handler bmk)))
+    (set-buffer (or (find-buffer-visiting file)
+                    (find-file-noselect file)))))
 
+(defvar bookmark-after-jump-hook)
+
+(defun pdf-view-bookmark-jump (bmk)
+  "Switch to bookmark BMK.
+
+This function is like `bookmark-jump', but it always uses the
+selected window for display and does not run any hooks.  Also, it
+works only with bookmarks created by
+`pdf-view-bookmark-make-record'."
+
+  (let* ((file (bookmark-prop-get bmk 'filename))
+         (buffer (or (find-buffer-visiting file)
+                     (find-file-noselect file))))
+    (switch-to-buffer buffer)
+    (let (bookmark-after-jump-hook)
+      (pdf-view-bookmark-jump-handler bmk)
+      (run-hooks 'bookmark-after-jump-hook))))
+    
 (defun pdf-view-registerv-make ()
   "Create a PDF register entry of the current position."
   (registerv-make
    (pdf-view-bookmark-make-record nil t t)
-   :print-func (lambda (bmk)
-                 (let* ((file (bookmark-prop-get bmk 'filename))
-                        (buffer (find-buffer-visiting file))
-                        (page (bookmark-prop-get bmk 'page)))
-                   (princ (format "PDF position: %s, page %d"
-                                  (if buffer
-                                      (buffer-name buffer)
-                                    file)
-                                  (or page 1)))))
-   :jump-func (lambda (bmk)
-                (setq pdf-view--register-jump-origin
-                      (pdf-view-registerv-make))
-                (bookmark-jump bmk))
+   :print-func 'pdf-view-registerv-print-func
+   :jump-func 'pdf-view-bookmark-jump
    :insert-func (lambda (bmk)
                   (insert (format "%S" bmk)))))
 
+(defun pdf-view-registerv-print-func (bmk)
+  "Print a textual representation of bookmark BMK.
+
+This function is used as the `:print-func' property with
+`registerv-make'."
+  (let* ((file (bookmark-prop-get bmk 'filename))
+         (buffer (find-buffer-visiting file))
+         (page (bookmark-prop-get bmk 'page))
+         (origin (bookmark-prop-get bmk 'origin)))
+    (princ (format "PDF position: %s, page %d, %d%%"
+                   (if buffer
+                       (buffer-name buffer)
+                     file)
+                   (or page 1)
+                   (if origin
+                       (round (* 100 (cdr origin)))
+                     0)))))
+
+(defmacro pdf-view-with-register-alist (&rest body)
+  "Setup the proper binding for `register-alist' in body.
+
+This macro may not work as desired when it is nested.  See also
+`pdf-view-use-dedicated-register'."
+  (declare (debug t) (indent 0))
+  (let ((dedicated-p (make-symbol "dedicated-p")))
+    `(let* ((,dedicated-p pdf-view-use-dedicated-register)
+            (register-alist
+             (if ,dedicated-p
+                 pdf-view-register-alist
+               register-alist)))
+       (unwind-protect
+           (progn ,@body)
+         (when ,dedicated-p
+           (setq pdf-view-register-alist register-alist))))))
+    
 (defun pdf-view-position-to-register (register)
   "Store current PDF position in register REGISTER.
 
 See also `point-to-register'."
   (interactive
-   (list (register-read-with-preview "Position to register: ")))
-  (set-register register (pdf-view-registerv-make)))
+   (list (pdf-view-with-register-alist
+           (register-read-with-preview "Position to register: "))))
+  (pdf-view-with-register-alist
+    (set-register register (pdf-view-registerv-make))))
 
-(defun pdf-view-jump-to-register-command ()
-  "Move point to a position stored in a register."
-  ;;(declare (interactive-only jump-to-register))
-  (interactive)
-  (let* ((key last-command-event)
-         (provide-jump-back-p (and pdf-view--register-jump-origin
-                                   (characterp key)))
-         (register-alist
-          (if provide-jump-back-p
-              (cons (cons key pdf-view--register-jump-origin)
-                  (cl-remove key register-alist :key 'car))
-            register-alist)))
-    (jump-to-register
-     (register-read-with-preview
-      (format "Jump to register%s: "
-              (if provide-jump-back-p
-                  (format " (%c jumps back)" key)
-                "")))
-     current-prefix-arg)))
+(defun pdf-view-jump-to-register (register &optional delete return-register)
+  "Move point to a position stored in a REGISTER."
+  (interactive
+   (pdf-view-with-register-alist
+     (list 
+      (register-read-with-preview "Jump to register: ")
+      current-prefix-arg
+      (and (or pdf-view-use-dedicated-register
+               (local-variable-p 'register-alist))
+           (characterp last-command-event)
+           last-command-event))))
+  (when return-register
+    (pdf-view-position-to-register return-register))
+  (pdf-view-with-register-alist
+    (jump-to-register register delete)))
 
 (provide 'pdf-view)
 
