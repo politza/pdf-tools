@@ -1083,7 +1083,9 @@ Stores the region in `pdf-view-active-region'."
                  (cons region pdf-view-active-region)
                  render-rectangle-p)
                 (pdf-util-scroll-to-edges region))))
-      (push region pdf-view-active-region)
+      (setq pdf-view-active-region
+            (append pdf-view-active-region
+                    (list region)))
       (pdf-view--push-mark))))
 
 (defun pdf-view-mouse-extend-region (event)
