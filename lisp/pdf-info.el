@@ -1411,19 +1411,40 @@ Returns a list \(SOURCE LINE COLUMN\)."
    (or x 0)
    (or y 0)))
 
-(defun pdf-info-renderpage (page width &optional file-or-buffer)
+(defun pdf-info-renderpage (page width &optional file-or-buffer &rest commands)
   "Render PAGE with width WIDTH.
 
 Return the data of the corresponding PNG image."
-  (pdf-info-query
-   'renderpage
-   (pdf-info--normalize-file-or-buffer file-or-buffer)
-   page
-   width))
+  (when (keywordp file-or-buffer)
+    (push file-or-buffer commands)
+    (setq file-or-buffer nil))      
+  (apply 'pdf-info-query
+    'renderpage
+    (pdf-info--normalize-file-or-buffer file-or-buffer)
+    page
+    width
+    (let (transformed)
+      (while (cdr commands)
+        (let ((kw (pop commands))
+              (value (pop commands)))
+          (setq value
+                (cl-case kw
+                  ((:crop-to :highlight-line :highlight-region :highlight-text)
+                   (mapconcat 'number-to-string value " "))
+                  ((:foreground :background)
+                   (pdf-util-hexcolor value))
+                  (:alpha
+                   (number-to-string value))
+                  (otherwise value)))
+          (push kw transformed)
+          (push value transformed)))
+      (when commands
+        (error "Keyword is missing a value: %s" (car commands)))
+      (nreverse transformed))))
 
 (defun pdf-info-renderpage-text-regions (page width single-line-p
-                                           &optional file-or-buffer
-                                           &rest regions)
+                                              &optional file-or-buffer
+                                              &rest regions)
   "Highlight text on PAGE with width WIDTH using REGIONS.
 
 REGIONS is a list determining foreground and background color and
@@ -1443,24 +1464,19 @@ Return the data of the corresponding PNG image."
     (push file-or-buffer regions)
     (setq file-or-buffer nil))
   
-  (apply 'pdf-info-query
-         'renderpage-text-regions
-         (pdf-info--normalize-file-or-buffer file-or-buffer)
-         page
-         width (if single-line-p 1 0)
-         (apply 'append
-                (mapcar
-                 (lambda (s)
-                   (cl-destructuring-bind (fg bg &rest edges)
-                       s
-                     (cons
-                      (pdf-util-hexcolor fg)
-                      (cons (pdf-util-hexcolor bg)
-                            (mapcar
-                             (lambda (e)
-                               (mapconcat 'number-to-string e " "))
-                             edges)))))
-                 regions))))
+  (apply 'pdf-info-renderpage
+    page width file-or-buffer
+    (apply 'append
+      (mapcar (lambda (elt)
+                `(:foreground ,(pop elt)
+                  :background ,(pop elt)
+                  ,@(cl-mapcan (lambda (edges)
+                                 `(,(if single-line-p
+                                        :highlight-line
+                                      :highlight-text)
+                                   ,edges))
+                               elt)))
+              regions))))
 
 (defun pdf-info-renderpage-highlight (page width 
                                            &optional file-or-buffer
@@ -1480,24 +1496,17 @@ Return the data of the corresponding PNG image."
     (push file-or-buffer regions)
     (setq file-or-buffer nil))
   
-  (apply 'pdf-info-query
-         'renderpage-highlight
-         (pdf-info--normalize-file-or-buffer file-or-buffer)
-         page
-         width 
-         (apply 'append
-                (mapcar
-                 (lambda (s)
-                   (cl-destructuring-bind (fill stroke alpha &rest edges)
-                       s
-                     `(,(pdf-util-hexcolor fill)
-                       ,(pdf-util-hexcolor stroke)
-                       ,alpha
-                       ,@(mapcar
-                          (lambda (e)
-                            (mapconcat 'number-to-string e " "))
-                          edges))))
-                 regions))))
+  (apply 'pdf-info-renderpage
+    page width file-or-buffer
+    (apply 'append
+      (mapcar (lambda (elt)
+                `(:background ,(pop elt)
+                  :foreground ,(pop elt)
+                  :alpha ,(pop elt)
+                  ,@(cl-mapcan (lambda (edges)
+                                 `(:highlight-region ,edges))
+                               elt)))
+              regions))))
 
 (defun pdf-info-boundingbox (page &optional file-or-buffer)
   "Return a bounding-box for PAGE.

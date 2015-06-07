@@ -2964,127 +2964,11 @@ const command_arg_type_t cmd_renderpage_spec[] =
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
     ARG_NATNUM,                 /* width */
+    ARG_REST,                   /* commands */
   };
 
 static void
 cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
-{
-  document_t *doc = args[0].value.doc;
-  int pn = args[1].value.natnum;
-  int width = args[2].value.natnum;
-  PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
-  cairo_surface_t *surface = NULL;
-
-  perror_if_not (page, "No such page %d", pn);
-  surface = image_render_page (doc->pdf, page, width, 1,
-                               &doc->options.render);
-  perror_if_not (surface, "Failed to render page %d", pn);
-
-  image_write_print_response (surface, PNG);
- error:
-  if (surface) cairo_surface_destroy (surface);
-  if (page) g_object_unref (page);
-}
-
-const command_arg_type_t cmd_renderpage_text_regions_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_NATNUM,                 /* width */
-    ARG_BOOL,                   /* Whether edges are supposed to be
-                                   constrained to a single line */
-    ARG_REST                    /* (foreground background edges*)* */
-  };
-
-static void
-cmd_renderpage_text_regions (const epdfinfo_t *ctx, const command_arg_t *args)
-{
-  document_t *doc = args[0].value.doc;
-  int pn = args[1].value.natnum;
-  int width = args[2].value.natnum;
-  int single_line = args[3].value.flag;
-  int nrest_args = args[4].value.rest.nargs;
-  char * const *rest_args = args[4].value.rest.args;
-  PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
-  cairo_surface_t *surface = NULL;
-  cairo_t *cr = NULL;
-  command_arg_t rest_arg;
-  gchar *error_msg = NULL;
-  double pt_width, pt_height;
-  int i = 0;
-
-  perror_if_not (page, "No such page %d", pn);
-  poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, width, 1,
-                               &doc->options.render);
-  perror_if_not (surface, "Failed to render page %d", pn);
-  cr = cairo_create (surface);
-  cairo_scale (cr, width / pt_width, width / pt_width);
-
-  while (i < nrest_args)
-    {
-      PopplerColor fg, bg;
-
-      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
-                                           ARG_COLOR, &error_msg),
-                    "%s", error_msg);
-      fg = rest_arg.value.color;
-      ++i;
-
-      perror_if_not (i < nrest_args, "Missing background argument");
-      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
-                                           &error_msg),
-                    "%s", error_msg);
-      bg = rest_arg.value.color;
-      ++i;
-
-      while (i < nrest_args
-             && command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
-                                       ARG_EDGES, NULL))
-        {
-          PopplerRectangle *r = &rest_arg.value.rectangle;
-
-          r->x1 *= pt_width;
-          r->x2 *= pt_width;
-          r->y1 *= pt_height;
-          r->y2 *= pt_height;
-
-          if (single_line)
-            {
-              gdouble m = r->y1 + (r->y2 - r->y1) / 2;
-
-              /* Make the rectangle flat, otherwise poppler frequently
-                 renders neighboring lines.*/
-              r->y1 = m;
-              r->y2 = m;
-            }
-
-          poppler_page_render_selection (page, cr, &rest_arg.value.rectangle, NULL,
-                                         POPPLER_SELECTION_GLYPH, &fg, &bg);
-          ++i;
-        }
-    }
-
-  image_write_print_response (surface, PNG);
-
- error:
-  if (error_msg) g_free (error_msg);
-  if (cr) cairo_destroy (cr);
-  if (surface) cairo_surface_destroy (surface);
-  if (page) g_object_unref (page);
-}
-
-const command_arg_type_t cmd_renderpage_highlight_spec[] =
-  {
-    ARG_DOC,
-    ARG_NATNUM,                 /* page number */
-    ARG_NATNUM,                 /* width */
-    ARG_REST                    /* (fill-color stroke-color alpha edges*)* */
-  };
-
-
-static void
-cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
@@ -3096,79 +2980,161 @@ cmd_renderpage_highlight (const epdfinfo_t *ctx, const command_arg_t *args)
   cairo_t *cr = NULL;
   command_arg_t rest_arg;
   gchar *error_msg = NULL;
-  int height;
+  double pt_width, pt_height;
+  PopplerColor fg = { 0, 0, 0 };
+  PopplerColor bg = { 65535, 0, 0 };
+  double alpha = 1.0;
+  double line_width = 1.5;
+  PopplerRectangle cb = {0.0, 0.0, 1.0, 1.0};
+  gboolean is_cropped = FALSE;
   int i = 0;
 
   perror_if_not (page, "No such page %d", pn);
+  poppler_page_get_size (page, &pt_width, &pt_height);
   surface = image_render_page (doc->pdf, page, width, 1,
                                &doc->options.render);
-  height = cairo_image_surface_get_height (surface);
+  perror_if_not (surface, "Failed to render page %d", pn);
+
+  if (! nrest_args)
+    goto theend;
+  
   cr = cairo_create (surface);
+  cairo_scale (cr, width / pt_width, width / pt_width);
 
   while (i < nrest_args)
     {
-      PopplerColor bg, sc;
-      gdouble alpha;
-
-      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
-                                            &error_msg),
+      const char* keyword;
+      
+      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
+                                            ARG_STRING, &error_msg),
                      "%s", error_msg);
-      bg = rest_arg.value.color;
+      keyword = rest_arg.value.string;
       ++i;
 
-      perror_if_not (i < nrest_args, "Missing stroke color");
-      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_COLOR,
-                                            &error_msg),
-                     "%s", error_msg);
-      sc = rest_arg.value.color;
-      ++i;
+      perror_if_not (i < nrest_args, "Keyword is `%s' missing an argument",
+                     keyword);
 
-      perror_if_not (i < nrest_args, "Missing alpha argument");
-      perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg, ARG_EDGE,
-                                            &error_msg),
-                     "%s", error_msg);
-      alpha = rest_arg.value.edge;
-      ++i;
-
-      while (i < nrest_args
-             && command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
-                                       ARG_EDGES, NULL))
+      if (! strcmp (keyword, ":foreground")
+          || ! strcmp (keyword, ":background"))
         {
-          PopplerRectangle *r = &rest_arg.value.rectangle;
-          const int yoffset = 0;
-          const int xoffset = 0;
-          const double deg = M_PI / 180.0;
-          double rad;
-
-          r->x1 *= width; r->x2 *= width;
-          r->x1 -= xoffset; r->x2 += xoffset;
-          r->y1 *= height; r->y2 *= height;
-          r->y1 -= yoffset; r->y2 += yoffset;
-
-          rad = MIN (5, MIN (r->x2 - r->x1, r->y2 - r->y1) / 2.0);
-
-          cairo_move_to (cr, r->x1 , r->y1 + rad);
-          cairo_arc (cr, r->x1 + rad, r->y1 + rad, rad, 180 * deg, 270 * deg);
-          cairo_arc (cr, r->x2 - rad, r->y1 + rad, rad, 270 * deg, 360 * deg);
-          cairo_arc (cr, r->x2 - rad, r->y2 - rad, rad, 0 * deg, 90 * deg);
-          cairo_arc (cr, r->x1 + rad, r->y2 - rad, rad, 90 * deg, 180 * deg);
-          cairo_close_path (cr);
-
-          cairo_set_source_rgba (cr,
-                                 bg.red / 65535.0,
-                                 bg.green / 65535.0,
-                                 bg.blue / 65535.0, alpha);
-          cairo_fill_preserve (cr);
-          cairo_set_source_rgba (cr,
-                                 sc.red / 65535.0,
-                                 sc.green / 65535.0,
-                                 sc.blue / 65535.0, 1.0);
-          cairo_set_line_width (cr, 1.5);
-          cairo_stroke (cr);
+          perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
+                                                ARG_COLOR, &error_msg),
+                         "%s", error_msg);
           ++i;
-        }
-    }
+          if (! strcmp (keyword, ":foreground"))
+            fg = rest_arg.value.color;
+          else
+            bg = rest_arg.value.color;
 
+        }
+      else if (! strcmp (keyword, ":alpha"))
+        {
+          perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
+                                                ARG_EDGE, &error_msg),
+                         "%s", error_msg);
+          ++i;
+          alpha = rest_arg.value.edge;
+        }
+      else if (! strcmp (keyword, ":crop-to")
+               || ! strcmp (keyword, ":highlight-region")       
+               || ! strcmp (keyword, ":highlight-text")
+               || ! strcmp (keyword, ":highlight-line"))
+        {
+          PopplerRectangle *r;
+          perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
+                                                ARG_EDGES, &error_msg),
+                         "%s", error_msg);
+
+          ++i;
+          r = &rest_arg.value.rectangle;
+          
+          if (! strcmp (keyword, ":crop-to"))
+            {
+              cb = *r;
+              is_cropped = TRUE;
+            }
+          else
+            {
+              r->x1 *= pt_width * (cb.x2 - cb.x1) + cb.x1;
+              r->x2 *= pt_width * (cb.x2 - cb.x1) + cb.x2;
+              r->y1 *= pt_height * (cb.y2 - cb.y1) + cb.y1;
+              r->y2 *= pt_height * (cb.y2 - cb.y1) + cb.y2;
+          
+              if (! strcmp (keyword, ":highlight-region"))
+                {
+                  const double deg = M_PI / 180.0;
+                  double rad;
+
+                  r->x1 += line_width / 2;
+                  r->x2 -= line_width / 2;
+                  r->y1 += line_width / 2;
+                  r->y2 -= line_width / 2;
+
+                  rad = MIN (5, MIN (r->x2 - r->x1, r->y2 - r->y1) / 2.0);
+
+                  cairo_move_to (cr, r->x1 , r->y1 + rad);
+                  cairo_arc (cr, r->x1 + rad, r->y1 + rad, rad, 180 * deg, 270 * deg);
+                  cairo_arc (cr, r->x2 - rad, r->y1 + rad, rad, 270 * deg, 360 * deg);
+                  cairo_arc (cr, r->x2 - rad, r->y2 - rad, rad, 0 * deg, 90 * deg);
+                  cairo_arc (cr, r->x1 + rad, r->y2 - rad, rad, 90 * deg, 180 * deg);
+                  cairo_close_path (cr);
+
+                  cairo_set_source_rgba (cr,
+                                         bg.red / 65535.0,
+                                         bg.green / 65535.0,
+                                         bg.blue / 65535.0, alpha);
+                  cairo_fill_preserve (cr);
+                  cairo_set_source_rgba (cr,
+                                         fg.red / 65535.0,
+                                         fg.green / 65535.0,
+                                         fg.blue / 65535.0, 1.0);
+                  cairo_set_line_width (cr, line_width);
+                  cairo_stroke (cr);
+                }
+              else 
+                {
+                  gboolean is_single_line = ! strcmp (keyword, ":highlight-line");
+              
+                  if (is_single_line)
+                    {
+                      gdouble m = r->y1 + (r->y2 - r->y1) / 2;
+
+                      /* Make the rectangle flat, otherwise poppler frequently
+                         renders neighboring lines.*/
+                      r->y1 = m;
+                      r->y2 = m;
+                    }
+
+                  poppler_page_render_selection (page, cr, r, NULL,
+                                                 POPPLER_SELECTION_GLYPH, &fg, &bg);
+                }
+            }
+        }
+      else
+        perror_if_not (0, "Unknown render command: %s", keyword);
+    }
+  if (is_cropped)
+    {
+      int height = cairo_image_surface_get_height (surface);
+      cairo_rectangle_int_t r = {(int) (width * cb.x1 + 0.5),
+                                 (int) (height * cb.y1 + 0.5),
+                                 (int) (width * (cb.x2 - cb.x1) + 0.5),
+                                 (int) (height * (cb.y2 - cb.y1) + 0.5)};
+      cairo_surface_t *nsurface =
+        cairo_image_surface_create (CAIRO_FORMAT_ARGB32, r.width, r.height);
+      perror_if_not (cairo_surface_status (surface) == CAIRO_STATUS_SUCCESS,
+                     "%s", "Failed to create cairo surface");
+      cairo_destroy (cr);
+      cr = cairo_create (nsurface);
+      perror_if_not (cairo_status (cr) == CAIRO_STATUS_SUCCESS,
+                     "%s", "Failed to create cairo context");
+      cairo_set_source_surface (cr, surface, -r.x, -r.y);
+      cairo_paint (cr);
+      cairo_surface_destroy (surface);
+      surface = nsurface;      
+    }
+  
+ theend:
   image_write_print_response (surface, PNG);
 
  error:
@@ -3182,6 +3148,7 @@ const command_arg_type_t cmd_boundingbox_spec[] =
   {
     ARG_DOC,
     ARG_NATNUM,                 /* page number */
+    /* region */
   };
 
 static void
@@ -3529,8 +3496,6 @@ static const command_t commands [] =
 
     /* Rendering */
     DEC_CMD (renderpage),
-    DEC_CMD2 (renderpage_text_regions, "renderpage-text-regions"),
-    DEC_CMD2 (renderpage_highlight, "renderpage-highlight")
   };
 
 int main(int argc, char **argv)

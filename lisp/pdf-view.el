@@ -1168,34 +1168,35 @@ by joining them horizontally."
     (setq size (pdf-view-image-size)))
   (unless output-buffer
     (setq output-buffer (get-buffer-create "*PDF region image*")))
-  (let* ((temps (mapcar (lambda (_) (make-temp-file "pdf-view"))
-                        (cons nil (cons  nil regions))))
-         (whole (car temps))
-         (result (cadr temps))
-         (slices (cddr temps)))
+  (let* ((images (mapcar (lambda (edges)
+                           (let ((file (make-temp-file "pdf-view")))
+                             (write-region
+                              (pdf-info-renderpage
+                               page (car size)
+                               :crop-to edges)
+                              nil file nil 'no-message)
+                             file))
+                         regions))
+         result)
     (unwind-protect
         (progn
-          (write-region (pdf-info-renderpage page (car size))
-                        nil whole nil 'no-message)
-          (if (and (= (length regions) 1)
-                   (equal (car regions)
-                          '(0 0 1 1)))
-              (setq result whole)
-            (cl-mapcar (lambda (r slice)
-                         (pdf-util-convert
-                          whole slice
-                          :commands '("-crop" "%g")
-                          :apply (list r)))
-                       (pdf-util-scale regions size 'round)
-                       slices)
-            (if (cdr slices)
-                (pdf-util-convert
-                 (car slices)
-                 result
-                 :commands (append (cdr slices)
-                                   (list "-append"))
-                 :apply '((0 0 0 0)))
-              (setq result (car slices))))
+          (if (= (length images) 1)
+              (setq result (car images))
+            (setq result (make-temp-file "pdf-view"))
+            ;; Join the images horizontally with a gap of 10 pixel.
+            (pdf-util-convert
+             "-noop" ;; workaround limitations of this function
+             result
+             :commands `("("
+                         ,@images
+                         "-background"
+                         "white"
+                         "-splice" "0x10+0+0" ")"
+                         "-gravity" "Center"
+                         "-append"
+                         "+gravity"
+                         "-chop" "0x10+0+0")                         
+             :apply '((0 0 0 0))))
           (with-current-buffer output-buffer
             (let ((inhibit-read-only t))
               (erase-buffer))
@@ -1203,7 +1204,7 @@ by joining them horizontally."
             (image-mode)
             (unless no-display-p
               (display-buffer (current-buffer)))))
-      (dolist (f temps)
+      (dolist (f (cons result images))
         (when (file-exists-p f)
           (delete-file f))))))
 
