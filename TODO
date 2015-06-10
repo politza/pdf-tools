@@ -23,3 +23,4 @@
    window, when it is shrunken.
 * pdf-info
 ** Add a report/debug command, displaying a list of open files and other information.
+** Use alists for results instead of positional lists.
