@@ -54,10 +54,10 @@ server/configure: server/configure.ac
 	cd server && ./autogen.sh
 
 bytecompile: 
-	$(EMACS) $(EFLAGS) -f batch-byte-compile lisp/*.el
+	cask exec $(EMACS) $(EFLAGS) -f batch-byte-compile lisp/*.el
 
 test: all
-	$(EMACS) $(EFLAGS) -l test/run-tests.el $(PACKAGE_NAME).tar
+	cask exec $(EMACS) $(EFLAGS) -l test/run-tests.el $(PACKAGE_NAME).tar
 
 check: bytecompile test
 

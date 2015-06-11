@@ -30,6 +30,8 @@
 (require 'pdf-misc)
 (require 'pdf-view)
 (require 'pdf-cache)
+(require 'let-alist)
+
 ;;; Code:
 
 
@@ -439,14 +441,12 @@ Returns a list of edges (LEFT TOP RIGHT BOTTOM) in PDF
 coordinates, sorted top to bottom, then left to right."
 
   (unless page (setq page (pdf-view-current-page)))
-  (let* ((case-fold-search isearch-case-fold-search)
-         (matches
-          (cdr (assq page
-                     (funcall (pdf-isearch-search-fun)
-                              string page)))))
-    (mapcar (lambda (edge-list)
-              (pdf-util-scale-relative-to-pixel edge-list 'round))
-            (mapcar 'cdr matches))))
+  (mapcar (lambda (match)
+            (let-alist match
+              (pdf-util-scale-relative-to-pixel .edges 'round)))
+          (let ((case-fold-search isearch-case-fold-search))
+            (funcall (pdf-isearch-search-fun)
+                     string page))))
 
 (defun pdf-isearch-search-fun ()
   (funcall (or pdf-isearch-search-fun-function

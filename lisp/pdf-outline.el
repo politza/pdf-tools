@@ -26,6 +26,7 @@
 (require 'pdf-view)
 (require 'cl-lib)
 (require 'imenu)
+(require 'let-alist)
 
 ;;; Code:
 
@@ -248,29 +249,26 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
 (defun pdf-outline-insert-outline (pdf-file)
   (let ((labels (and pdf-outline-display-labels
                      (pdf-info-pagelabels pdf-file)))
-        (outline (cl-remove-if-not
-                  (lambda (type)
-                    (eq type 'goto-dest))
-                  (pdf-info-outline pdf-file)
-                  :key 'cadr)))
-    (dolist (item outline)
-      (cl-destructuring-bind (lvl _type title page _top)
-          item
-        (insert-text-button
-         (concat
-          (make-string (* (1- lvl) pdf-outline-buffer-indent) ?\s)
-          title
-          (if (> page 0)
-              (format " (%s)"
-                      (if labels
-                          (nth (1- page) labels)
-                        page))
-            "(invalid)"))
-         'type 'pdf-outline
-         'help-echo (pdf-links-action-to-string (cdr item))
-         'pdf-outline-link (cdr item))
-        (newline)))
-    (length outline)))
+        (nitems 0))
+    (dolist (item (pdf-info-outline pdf-file))
+      (let-alist item
+        (when (eq .type 'goto-dest)
+          (insert-text-button
+           (concat
+            (make-string (* (1- .depth) pdf-outline-buffer-indent) ?\s)
+            .title
+            (if (> .page 0)
+                (format " (%s)"
+                        (if labels
+                            (nth (1- .page) labels)
+                          .page))
+              "(invalid)"))
+           'type 'pdf-outline
+           'help-echo (pdf-links-action-to-string item)
+           'pdf-outline-link item)
+          (newline)
+          (cl-incf nitems))))
+    nitems))
 
 (defun pdf-outline-get-pdf-window (&optional if-visible-p)
   (save-selected-window
@@ -420,7 +418,7 @@ Then quit the outline window."
   (let (curpage)
     (save-excursion
       (goto-char (point-min))
-      (while (and (setq curpage (nth 2 (pdf-outline-link-at-pos)))
+      (while (and (setq curpage (alist-get 'page (pdf-outline-link-at-pos)))
                   (< curpage page))
         (forward-line))
       (point))))
@@ -454,12 +452,11 @@ Then quit the outline window."
     (use-local-map (keymap-parent (current-local-map)))))
   
 
-(defun pdf-outline-imenu-create-item (_lvl link &optional labels)
-  (cl-destructuring-bind ( _type title page _top)
-      link
-    (list (format "%s (%s)" title (if labels
-                                      (nth (1- page) labels)
-                                    page))
+(defun pdf-outline-imenu-create-item (link &optional labels)
+  (let-alist link
+    (list (format "%s (%s)" .title (if labels
+                                       (nth (1- .page) labels)
+                                     .page))
           0
           'pdf-outline-imenu-activate-link
           link)))
@@ -468,16 +465,12 @@ Then quit the outline window."
   (let ((labels (and pdf-outline-display-labels
                      (pdf-info-pagelabels
                        (pdf-view-buffer-file-name))))
-        (outline (cl-remove-if-not
-                  (lambda (type)
-                    (eq type 'goto-dest))
-                  (pdf-info-outline (pdf-view-buffer-file-name))
-                  :key 'cadr))
         index)
-    (dolist (o outline)
-      (push (pdf-outline-imenu-create-item
-             (car o) (cdr o) labels)
-            index))
+    (dolist (item (pdf-info-outline (pdf-view-buffer-file-name)))
+      (let-alist item
+        (when (eq .type 'goto-dest)
+          (push (pdf-outline-imenu-create-item item labels)
+                index))))
     (nreverse index)))
         
     
@@ -488,22 +481,20 @@ Then quit the outline window."
      (lambda (type)
        (eq type 'goto-dest))
      (pdf-info-outline (pdf-view-buffer-file-name))
-     :key 'cadr))
+     :key (apply-partially 'alist-get 'type)))
    (and pdf-outline-display-labels
         (pdf-info-pagelabels (pdf-view-buffer-file-name)))))
 
 (defun pdf-outline-imenu-create-index-tree-1 (nodes &optional labels)
   (mapcar (lambda (node)
             (let (children)
-              (when (consp (car node))
+              (when (consp (caar node))
                 (setq children (cdr node)
                       node (car node)))
-              (let ((title (nth 2 node))
-                    (item
-                     (pdf-outline-imenu-create-item
-                      (car node) (cdr node) labels)))
+              (let ((item
+                     (pdf-outline-imenu-create-item node labels)))
                 (if children
-                    (cons title
+                    (cons (alist-get 'title node)
                           (cons item (pdf-outline-imenu-create-index-tree-1
                                       children labels)))
                   item))))
@@ -511,16 +502,16 @@ Then quit the outline window."
 
 (defun pdf-outline-treeify-outline-list (list)
   (when list
-    (let ((level (caar list))
+    (let ((depth (alist-get 'depth (car list)))
           result)
       (while (and list
-                  (>= (caar list)
-                      level))
-        (when (= (caar list) level)
+                  (>= (alist-get 'depth (car list))
+                      depth))
+        (when (= (alist-get 'depth (car list)) depth)
           (let ((item (car list)))
             (when (and (cdr list)
-                       (>  (car (cadr list))
-                           level))
+                       (>  (alist-get 'depth (cadr list))
+                           depth))
               (setq item
                     (cons
                      item

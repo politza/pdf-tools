@@ -414,38 +414,28 @@ interrupted."
                      (string-to-number (cadr elt))))
              response))
     ((search-string search-regexp)
-     (let* ((matches
-             (mapcar
-              (lambda (r)
-                `(,(string-to-number (nth 0 r))
-                  ,(let (case-fold-search)
+     (mapcar
+      (lambda (r)
+        `((page . ,(string-to-number (nth 0 r)))
+          (text . ,(let (case-fold-search)
                      (pdf-util-highlight-regexp-in-string
-                      (regexp-quote (nth 1 r)) (nth 2 r)))
-                  ,@(mapcar (lambda (m)
+                      (regexp-quote (nth 1 r)) (nth 2 r))))
+          (edges . ,(mapcar (lambda (m)
                               (mapcar 'string-to-number
                                       (split-string m " " t)))
-                            (cddr (cdr r)))))
-              response))
-            result)
-       (while matches
-         (let ((page (caar matches))
-               items)
-           (while (and matches
-                       (= (caar matches) page))
-             (push (cdr (pop matches)) items))
-           (push (cons page (nreverse items)) result)))
-       (nreverse result)))
+                            (cddr (cdr r))))))
+      response))
     (outline
      (mapcar (lambda (r)
-               (cons (string-to-number (pop r))
-                     (pdf-info-query--transform-action r)))
+               `((depth . ,(string-to-number (pop r)))
+                 ,@(pdf-info-query--transform-action r)))
              response))
     (pagelinks
      (mapcar (lambda (r)
-               (cons
-                (mapcar 'string-to-number ;area
-                        (split-string (pop r) " " t))
-                (pdf-info-query--transform-action r)))
+               `((edges .
+                        ,(mapcar 'string-to-number ;area
+                                 (split-string (pop r) " " t)))
+                 ,@(pdf-info-query--transform-action r)))
              response))
     (metadata
      (let ((md (car response)))
@@ -482,11 +472,16 @@ interrupted."
      (mapcar 'pdf-info-query--transform-attachment response))
     ((getattachment-from-annot)
      (pdf-info-query--transform-attachment (car response)))
-    ((synctex-forward-search boundingbox)
+    (boundingbox
      (mapcar 'string-to-number (car response)))
+    (synctex-forward-search
+     (let ((list (mapcar 'string-to-number (car response))))
+       `((page . ,(car list))
+         (edges . ,(cdr list)))))
     (synctex-backward-search
-     (cons (caar response)
-           (mapcar 'string-to-number (cdar response))))
+     `((filename . ,(caar response))
+       (line . ,(string-to-number (cadr (car response))))
+       (column . ,(string-to-number (cadr (cdar response))))))
     (delannot nil)
     ((save) (caar response))
     ((renderpage renderpage-text-regions renderpage-highlight)
@@ -509,21 +504,19 @@ interrupted."
 (defun pdf-info-query--transform-action (action)
   "Transform ACTION response into a Lisp form."
   (let ((type (intern (pop action))))
-    (cons type
-          (cons (pop action)
-                (cl-case type
-                  (goto-dest
-                   (list (string-to-number (pop action))
-                         (and (> (length (car action)) 0)
-                              (string-to-number (pop action)))))
-                  (goto-remote
-                   (list (pop action)
-                         (string-to-number (pop action))
-                         (and (> (length (car action)) 0)
-                              (string-to-number (pop action)))
-                         (and (> (length (car action)) 0)
-                              (string-to-number (pop action)))))
-                  (t action))))))
+    `((type . ,type)
+      (title . ,(pop action))
+      ,@(cl-case type
+          (goto-dest
+           `((page . ,(string-to-number (pop action)))
+             (top . ,(and (> (length (car action)) 0)
+                          (string-to-number (pop action))))))
+          (goto-remote
+           `((filename . ,(pop action))
+             (page . ,(string-to-number (pop action)))
+             (top . ,(and (> (length (car action)) 0)
+                          (string-to-number (pop action))))))
+          (t `((uri . ,(pop action))))))))
 
 (defun pdf-info-query--transform-annotation (a)
   (cl-labels ((not-empty (s)
@@ -890,16 +883,18 @@ document."
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
                
 (defun pdf-info-search-string (string &optional pages file-or-buffer)
-  "Search for STRING in PAGES of docüment FILE-OR-BUFFER.
+  "Search for STRING in PAGES of document FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats.
 
-This function returns a list \(\((PAGE . MATCHES\) ... \), where
-MATCHES represents a list of matches on PAGE.  Each MATCHES item
-looks like \(LINE EDGES\), where EDGES represent the coordinates
-of the match as a list of four relative values \(LEFT TOP RIGHT
-BOTTOM\). LINE is the matched line, containing `match' face
-properties on the matched parts.
+This function returns a list of matches.  Each item is an alist
+containing keys PAGE, TEXT and EDGES, where PAGE and TEXT are the
+matched page resp. line. EDGES is a list containing a single
+edges element \(LEFT TOP RIGHT BOTTOM\). This is for consistency
+with `pdf-info-search-regexp', which may return matches with
+multiple edges.
+
+The TEXT contains `match' face properties on the matched parts.
 
 Search is case-insensitive, unless `case-fold-search' is nil and
 searching case-sensitive is supported by the server."
@@ -975,15 +970,8 @@ See the glib documentation at url
                                     file-or-buffer)
   "Search for a PCRE on PAGES of docüment FILE-OR-BUFFER.
 
-See `pdf-info-normalize-page-range' for valid PAGES formats.
-
-This function returns a list \(\((PAGE . MATCHES\) ... \), where
-MATCHES represents a list of matches on PAGE.  Each MATCHES item
-looks like \(LINE EDGES EDGES ...\), where the EDGES elements
-represent the coordinates of the match, each one beeing a list of
-four relative values \(LEFT TOP RIGHT BOTTOM\).  LINE is the
-matched line, containing `match' face properties on the matched
-parts.
+See `pdf-info-normalize-page-range' for valid PAGES formats and
+`pdf-info-search-string' for it's return value.
 
 Uses the flags in `pdf-info-regexp-flags', which see.  If
 `case-fold-search' is non-nil, the caseless flag is added.
@@ -1031,27 +1019,24 @@ this kind of error as a `invalid-regexp' error."
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
   "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
 
-This function returns a list \(\(EDGES . ACTION\) ... \), where
-EDGES has the same form as in `pdf-info-search-string'.  ACTION
-represents a PDF Action and has the form \(TYPE TITLE . ARGS\),
-there TYPE is the type of the action, TITLE is a, possibly empty,
-name for this action and ARGS a list of the action's arguments.
+This function returns a list of alists with the following keys.
+EDGES represents the relative bounding-box of the link , TYPE is
+the type of the action, TITLE is a, possibly empty, name for this
+action.
 
 TYPE may be one of
 
-goto-dest -- This is a internal link to some page.  ARGS has the
-form \(PAGE TOP\), where PAGE is the page of the link and TOP
-it's vertical position.
+goto-dest -- This is a internal link to some page.  Each element
+contains additional keys PAGE and TOP, where PAGE is the page of
+the link and TOP it's vertical position.
 
-goto-remote -- This a external link to some document.  ARGS is of
-the form \(PDFFILE PAGE TOP\), where PDFFILE is the filename of
-the external PDF, PAGE the page number and TOP the vertical
-position.
+goto-remote -- This a external link to some document.  Same as
+goto-dest, with an additional FILENAME of the external PDF.
 
-uri -- A link in form of some URI.  ARGS contains a single
-element, namely the URI.
+uri -- A link in form of some URI. Alist contains additional key
+URI.
 
-In the first two cases, PAGE may be 0 and TOP be nil, which means
+In the first two cases, PAGE may be 0 and TOP nil, which means
 these data is unspecified."
   (cl-check-type page natnum)
   (pdf-info-query
@@ -1068,10 +1053,9 @@ these data is unspecified."
 (defun pdf-info-outline (&optional file-or-buffer)
   "Return the PDF outline of document FILE-OR-BUFFER.
 
-This function returns a list \(\(DEPTH . ACTION\) ... \) of
-outline items, where DEPTH >= 1 is the depth of this element in
-the tree and ACTION has the same format as in
-`pdf-info-pagelinks', which see."
+This function returns a list of alists like `pdf-info-pagelinks'.
+Additionally every alist has a DEPTH (>= 1) entry with the depth
+of this element in the tree."
 
   (pdf-info-query
    'outline
@@ -1126,8 +1110,8 @@ aforementioned function, when called with the same arguments."
 (defun pdf-info-charlayout (page edges-or-pos &optional file-or-buffer)
   "Return the layout of characters of PAGE in/at EDGES-OR-POS.
 
-Returns a list of elements \(CHAR . \(LEFT TOP RIGHT BOT\)\) of
-character and corresponding boundingboxes.
+Returns a list of elements \(CHAR . \(LEFT TOP RIGHT BOT\)\) mapping
+character to their corresponding relative bounding-boxes.
 
 EDGES-OR-POS may be a region \(LEFT TOP RIGHT BOT\) restricting
 the returned value to include only characters fully contained in
@@ -1382,9 +1366,9 @@ corresponding file.  LINE and COLUMN represent the position in
 the buffer or file.  Finally FILE-OR-BUFFER corresponds to the
 PDF document.
 
-Returns a list of \(PAGE LEFT TOP RIGHT BOT\) of coordinates
-describing the position in the PDF document corresponding to the
-SOURCE location."
+Returns an alist with entries PAGE and relative EDGES describing
+the position in the PDF document corresponding to the SOURCE
+location."
   
   (let ((source (if (buffer-live-p (get-buffer source))
                     (buffer-file-name (get-buffer source))
@@ -1399,10 +1383,11 @@ SOURCE location."
 (defun pdf-info-synctex-backward-search (page &optional x y file-or-buffer)
   "Perform a backward search with synctex.
 
-This find the source location corresponding to the coordinates
+Find the source location corresponding to the coordinates
 \(X . Y\) on PAGE in FILE-OR-BUFFER.
 
-Returns a list \(SOURCE LINE COLUMN\)."
+Returns an alist with entries FILENAME, LINE and COLUMN."
+
 
   (pdf-info-query
    'synctex-backward-search

@@ -34,6 +34,7 @@
 (require 'pdf-view)
 (require 'pdf-info)
 (require 'pdf-util)
+(require 'let-alist)
 
 ;;; Code:
 
@@ -323,14 +324,13 @@ point to the correct position."
         (page (pdf-view-current-page)))
     (setq x (/ x (float (car size)))
           y (/ y (float (cdr size))))
-    (cl-destructuring-bind (source line column)
-        (pdf-info-synctex-backward-search page x y)
-      (let ((data (list (expand-file-name source)
-                        line column)))
+    (let-alist (pdf-info-synctex-backward-search page x y)
+      (let ((data (list (expand-file-name .filename)
+                        .line .column)))
         (cl-destructuring-bind (source line column)
             (or (save-selected-window
                   (apply 'run-hook-with-args-until-success
-                         'pdf-sync-backward-redirect-functions data))
+                    'pdf-sync-backward-redirect-functions data))
                 data)
           (list source
                 (if (not pdf-sync-backward-use-heuristic)
@@ -697,10 +697,11 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
                      (buffer-file-name) pdf)))
     (condition-case err
         (cons pdf
-              (pdf-info-synctex-forward-search
-               (or sfilename
-                   (buffer-file-name))
-               line column pdf))
+              (let-alist (pdf-info-synctex-forward-search
+                          (or sfilename
+                              (buffer-file-name))
+                          line column pdf)
+                (cons .page .edges)))
       (error
        (if (null sfilename)
            (signal (car err) (cdr err))
@@ -708,9 +709,9 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
          ;; would actually work for some reason.
          (condition-case nil
              (cons pdf
-                   (pdf-info-synctex-forward-search
-                    (buffer-file-name)
-                    line column pdf))
+                   (let-alist (pdf-info-synctex-forward-search
+                               (buffer-file-name) line column pdf)
+                     (cons .page .edges)))
            (error (signal (car err) (cdr err)))))))))
 
 

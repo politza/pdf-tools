@@ -1,5 +1,6 @@
 ;; -*- lexical-binding: t -*-
 
+(require 'let-alist)
 (require 'pdf-info)
 (require 'ert)
 
@@ -17,38 +18,44 @@
 
 (ert-deftest pdf-info-search-string ()
   (pdf-test-with-test-pdf
-    (let (matches) 
-      (should (setq matches (pdf-info-search-string "PDF Tools")))
-      (should (= 1 (length matches)))
-      (should (= 2 (length (cdar matches))))
-      (should (cl-every 'stringp
-                        (mapcar 'car (cdar matches))))
-      (should (cl-every 'pdf-test-relative-edges-p
-                        (mapcar 'cadr (cdar matches)))))))
+   (let (matches) 
+     (should (setq matches (pdf-info-search-string "PDF Tools")))
+     (should (= 2 (length matches)))
+     (should (cl-every (lambda (m)
+                         (let-alist m
+                           (and (stringp .text)
+                                (cl-every 'pdf-test-relative-edges-p .edges)
+                                (= 1 .page))))
+                       matches)))))
               
 
 (ert-deftest pdf-info-search-regexp ()
   (pdf-test-with-test-pdf
     (let (case-fold-search matches) 
       (should (setq matches (pdf-info-search-regexp "PDF Tools")))
-      (should (= 1 (length matches)))
-      (should (= 2 (length (cdar matches))))
-      (should (cl-every 'stringp
-                        (mapcar 'car (cdar matches))))
-      (should (cl-every 'pdf-test-relative-edges-p
-                        (mapcar 'cadr (cdar matches)))))))
+      (should (= 2 (length matches)))
+      (should (cl-every (lambda (m)
+                          (let-alist m
+                            (and (stringp .text)
+                                 (cl-every 'pdf-test-relative-edges-p .edges)
+                                 (= 1 .page))))
+                        matches)))))
 
 (ert-deftest pdf-info-pagelinks ()
   (pdf-test-with-test-pdf
-    (let (links)
-      (should (= 2 (length (setq links (pdf-info-pagelinks 3)))))
+    (let ((links (pdf-info-pagelinks 3)))
+      (should (= 2 (length links)))
       (should (cl-every 'pdf-test-relative-edges-p
-                        (mapcar 'car links)))
-      (setq links (mapcar 'cdr links))
-      (should (equal (mapcar 'car links)
+                        (mapcar (apply-partially 'alist-get 'edges)
+                                links)))
+      (should (equal (mapcar (apply-partially 'alist-get 'type) links)
                      '(goto-dest uri)))
-      (should (equal (mapcar 'car (mapcar 'cddr links))
-                     '(1 "http://www.gnu.org"))))))
+      (should (equal (mapcar (apply-partially 'alist-get 'uri)
+                             links)
+                     '(nil "http://www.gnu.org")))
+      (should (equal (mapcar (apply-partially 'alist-get 'page)
+                             links)
+                     '(1 nil))))))
 
 (ert-deftest pdf-info-number-of-pages ()
   (pdf-test-with-test-pdf
@@ -56,13 +63,14 @@
 
 (ert-deftest pdf-info-outline ()
   (pdf-test-with-test-pdf
-    (let (outline)
-      (should (= 7 (length (setq outline (pdf-info-outline)))))
-      (should (equal (mapcar 'car outline)
-                     '(1 1 1 1 1 2 3)))
-      (should (cl-every (lambda (type)
-                          (equal type 'goto-dest))
-                        (mapcar 'cadr outline))))))
+   (let ((outline (pdf-info-outline)))
+     (should (= 7 (length outline)))
+     (should (equal (mapcar (apply-partially 'alist-get 'depth) outline)
+                    '(1 1 1 1 1 2 3)))
+     (should (cl-every (lambda (elt)
+                         (eq (alist-get 'type elt)
+                             'goto-dest))
+                       outline)))))
 
 (ert-deftest pdf-info-gettext ()
   (pdf-test-with-test-pdf

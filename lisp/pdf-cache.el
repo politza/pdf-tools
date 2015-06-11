@@ -378,7 +378,7 @@ See also `pdf-info-renderpage-highlight' and
        (mapcar
         'cl-cadddr
         (cl-remove-if-not
-         (lambda (link) (eq (cadr link) 'goto-dest))
+         (lambda (link) (eq (assq 'type link) 'goto-dest))
          (pdf-cache-pagelinks
           (pdf-view-current-page)))))))))
 

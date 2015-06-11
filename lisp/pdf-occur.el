@@ -29,6 +29,7 @@
 (require 'tablist)
 (require 'ibuf-ext)
 (require 'dired)
+(require 'let-alist)
 
 ;;; Code:
 
@@ -572,12 +573,10 @@ matches linked with PAGE."
   (pdf-occur-assert-occur-buffer-p)
   (when matches
     (let (entries)
-      (dolist (page-match matches)
-        (let ((page (car page-match))
-              (page-matches (cdr page-match)))
-          (dolist (match page-matches)
-            (push (pdf-occur-create-entry filename page match)
-                  entries))))
+      (dolist (match matches)
+        (let-alist match
+          (push (pdf-occur-create-entry filename .page (cons .text .edges))
+                entries)))
       (setq entries (nreverse entries))
       (pdf-occur-insert-entries entries))))
 
@@ -623,9 +622,7 @@ matches linked with PAGE."
                           :key 'car
                           :test 'equal)
            (cl-incf pdf-occur-number-of-matches
-                    (cl-reduce (lambda (n elt)
-                                 (+ n (length (cdr elt))))
-                               (cons 0 response)))
+                    (length response))
            (pdf-occur-add-matches document response)
            (pdf-occur-update-header-line))))
      (lambda (status buffer)
