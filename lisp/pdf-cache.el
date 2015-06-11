@@ -398,35 +398,45 @@ See also `pdf-info-renderpage-highlight' and
         (when (null page)
           (message  "Prefetching done.")))
       (when page
-        (let ((pdf-info-asynchronous
-               (lambda (status data)
-                 (when (and (null status)
-                            (eq window
-                                (selected-window)))
-                   (with-current-buffer (window-buffer)
-                     (pdf-cache-put-image
-                      page image-width data)
-                     (image-size (pdf-view-create-page page))
-                     (pdf-util-debug
-                       (message "Prefetched page %s." page))
-                     ;; Avoid max-lisp-eval-depth
-                     (run-with-timer
-                         0.001 nil 'pdf-cache--prefetch-pages window image-width))))))
+        (let* ((buffer (current-buffer))
+               (pdf-info-asynchronous
+                (lambda (status data)
+                  (when (and (null status)
+                             (eq window
+                                 (selected-window))
+                             (eq buffer (window-buffer)))
+                    (with-current-buffer (window-buffer)
+                      (when (derived-mode-p 'pdf-view-mode)
+                        (pdf-cache-put-image
+                         page image-width data)
+                        (image-size (pdf-view-create-page page))
+                        (pdf-util-debug
+                          (message "Prefetched page %s." page))
+                        ;; Avoid max-lisp-eval-depth
+                        (run-with-timer
+                            0.001 nil 'pdf-cache--prefetch-pages window image-width)))))))
           (condition-case err
               (pdf-info-renderpage page image-width)
             (error
              (pdf-cache-prefetch-minor-mode -1)
              (signal (car err) (cdr err)))))))))
 
+(defvar pdf-cache--prefetch-started-p nil
+  "Guard against multiple prefetch starts.
+
+Used solely in `pdf-cache--prefetch-start'.")
+
 (defun pdf-cache--prefetch-start (buffer)
   "Start prefetching images in BUFFER."
   (when (and pdf-cache-prefetch-minor-mode
+             (not pdf-cache--prefetch-started-p)
              (pdf-util-pdf-buffer-p)
              (not isearch-mode)
              (null pdf-cache--prefetch-pages)
              (eq (window-buffer) buffer)
              (fboundp pdf-cache-prefetch-pages-function))
-    (let ((pages (funcall pdf-cache-prefetch-pages-function)))
+    (let* ((pdf-cache--prefetch-started-p t)
+           (pages (funcall pdf-cache-prefetch-pages-function)))
       (setq pdf-cache--prefetch-pages
             (butlast pages (max 0 (- (length pages)
                                      pdf-cache-image-limit))))
