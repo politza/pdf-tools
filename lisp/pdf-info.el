@@ -717,7 +717,113 @@ representing the final page."
        (string-to-number year)
        tz))))
 
+(defmacro pdf-info-compose-queries (let-forms &rest body)
+  "Let-bind each VAR to QUERIES results and evaluate BODY.
 
+All queries in each QUERIES form are run by the server in the
+order they appear and the results collected in a list, which is
+bound to VAR.  Then BODY is evaluated and it's value becomes the
+final result of all queries, unless at least one of them provoked
+an error.  In this case BODY is ignored and the error is the
+result.
+
+This macro handles synchrounus and asynchronous calls,
+i.e. `pdf-info-asynchronous' is non-nil, transparently.
+
+\(FN \(\(VAR QUERIES\)...\) BODY\)"
+  (declare (indent 1)
+           (debug ((&rest &or
+                          (symbolp &optional form)
+                          symbolp)
+                   body)))
+  (unless (cl-every (lambda (form)
+                      (when (symbolp form)
+                        (setq form (list form)))
+                      (and (consp form)
+                           (symbolp (car form))
+                           (listp (cdr form))))
+                    let-forms)
+    (error "Invalid let-form: %s" let-forms))
+  
+  (setq let-forms (mapcar (lambda (form)
+                            (if (symbolp form)
+                                (list form)
+                              form))
+                          let-forms))
+  (let* ((status (make-symbol "status"))
+         (response (make-symbol "response")) 
+         (first-error (make-symbol "first-error"))
+         (done (make-symbol "done"))
+         (callback (make-symbol "callback"))
+         (results (make-symbol "results"))
+         (push-fn (make-symbol "push-fn"))
+         (terminal-fn (make-symbol "terminal-fn"))
+         (buffer (make-symbol "buffer")))         
+    `(let* (,status
+            ,response ,first-error ,done
+            (,buffer (current-buffer))
+            (,callback pdf-info-asynchronous)
+            ;; Ensure a new alist on every invocation.
+            (,results (mapcar 'copy-sequence
+                              ',(cl-mapcar (lambda (form)
+                                             (list (car form)))
+                                           let-forms)))
+            (,push-fn (lambda (status result var)
+                        ;; Store result in alist RESULTS under key
+                        ;; VAR.
+                        (if status
+                            (unless ,first-error
+                              (setq ,first-error result))
+                          (let ((elt (assq var ,results)))
+                            (setcdr elt (append (cdr elt)
+                                                (list result)))))))
+            (,terminal-fn
+             (lambda (&rest _)
+               ;; Let-bind responses corresponding to their variables,
+               ;; i.e. keys in alist RESULTS.
+               (let (,@(mapcar (lambda (var)
+                                 (list var (list 'cdr (list 'assq (list 'quote var)
+                                                            results))))
+                               (mapcar 'car let-forms)))
+                 (setq ,status (not (not ,first-error))
+                       ,response (or ,first-error
+                                     (with-current-buffer ,buffer
+                                       ,@body))
+                       ,done t)
+                 ;; Maybe invoke the CALLBACK (which was bound to
+                 ;; pdf-info-asynchronous).
+                 (when ,callback
+                   (if (functionp ,callback)
+                       (funcall ,callback ,status ,response)
+                     (apply (car ,callback)
+                       ,status ,response (cdr ,callback))))))))
+       ;; Wrap each query in an asynchronous call, with it's VAR as
+       ;; callback argument, so the PUSH-FN can put it in the alist
+       ;; RESULTS.
+       ,@(mapcar (lambda (form)
+                   (list 'let (list
+                               (list 'pdf-info-asynchronous
+                                     (list 'list push-fn (list 'quote (car form)))))
+                         (cadr form)))
+                 let-forms)
+       ;; Request a no-op, just so we know that we are finished.
+       (let ((pdf-info-asynchronous ,terminal-fn))
+         (pdf-info-ping))
+       ;; CALLBACK is the original value of pdf-info-asynchronous.  If
+       ;; nil, this is a synchrounus query.
+       (unless ,callback
+         (while (and (not ,done)
+                     (eq (process-status (pdf-info-process))
+                         'run))
+           (accept-process-output (pdf-info-process) 0.01))
+         (when (and (not ,done)
+                    (not (eq (process-status (pdf-info-process))
+                             'run)))
+           (error "The epdfinfo server quit unexpectedly."))
+         (when ,status
+           (error "epdfinfo: %s" ,response))
+         ,response))))
+                   
 
 ;; * ================================================================== *
 ;; * Buffer local server instances
