@@ -670,27 +670,19 @@ or a PDF file."
 (defun pdf-info-normalize-page-range (pages)
   "Normalize PAGES for sending to the server.
 
-PAGES may be a single page number, a cons \(FIRST . LAST\), a
-cons \(FIRST . t\), which represents all pages from FIRST to the
-end of the document or nil, which stands for all pages.
+PAGES may be a single page number, a cons \(FIRST . LAST\), or
+nil, which stands for all pages.
 
 The result is a cons \(FIRST . LAST\), where LAST may be 0
 representing the final page."
   (cond
-   ((null pages)
-    (cons 1 0))
    ((natnump pages)
     (cons pages pages))
-   ((natnump (car pages))
-    (cond
-     ((null (cdr pages))
-      (cons (car pages) (car pages)))
-     ((eq (cdr pages) 0)
-      pages)
-     ((natnump (cdr pages))
-      pages)
-     (t (signal 'wrong-type-argument
-                (list 'pdf-info-valid-page-spec-p pages)))))
+   ((null pages)
+    (cons 1 0))
+   ((and (natnump (car pages))
+         (natnump (cdr pages)))
+    pages)
    (t
     (signal 'wrong-type-argument
             (list 'pdf-info-valid-page-spec-p pages)))))
