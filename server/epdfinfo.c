@@ -3439,6 +3439,19 @@ cmd_pagelabels(const epdfinfo_t *ctx, const command_arg_t *args)
   OK_END ();
 }
 
+const command_arg_type_t cmd_ping_spec[] =
+  {
+    ARG_STRING                  /* any message */
+  };
+
+static void
+cmd_ping (const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  const gchar *msg = args[0].value.string;
+  OK_BEGIN ();
+  print_response_string (msg, NEWLINE);
+  OK_END ();
+}
 
 
 /* ================================================================== *
@@ -3448,6 +3461,7 @@ cmd_pagelabels(const epdfinfo_t *ctx, const command_arg_t *args)
 static const command_t commands [] =
   {
     /* Basic */
+    DEC_CMD (ping),
     DEC_CMD (features),
     DEC_CMD (open),
     DEC_CMD (close),

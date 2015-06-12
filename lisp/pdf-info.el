@@ -498,6 +498,7 @@ interrupted."
            (push key options)))
        options))
     (pagelabels (mapcar 'car response))
+    (ping (caar response))
     (t response)))
 
 
@@ -1545,6 +1546,12 @@ pages in FILE-OR-BUFFER."
   (pdf-info-query
    'pagelabels
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
+
+(defun pdf-info-ping (&optional message)
+  "Ping the server using MESSAGE.
+
+Returns MESSAGE, which defaults to \"pong\"."
+  (pdf-info-query 'ping (or message "pong")))
 
 (provide 'pdf-info)
 
