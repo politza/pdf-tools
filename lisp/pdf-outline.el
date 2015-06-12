@@ -229,7 +229,7 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
       (with-current-buffer buffer
         (unless buffer-exists-p
           (when (= 0 (save-excursion
-                       (pdf-outline-insert-outline pdf-file)))
+                       (pdf-outline-insert-outline pdf-buffer)))
             (kill-buffer buffer)
             (error "PDF has no outline"))
           (pdf-outline-buffer-mode))
@@ -246,11 +246,11 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
     ;;   (kill-buffer buf))
     buf))
   
-(defun pdf-outline-insert-outline (pdf-file)
+(defun pdf-outline-insert-outline (pdf-buffer)
   (let ((labels (and pdf-outline-display-labels
-                     (pdf-info-pagelabels pdf-file)))
+                     (pdf-info-pagelabels pdf-buffer)))
         (nitems 0))
-    (dolist (item (pdf-info-outline pdf-file))
+    (dolist (item (pdf-info-outline pdf-buffer))
       (let-alist item
         (when (eq .type 'goto-dest)
           (insert-text-button
@@ -463,10 +463,9 @@ Then quit the outline window."
   
 (defun pdf-outline-imenu-create-index-flat ()
   (let ((labels (and pdf-outline-display-labels
-                     (pdf-info-pagelabels
-                       (pdf-view-buffer-file-name))))
+                     (pdf-info-pagelabels)))
         index)
-    (dolist (item (pdf-info-outline (pdf-view-buffer-file-name)))
+    (dolist (item (pdf-info-outline))
       (let-alist item
         (when (eq .type 'goto-dest)
           (push (pdf-outline-imenu-create-item item labels)
@@ -480,10 +479,10 @@ Then quit the outline window."
     (cl-remove-if-not
      (lambda (type)
        (eq type 'goto-dest))
-     (pdf-info-outline (pdf-view-buffer-file-name))
+     (pdf-info-outline)
      :key (apply-partially 'alist-get 'type)))
    (and pdf-outline-display-labels
-        (pdf-info-pagelabels (pdf-view-buffer-file-name)))))
+        (pdf-info-pagelabels))))
 
 (defun pdf-outline-imenu-create-index-tree-1 (nodes &optional labels)
   (mapcar (lambda (node)
