@@ -637,14 +637,7 @@ FILE-OR-BUFFER may be nil, a PDF buffer, the name of a PDF buffer
 or a PDF file."
   (unless file-or-buffer
     (setq file-or-buffer
-          (cl-case major-mode
-            (doc-view-mode
-             (cond ((boundp 'doc-view-buffer-file-name)
-                    doc-view-buffer-file-name)
-                   ((boundp 'doc-view--buffer-file-name)
-                    doc-view--buffer-file-name)))
-            (pdf-view-mode (pdf-view-buffer-file-name))
-            (t (current-buffer)))))
+          (current-buffer)))
   (when (bufferp file-or-buffer)
     (unless (buffer-live-p file-or-buffer)
       (error "Buffer is not live :%s" file-or-buffer))
