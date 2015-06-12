@@ -1187,16 +1187,17 @@ This is more useful for commands like
                                               output-buffer no-display-p)
   "Create a PNG image of REGIONS.
 
-REGIONS have the same form as `pdf-view-active-region', which
-see.  PAGE and size are the page resp. base-size of the image
-from which the image-regions will be created; they default to
-`pdf-view-current-page' resp. `pdf-view-image-size'.
+REGIONS should have the same form as `pdf-view-active-region',
+which see.  PAGE and size are the page resp. base-size of the
+image from which the image-regions will be created; they default
+to `pdf-view-current-page' resp. `pdf-view-image-size'.
 
 Put the image in OUTPUT-BUFFER, defaulting to \"*PDF region
 image*\" and display it, unless NO-DISPLAY-P is non-nil.
 
 In case of multiple regions, the resulting image is constructed
-by joining them horizontally."
+by joining them horizontally.  For this operation (and this only)
+the `convert' programm is used. "
 
   (interactive
    (list (if (pdf-view-active-region-p)
@@ -1207,9 +1208,10 @@ by joining them horizontally."
   (unless size
     (setq size (pdf-view-image-size)))
   (unless output-buffer
-    (setq output-buffer (get-buffer-create "*PDF region image*")))
+    (setq output-buffer (get-buffer-create "*PDF image*")))
   (let* ((images (mapcar (lambda (edges)
-                           (let ((file (make-temp-file "pdf-view")))
+                           (let ((file (make-temp-file "pdf-view"))
+                                 (coding-system-for-write 'binary))
                              (write-region
                               (pdf-info-renderpage
                                page (car size)
@@ -1229,9 +1231,9 @@ by joining them horizontally."
              result
              :commands `("("
                          ,@images
-                         "-background"
-                         "white"
-                         "-splice" "0x10+0+0" ")"
+                         "-background" "white"
+                         "-splice" "0x10+0+0"
+                         ")"
                          "-gravity" "Center"
                          "-append"
                          "+gravity"
@@ -1240,10 +1242,11 @@ by joining them horizontally."
           (with-current-buffer output-buffer
             (let ((inhibit-read-only t))
               (erase-buffer))
+            (set-buffer-multibyte nil)
             (insert-file-contents-literally result)
             (image-mode)
             (unless no-display-p
-              (display-buffer (current-buffer)))))
+              (pop-to-buffer (current-buffer)))))
       (dolist (f (cons result images))
         (when (file-exists-p f)
           (delete-file f))))))
