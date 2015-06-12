@@ -538,9 +538,10 @@ is no such page."
                          (>= (cdr pages) 1))))
       (let* ((case-fold-search isearch-case-fold-search)
              (matches (funcall fn string pages)))
-        (setq matched-page (if isearch-forward
-                               (caar matches)
-                             (caar (last matches)))))
+        (setq matched-page
+              (alist-get 'page (if isearch-forward
+                                   (car matches)
+                                 (car (last matches))))))
       (setq incr (* incr 2))
       (cond (isearch-forward
              (setcar pages (1+ (cdr pages)))
