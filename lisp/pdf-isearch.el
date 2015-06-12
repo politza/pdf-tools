@@ -729,7 +729,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
                          (eq (window-buffer window)
                              buffer))
                 (with-selected-window window
-                  (when (and (eq major-mode 'pdf-view-mode)
+                  (when (and (derived-mode-p 'pdf-view-mode)
                              (or isearch-mode
                                  occur-hack-p)
                              (eq page (pdf-view-current-page)))
