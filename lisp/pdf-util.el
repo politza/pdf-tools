@@ -287,6 +287,58 @@ See `pdf-util-scale' for the LIST-OF-EDGES-OR-POS argument."
           result
         (car result)))))
 
+(defun pdf-util-edges-transform (region elts &optional to-region-p)
+  "Translate ELTS according to REGION.
+
+ELTS may be one edges list or a position or a list thereof.
+Translate each from region coordinates to (0 0 1 1) or the
+opposite, if TO-REGION-P is non-nil.  All coordinates should be
+relative.
+
+Returns the translated list of elements or the single one
+depending on the input."
+
+  (when elts
+    (let ((have-list-p (consp (car-safe elts))))
+      (unless have-list-p
+        (setq elts (list elts)))
+      (let ((result
+             (if (null region)
+                 elts
+               (mapcar (lambda (edges)
+                         (let ((have-pos-p (numberp (cdr edges))))
+                           (when have-pos-p
+                             (setq edges (list (car edges) (cdr edges)
+                                               (car edges) (cdr edges))))
+                           (pdf-util-with-edges (edges region)
+                             (let ((newedges
+                                    (mapcar (lambda (n)
+                                              (min 1.0 (max 0.0 n)))
+                                            (if to-region-p
+                                                `(,(/ (- edges-left region-left)
+                                                      region-width)
+                                                  ,(/ (- edges-top region-top)
+                                                      region-height)
+                                                  ,(/ (- edges-right region-left)
+                                                      region-width)
+                                                  ,(/ (- edges-bot region-top)
+                                                      region-height))
+                                              `(,(+ (* edges-left region-width)
+                                                    region-left)
+                                                ,(+ (* edges-top region-height)
+                                                    region-top)
+                                                ,(+ (* edges-right region-width)
+                                                    region-left)
+                                                ,(+ (* edges-bot region-height)
+                                                    region-top))))))
+                               (if have-pos-p
+                                   (cons (car newedges) (cadr newedges))
+                                 newedges)))))
+                       elts))))
+        (if have-list-p
+            result
+          (car result))))))
+
 (defmacro pdf-util-with-edges (list-of-edges &rest body)
   "Provide some convenient macros for the edges in LIST-OF-EDGES.
 
@@ -1052,6 +1104,20 @@ Return the converted PNG image as a string.  See also
 
 ;; FIXME: Check code below and document.
 
+(defun pdf-util-edges-p (obj &optional relative-p)
+  "Return non-nil, if OBJ look like edges.
+
+If RELATIVE-P is non-nil, also check that all values <= 1."
+
+  (and (consp obj)
+       (ignore-errors (= 4 (length obj)))
+       (cl-every (lambda (x)
+                   (and (numberp x)
+                        (>= x 0)
+                        (or (null relative-p)
+                            (<= x 1))))
+                 obj)))           
+
 (defun pdf-util-edges-empty-p (edges)
   "Return non-nil, if EDGES area is empty." 
   (pdf-util-with-edges (edges)
@@ -1131,8 +1197,7 @@ Return the event position object."
                           '(click)))
         (error "No a mouse click event"))
       up)))
-      
-    
+
 (defun pdf-util-image-map-mouse-event-proxy (event)
   "Set POS-OR-AREA in EVENT to 1 and unread it."
   (interactive "e")
@@ -1211,8 +1276,16 @@ a mouse click event) is unread.
          (setq unread-command-events
                (butlast unread-command-events)))
        ,ran-once-p)))
-     
-                                
+
+(defun pdf-util-remove-duplicates (list)
+  "Remove duplicates from LIST stably using `equal'."
+  (let ((ht (make-hash-table :test 'equal))
+        result)
+    (dolist (elt list (nreverse result))
+      (unless (gethash elt ht)
+        (push elt result)
+        (puthash elt t ht)))))
+
 (provide 'pdf-util)
 
 ;;; pdf-util.el ends here
