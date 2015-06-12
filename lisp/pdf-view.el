@@ -1362,10 +1362,12 @@ See also `point-to-register'."
                (local-variable-p 'register-alist))
            (characterp last-command-event)
            last-command-event))))
-  (when return-register
-    (pdf-view-position-to-register return-register))
   (pdf-view-with-register-alist
-    (jump-to-register register delete)))
+    (let ((return-pos (and return-register
+                           (pdf-view-registerv-make))))
+      (jump-to-register register delete)
+      (when return-register
+        (set-register return-register return-pos)))))
 
 (provide 'pdf-view)
 
