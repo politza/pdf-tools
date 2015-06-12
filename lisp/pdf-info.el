@@ -661,7 +661,7 @@ or a PDF file."
            file-or-buffer))
   ;; (unless (file-readable-p file-or-buffer)
   ;;   (error "File not readable :%s" file-or-buffer))
-  file-or-buffer)
+  (expand-file-name file-or-buffer))
 
 (defun pdf-info-valid-page-spec-p (pages)
   "The type predicate for a valid page-spec."
