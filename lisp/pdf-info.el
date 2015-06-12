@@ -245,14 +245,18 @@ error."
 
 (defadvice tq-process-buffer (around bugfix activate)
   "Fix a bug in trunk where the wrong callback gets called."
+  ;; FIXME: Make me iterative.
   (let ((tq (ad-get-arg 0)))
     (if (not (equal (car (process-command (tq-process tq)))
                     pdf-info-epdfinfo-program))
         ad-do-it
-      (let ((buffer (tq-buffer tq)))
+      (let ((buffer (tq-buffer tq))
+            done)
         (when (buffer-live-p buffer)
           (set-buffer buffer)
-          (if (= 0 (buffer-size)) ()
+          (while (and (not done)
+                      (> (buffer-size) 0))
+            (setq done t)
             (if (tq-queue-empty tq)
                 (let ((buf (generate-new-buffer "*spurious*")))
                   (copy-to-buffer buf (point-min) (point-max))
@@ -262,18 +266,18 @@ error."
                          (process-name (tq-process tq))
                          (buffer-name buf)))
               (goto-char (point-min))
-              (if (re-search-forward (tq-queue-head-regexp tq) nil t)
-                  (let ((answer (buffer-substring (point-min) (point)))
-                        (fn (tq-queue-head-fn tq))
-                        (closure (tq-queue-head-closure tq)))
-                    (delete-region (point-min) (point))
-                    (tq-queue-pop tq)
-                    (condition-case-unless-debug err
-                        (funcall fn closure answer)
-                      (error
-                       (message "Error while processing tq callback: %s"
-                                (error-message-string err))))
-                    (tq-process-buffer tq))))))))))
+              (when (re-search-forward (tq-queue-head-regexp tq) nil t)
+                (setq done nil)
+                (let ((answer (buffer-substring (point-min) (point)))
+                      (fn (tq-queue-head-fn tq))
+                      (closure (tq-queue-head-closure tq)))
+                  (delete-region (point-min) (point))
+                  (tq-queue-pop tq)
+                  (condition-case-unless-debug err
+                      (funcall fn closure answer)
+                    (error
+                     (message "Error while processing tq callback: %s"
+                              (error-message-string err)))))))))))))
 
 
 ;; * ================================================================== *
