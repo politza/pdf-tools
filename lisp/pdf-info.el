@@ -114,12 +114,15 @@ in a `with-temp-buffer' form.")
 (defvar pdf-info-asynchronous nil
   "If non-nil process queries asynchronously.
 
-More specifically the value should be a function of two arguments
-\(fn STATUS RESPONSE\), where STATUS is either nil, for a
-successful query, or the symbol error.  RESPONSE is either the
+More specifically the value should be a function of at 2
+arguments \(fn STATUS RESPONSE\), where STATUS is either nil, for
+a successful query, or the symbol error.  RESPONSE is either the
 command's response or the error message.  This does not work
 recursive, i.e. if function wants to make another asynchronous
 query it has to rebind this variable.
+
+Alternatively it may be a list \(FN . ARGS\), in which case FN
+will be invoked like \(apply FN STATUS RESPONSE ARGS\).
 
 Also, all pdf-info functions normally returning a response return
 nil.
@@ -289,8 +292,10 @@ error."
             (cl-destructuring-bind (status &rest result)
                 (pdf-info-query--parse-response cmd response)
               (pdf-info-query--log response)
-              (let (pdf-info-asynchronous)
-                (funcall closure status result)))))
+              (let* (pdf-info-asynchronous)
+                (if (functionp closure)
+                    (funcall closure status result)
+                  (apply (car closure) status result (cdr closure)))))))
          response status done
          (closure (or pdf-info-asynchronous
                       (lambda (s r)
