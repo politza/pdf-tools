@@ -1102,7 +1102,7 @@ aforementioned function, when called with the same arguments."
   (pdf-info-getselection
    page '(0 0 1 1) 'glyph file-or-buffer))
 
-(defun pdf-info-charlayout (page edges-or-pos &optional file-or-buffer)
+(defun pdf-info-charlayout (page &optional edges-or-pos file-or-buffer)
   "Return the layout of characters of PAGE in/at EDGES-OR-POS.
 
 Returns a list of elements \(CHAR . \(LEFT TOP RIGHT BOT\)\) mapping
@@ -1114,6 +1114,10 @@ it.  Or a cons \(LEFT . TOP\) which means to only include the
 character at this position.  In this case the return value
 contains at most one element."
 
+  ;; FIXME: Actually returns \(CHAR . LEFT ...\).
+
+  (unless edges-or-pos
+    (setq edges-or-pos '(0 0 1 1)))
   (when (numberp (cdr edges-or-pos))
     (setq edges-or-pos (list (car edges-or-pos)
                              (cdr edges-or-pos)
