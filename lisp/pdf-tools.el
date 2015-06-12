@@ -123,7 +123,8 @@ In order to customize dark and light colors use
     pdf-misc-context-menu-minor-mode
     pdf-cache-prefetch-minor-mode
     pdf-view-auto-slice-minor-mode
-    pdf-occur-global-minor-mode))
+    pdf-occur-global-minor-mode
+    pdf-virtual-global-minor-mode))
     
 (defcustom pdf-tools-enabled-modes
   '(pdf-history-minor-mode
@@ -137,7 +138,9 @@ In order to customize dark and light colors use
     pdf-sync-minor-mode
     pdf-misc-context-menu-minor-mode
     pdf-cache-prefetch-minor-mode
-    pdf-occur-global-minor-mode) 
+    pdf-occur-global-minor-mode
+    ;; pdf-virtual-global-minor-mode
+    )
   "A list of automatically enabled minor-modes.
 
 PDF Tools is build as a series of minor-modes.  This variable and
@@ -332,6 +335,7 @@ MODES defaults to `pdf-tools-enabled-modes'."
   (pdf-tools-set-modes-enabled nil modes))
 
 (declare-function pdf-occur-global-minor-mode "pdf-occur.el")
+(declare-function pdf-virtual-global-minor-mode "pdf-virtual.el")
 
 ;;;###autoload
 (defun pdf-tools-install (&optional force-compile-p skip-dependencies-p no-error)
@@ -360,6 +364,9 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
     (when (memq 'pdf-occur-global-minor-mode
                 pdf-tools-enabled-modes)
       (pdf-occur-global-minor-mode 1))
+    (when (memq 'pdf-virtual-global-minor-mode
+                pdf-tools-enabled-modes)
+      (pdf-virtual-global-minor-mode 1))
     (add-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
     (dolist (buf (buffer-list))
       (with-current-buffer buf
@@ -375,6 +382,7 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (setq-default auto-mode-alist
     (remove pdf-tools-auto-mode-alist-entry auto-mode-alist))
   (pdf-occur-global-minor-mode -1)
+  (pdf-virtual-global-minor-mode -1)
   (remove-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
   (dolist (buf (buffer-list))
     (with-current-buffer buf

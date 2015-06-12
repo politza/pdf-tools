@@ -89,6 +89,15 @@
      :visible (bound-and-true-p pdf-history-minor-mode)
      :active (not (pdf-history-end-of-history-p))]
     ["--" nil
+     :visible (derived-mode-p 'pdf-virtual-view-mode)]
+    ["Next file" pdf-virtual-buffer-forward-file
+     :visible  (derived-mode-p 'pdf-virtual-view-mode)
+     :active (pdf-virtual-document-next-file
+              (pdf-view-current-page))]
+    ["Previous file" pdf-virtual-buffer-backward-file
+     :visible (derived-mode-p 'pdf-virtual-view-mode)
+     :active (not (eq 1 (pdf-view-current-page)))]
+    ["--" nil
      :visible (bound-and-true-p pdf-history-minor-mode)]
     ["Add text annotation" pdf-annot-mouse-add-text-annotation
      :visible (bound-and-true-p pdf-annot-minor-mode)
@@ -145,9 +154,14 @@
     ["--" nil :visible (and (featurep 'pdf-sync)
                             (equal last-command-event
                                    last-nonmenu-event))]
-    ["Print" pdf-misc-print-document]
+    ["Print" pdf-misc-print-document
+     :active (and (pdf-view-buffer-file-name)
+                  (file-readable-p (pdf-view-buffer-file-name)))]
     ["Create image" pdf-view-extract-region-image
      :help "Create an image of the page or the selected region(s)."]
+    ["Create virtual PDF" pdf-virtual-buffer-create
+     :help "Create a PDF containing all documents in this directory."
+     :visible (bound-and-true-p pdf-virtual-global-minor-mode)]
     "--"
     ["Revert buffer" pdf-view-revert-buffer
      :visible (pdf-info-writable-annotations-p)]
@@ -246,9 +260,7 @@ It is called with one argument, the PDF file."
 (defun pdf-misc-print-document (filename &optional interactive-p)
   (interactive
    (list (pdf-view-buffer-file-name) t))
-  (unless (file-readable-p filename)
-    (signal 'wrong-type-argument
-            (list 'file-readable-p filename)))
+  (cl-check-type filename (and string file-readable))
   (let ((programm (pdf-misc-print-programm interactive-p)))
     (unless programm
       (error "No print programm available"))

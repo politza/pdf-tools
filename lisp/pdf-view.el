@@ -271,10 +271,11 @@ PNG images in Emacs buffers."
   :abbrev-table nil
   :syntax-table nil
   ;; Setup a local copy for remote files.
-  (when (or jka-compr-really-do-compress
-            (let ((file-name-handler-alist nil))
-              (not (and buffer-file-name
-                        (file-readable-p buffer-file-name)))))
+  (when (and (or jka-compr-really-do-compress
+                 (let ((file-name-handler-alist nil))
+                   (not (and buffer-file-name
+                             (file-readable-p buffer-file-name)))))
+             (pdf-tools-pdf-buffer-p))             
     (let ((tempfile (pdf-util-make-temp-file
                      (concat (if buffer-file-name
                                  (file-name-nondirectory
@@ -317,7 +318,8 @@ PNG images in Emacs buffers."
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
   ;; No undo at the moment.
-  (buffer-disable-undo)
+  (unless buffer-undo-list
+    (buffer-disable-undo))
   ;; Enable transient-mark-mode, so region deactivation when quitting
   ;; will work.
   (setq-local transient-mark-mode t)
