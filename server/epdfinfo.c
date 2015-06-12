@@ -2986,7 +2986,6 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
   double alpha = 1.0;
   double line_width = 1.5;
   PopplerRectangle cb = {0.0, 0.0, 1.0, 1.0};
-  gboolean is_cropped = FALSE;
   int i = 0;
 
   perror_if_not (page, "No such page %d", pn);
@@ -3050,15 +3049,23 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
           
           if (! strcmp (keyword, ":crop-to"))
             {
-              cb = *r;
-              is_cropped = TRUE;
+              gdouble w = (cb.x2 - cb.x1);
+              gdouble h = (cb.y2 - cb.y1);
+              gdouble x1 = cb.x1;
+              gdouble y1 = cb.y1;
+              
+              cb.x1 = r->x1 * w + x1;
+              cb.x2 = r->x2 * w + x1;
+              cb.y1 = r->y1 * h + y1;
+              cb.y2 = r->y2 * h + y1;
+
             }
           else
             {
-              r->x1 *= pt_width * (cb.x2 - cb.x1) + cb.x1;
-              r->x2 *= pt_width * (cb.x2 - cb.x1) + cb.x2;
-              r->y1 *= pt_height * (cb.y2 - cb.y1) + cb.y1;
-              r->y2 *= pt_height * (cb.y2 - cb.y1) + cb.y2;
+              r->x1 = pt_width * r->x1 * (cb.x2 - cb.x1) + pt_width * cb.x1;
+              r->x2 = pt_width * r->x2 * (cb.x2 - cb.x1) + pt_width * cb.x1;
+              r->y1 = pt_height * r->y1 * (cb.y2 - cb.y1) + pt_height * cb.y1;
+              r->y2 = pt_height * r->y2 * (cb.y2 - cb.y1) + pt_height * cb.y1;
           
               if (! strcmp (keyword, ":highlight-region"))
                 {
@@ -3113,7 +3120,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
       else
         perror_if_not (0, "Unknown render command: %s", keyword);
     }
-  if (is_cropped)
+  if (cb.x1 != 0 || cb.y1 != 0 || cb.x2 != 1 || cb.y2 != 1)
     {
       int height = cairo_image_surface_get_height (surface);
       cairo_rectangle_int_t r = {(int) (width * cb.x1 + 0.5),
