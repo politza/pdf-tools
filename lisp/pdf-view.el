@@ -1062,23 +1062,61 @@ Stores the region in `pdf-view-active-region'."
     (pdf-view-deactivate-region))
   (put this-command 'pdf-view-region-window
        (selected-window))
-  (unless (posn-image (event-start event))
-    (error "No page at this position"))
   (let* ((window (selected-window))
-         (beg (posn-object-x-y (event-start event)))
+         (pos (event-start event))
+         (begin-inside-image-p t)
+         (begin (if (posn-image pos)
+                    (posn-object-x-y pos)
+                  (setq begin-inside-image-p nil)
+                  (posn-x-y pos)))
+         (abs-begin (posn-x-y pos))
          pdf-view-continuous
          region)
     (when (pdf-util-track-mouse-dragging (event 0.15)
             (let* ((pos (event-start event))
-                   (end (posn-object-x-y pos)))
-              (when (and (eq window (posn-window pos))
-                         (posn-image pos))
+                   (end (posn-object-x-y pos))
+                   (end-inside-image-p
+                    (and (eq window (posn-window pos))
+                         (posn-image pos))))
+              (when (or end-inside-image-p
+                        begin-inside-image-p)
+                (cond
+                 ((and end-inside-image-p
+                       (not begin-inside-image-p))
+                  ;; Started selection ouside the image, setup begin.
+                  (let* ((xy (posn-x-y pos))
+                         (dxy (cons (- (car xy) (car begin))
+                                    (- (cdr xy) (cdr begin))))
+                         (size (pdf-view-image-size t)))
+                    (setq begin (cons (max 0 (min (car size)
+                                                  (- (car end) (car dxy))))
+                                      (max 0 (min (cdr size)
+                                                  (- (cdr end) (cdr dxy)))))
+                          ;; Store absolute position for later.
+                          abs-begin (cons (- (car xy)
+                                             (- (car end)
+                                                (car begin)))
+                                          (- (cdr xy)
+                                             (- (cdr end)
+                                                (cdr begin))))
+                          begin-inside-image-p t)))
+                 ((and begin-inside-image-p
+                       (not end-inside-image-p))
+                  ;; Moved outside the image, setup end.
+                  (let* ((xy (posn-x-y pos))
+                         (dxy (cons (- (car xy) (car abs-begin))
+                                    (- (cdr xy) (cdr abs-begin))))
+                         (size (pdf-view-image-size t)))
+                    (setq end (cons (max 0 (min (car size)
+                                                (+ (car begin) (car dxy))))
+                                    (max 0 (min (cdr size)
+                                                (+ (cdr begin) (cdr dxy)))))))))
                 (setq region
                       (pdf-util-scale-pixel-to-relative
-                       (list (min (car beg) (car end))
-                             (min (cdr beg) (cdr end))
-                             (max (car beg) (car end))
-                             (max (cdr beg) (cdr end)))))
+                       (list (min (car begin) (car end))
+                             (min (cdr begin) (cdr end))
+                             (max (car begin) (car end))
+                             (max (cdr begin) (cdr end)))))
                 (pdf-view-display-region
                  (cons region pdf-view-active-region)
                  render-rectangle-p)
