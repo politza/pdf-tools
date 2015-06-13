@@ -26,6 +26,9 @@
 ;; order to transparently make this collection appear as one single
 ;; document.
 ;;
+;; The trickiest part is to make theses intermediate functions behave
+;; like the pdf-info-* equivalents in both the synchronous and
+;; asynchronous case.  
 
 ;;; Code:
 (eval-when-compile
@@ -35,6 +38,7 @@
     (error "pdf-virtual.el only works with Emacs >= 24.4")))
 
 (require 'let-alist)
+(require 'pdf-info)
 
 
 ;; * ================================================================== *
@@ -58,8 +62,8 @@
   "Alist of server functions.
 
 Each element looks like \(PDF-VIRTUAL-FN . PDF-INFO-FN\).  This
-list ist filled by the macro `pdf-virtual-define-adapter' and
-used to enable/disable the corresponding advices.")
+list is filled by the macro `pdf-virtual-define-adapter' and used
+to enable/disable the corresponding advices.")
 
 
 ;; * ================================================================== *
@@ -67,6 +71,14 @@ used to enable/disable the corresponding advices.")
 ;; * ================================================================== *
 
 (defun pdf-virtual-pagespec-normalize (page-spec &optional filename)
+  "Normalize PAGE-SPEC using FILENAME.
+
+PAGE-SPEC should be as described in
+`pdf-virtual-document-create'.  FILENAME is used to determine the
+last page number, if needed.  The `current-buffer', if it is nil.
+
+Returns a list \(\(FIRST . LAST\) . REGION\)\)."
+
   (let ((page-spec (cond
                     ((natnump page-spec)
                      (list (cons page-spec page-spec)))
@@ -88,17 +100,29 @@ used to enable/disable the corresponding advices.")
       (setq page-spec `((,(caar page-spec) . ,(cdar page-spec)))))
     page-spec))
 
-(cl-defstruct pdf-virtual-page
+(cl-defstruct pdf-virtual-range
+  ;; The PDF's filename.
   filename
+  ;; First page in this range.
   first
+  ;; Last page.
   last
+  ;; The edges selected for these pages.
   region
+  ;; The page-index corresponding to the first page in this range.
   index-start)
 
 (cl-defstruct pdf-virtual-document
+  ;; Array of shared pdf-virtual-range structs, one element for each
+  ;; page.
   page-array
+  ;; An alist mapping filenames to a list of pages.
   file-map)
 
+(defun pdf-virtual-range-length (page)
+  "Return the number of pages in PAGE."
+  (1+ (- (pdf-virtual-range-last page)
+         (pdf-virtual-range-first page))))
 
 (defun pdf-virtual-document-create (list &optional directory
                                          file-error-handler)
@@ -129,7 +153,7 @@ PAGE-RANGE.
                     (mapcar 'cdr list))
     (error
      "The cdr of every element should be a list of page-specs"))
-  (let* ((doc (pdf-virtual-document-normalize
+  (let* ((doc (pdf-virtual-document--normalize
                list (or directory default-directory)
                file-error-handler))
          (npages 0)
@@ -147,7 +171,7 @@ PAGE-RANGE.
                  (first (caar ps))
                  (last (cdar ps))
                  (region (cdr ps))
-                 (clx (make-pdf-virtual-page
+                 (clx (make-pdf-virtual-range
                        :filename filename
                        :first first
                        :last last
@@ -164,7 +188,7 @@ PAGE-RANGE.
                           f)
                         file-map)))))
 
-(defun pdf-virtual-document-normalize (list &optional directory
+(defun pdf-virtual-document--normalize (list &optional directory
                                             file-error-handler)
   (unless file-error-handler
     (setq file-error-handler
@@ -225,16 +249,24 @@ PAGE-RANGE.
                   normalized))))
       (nreverse normalized))))
 
-(defmacro pdf-virtual-document-defun (name args &optional doc &rest body)
+(defmacro pdf-virtual-document-defun (name args &optional documentation &rest body)
+  "Define a PDF Document function.
+
+Args are just like for `defun'.  This macro will ensure, that the
+DOCUMENT argument, which should be last, is setup properly in
+case it is nil, i.e. check that the buffer passes
+`pdf-virtual-buffer-assert-p' and use the variable
+`pdf-virtual-document'."
+
   (declare (doc-string 3) (indent defun)
            (debug (&define name lambda-list
                            [&optional stringp]
                            def-body))
            (font-lock defun)
            (imenu "Document"))
-  (unless (stringp doc)
-    (push doc body)
-    (setq doc nil))
+  (unless (stringp documentation)
+    (push documentation body)
+    (setq documentation nil))
   (unless (memq '&optional args)
     (setq args (append (butlast args)
                        (list '&optional)
@@ -246,7 +278,7 @@ PAGE-RANGE.
     `(progn
        (put ',fn 'definition-name ',name)
        (defun ,fn
-           ,args ,doc
+           ,args ,documentation
            (setq ,doc-arg
                  (or ,doc-arg
                      (progn (pdf-virtual-buffer-assert-p)
@@ -255,15 +287,24 @@ PAGE-RANGE.
            ,@body))))
 
 (pdf-virtual-document-defun filenames (doc)
+  "Return the list of filenames in DOC."
   (mapcar 'car (pdf-virtual-document-file-map doc)))
 
 (pdf-virtual-document-defun normalize-pages (pages doc)
+  "Normalize PAGES using DOC.
+
+Like `pdf-info-normalize-page-range', except 0 is replaced by
+DOC's last page."
+
   (setq pages (pdf-info-normalize-page-range pages))
   (if (eq 0 (cdr pages))
       `(,(car pages) . ,(pdf-virtual-document-number-of-pages doc))
     pages))
 
 (pdf-virtual-document-defun page (page doc)
+  "Get PAGE of DOC.
+
+Returns a list \(FILENAME FILE-PAGE REGION\)."
   (let ((page (car (pdf-virtual-document-pages (cons page page) doc))))
     (when page
       (cl-destructuring-bind (filename first-last region)
@@ -271,6 +312,15 @@ PAGE-RANGE.
         (list filename (car first-last) region)))))
 
 (pdf-virtual-document-defun pages (pages doc)
+  "Get PAGES of DOC.
+
+PAGES should be a cons \(FIRST . LAST\).  Return a list of
+ranges corresponding to PAGES. Each element has the form
+
+     \(FILENAME \(FILE-FIRT-PAGE . FILE-LAST-PAGE\) REGION\)
+.
+"
+  
   (let ((begin (car pages))
         (end (cdr pages)))
     (unless (<= begin end)
@@ -282,22 +332,29 @@ PAGE-RANGE.
         (signal 'args-out-of-range (list 'pages pages)))
       (while (<= begin end)
         (let* ((page (aref arr (1- begin)))
-               (filename (pdf-virtual-page-filename page)) 
+               (filename (pdf-virtual-range-filename page)) 
                (offset (- (1- begin)
-                          (pdf-virtual-page-index-start page)))
-               (first (+ (pdf-virtual-page-first page)
+                          (pdf-virtual-range-index-start page)))
+               (first (+ (pdf-virtual-range-first page)
                          offset))
                (last (min (+ first (- end begin))
-                          (pdf-virtual-page-last page)))
-               (region (pdf-virtual-page-region page)))
+                          (pdf-virtual-range-last page)))
+               (region (pdf-virtual-range-region page)))
           (push `(,filename (,first . ,last) ,region) result)
           (cl-incf begin (1+ (- last first)))))      
       (nreverse result))))
 
 (pdf-virtual-document-defun number-of-pages (doc)
+  "Return the number of pages in DOC."
   (length (pdf-virtual-document-page-array doc)))
 
 (pdf-virtual-document-defun page-of (filename &optional file-page doc)
+  "Return a page number displaying FILENAME's page FILE-PAGE in DOC.
+
+If FILE-PAGE is nil, return the first page displaying FILENAME.
+
+Return nil if there is no such page."
+
   (if (null file-page)
       (cadr (assoc filename (pdf-virtual-document-file-map doc)))
     (let ((pages (pdf-virtual-document-page-array doc)))
@@ -305,24 +362,20 @@ PAGE-RANGE.
         (mapc
          (lambda (pn)
            (while (and (<= pn (length pages))
-                       (equal (pdf-virtual-page-filename (aref pages (1- pn)))
+                       (equal (pdf-virtual-range-filename (aref pages (1- pn)))
                               filename))
              (let* ((page (aref pages (1- pn)))
-                    (first (pdf-virtual-page-first page))
-                    (last (pdf-virtual-page-last page)))
+                    (first (pdf-virtual-range-first page))
+                    (last (pdf-virtual-range-last page)))
                (when (and (>= file-page first)
                           (<= file-page last))
                  (throw 'found
-                        (+ (pdf-virtual-page-index-start page)
-                           (- file-page (pdf-virtual-page-first page))
+                        (+ (pdf-virtual-range-index-start page)
+                           (- file-page (pdf-virtual-range-first page))
                            1)))
                (cl-incf pn (1+ (- last first))))))
          (cdr (assoc filename (pdf-virtual-document-file-map doc))))
         nil))))
-
-(defun pdf-virtual-page-length (page)
-  (1+ (- (pdf-virtual-page-last page)
-         (pdf-virtual-page-first page))))
 
 (pdf-virtual-document-defun find-matching-page (page predicate
                                                      &optional
@@ -339,9 +392,9 @@ PAGE-RANGE.
                 (null other))
       (setq i
             (if backward-p
-                (1- (pdf-virtual-page-index-start this))
-              (+ (pdf-virtual-page-length this)
-                 (pdf-virtual-page-index-start this))))
+                (1- (pdf-virtual-range-index-start this))
+              (+ (pdf-virtual-range-length this)
+                 (pdf-virtual-range-index-start this))))
       (when (and (< i (length pages))
                  (>= i 0))
         (setq other (aref pages i))
@@ -357,22 +410,28 @@ PAGE-RANGE.
   (pdf-virtual-document-find-matching-page page predicate t doc))
 
 (pdf-virtual-document-defun next-file (page doc)
+  "Return the next page displaying a different file than PAGE.
+
+PAGE should be a page-number."
   (let ((page (pdf-virtual-document-next-matching-page
                page
                (lambda (this other)
-                 (not (equal (pdf-virtual-page-filename this)
-                             (pdf-virtual-page-filename other)))))))
+                 (not (equal (pdf-virtual-range-filename this)
+                             (pdf-virtual-range-filename other)))))))
     (when page
-      (1+ (pdf-virtual-page-index-start page)))))
+      (1+ (pdf-virtual-range-index-start page)))))
 
 (pdf-virtual-document-defun previous-file (page doc)
+  "Return the previous page displaying a different file than PAGE.
+
+PAGE should be a page-number."
   (let ((page (pdf-virtual-document-previous-matching-page
                page
                (lambda (this other)
-                 (not (equal (pdf-virtual-page-filename this)
-                             (pdf-virtual-page-filename other)))))))
+                 (not (equal (pdf-virtual-range-filename this)
+                             (pdf-virtual-range-filename other)))))))
     (when page
-      (1+ (pdf-virtual-page-index-start page)))))
+      (1+ (pdf-virtual-range-index-start page)))))
                                            
 
 ;; * ================================================================== *
@@ -436,6 +495,7 @@ PAGE-RANGE.
 (advice-add 'pdf-virtual-view-mode
             :around 'pdf-virtual-view-mode-prepare)
 
+;; This needs to run before pdf-view-mode does it's thing.
 (defun pdf-virtual-view-mode-prepare (fn)
   (let (list unreadable)
     (save-excursion
@@ -526,7 +586,7 @@ PAGE-RANGE.
 
 (defun pdf-virtual-buffer-current-file (&optional window)
   (pdf-virtual-view-window-assert-p window)
-  (pdf-virtual-page-filename
+  (pdf-virtual-range-filename
    (aref (pdf-virtual-document-page-array
           pdf-virtual-document)
          (1- (pdf-view-current-page window)))))
@@ -538,7 +598,7 @@ PAGE-RANGE.
          (pages (pdf-virtual-document-page-array
                  pdf-virtual-document))
          (page (aref pages (1- pn)))
-         (first-filepage (1+ (pdf-virtual-page-index-start page))))
+         (first-filepage (1+ (pdf-virtual-range-index-start page))))
     
     (when (and (< n 0)
                (not (= first-filepage pn)))
@@ -624,6 +684,21 @@ PAGE-RANGE.
      elts
      :key edges-key-fn)))
 
+(defun pdf-virtual--transform-goto-dest (link filename region)
+  (let-alist link
+    (let ((local-page (pdf-virtual-document-page-of
+                       filename .page)))
+      (if local-page
+          `((type . ,'goto-dest)
+            (title . , .title)
+            (page . ,local-page)
+            (top . ,(car (pdf-util-edges-transform
+                          region (cons .top .top) t))))
+        `((type . ,'goto-remote)
+          (title . , .title)
+          (filename . ,filename)
+          (page . , .page)
+          (top . , .top))))))
 
 
 ;; * ================================================================== *
@@ -699,7 +774,6 @@ argument denotes a VPDF document."
         ((results (mapc 'pdf-info-close files)))
       (cl-some 'identity results))))
 
-;; FIXME: Besser alle metadaten einfach aneinanderhängen.
 (pdf-virtual-define-adapter metadata (&optional file-or-buffer)
   (pdf-info-compose-queries
       ((md (mapc 'pdf-info-metadata (pdf-virtual-document-filenames))))
@@ -712,25 +786,10 @@ argument denotes a VPDF document."
   (pdf-virtual--perform-search
    string (pdf-virtual-document-normalize-pages pages)))
 
-(pdf-virtual-define-adapter search-regexp (pcre &optional pages no-error file-or-buffer)
+(pdf-virtual-define-adapter search-regexp (pcre &optional
+                                                pages no-error file-or-buffer)
   (pdf-virtual--perform-search
    pcre (pdf-virtual-document-normalize-pages pages) 'regexp no-error))
-
-(defun pdf-virtual--transform-goto-dest (link filename region)
-  (let-alist link
-    (let ((local-page (pdf-virtual-document-page-of
-                       filename .page)))
-      (if local-page
-          `((type . ,'goto-dest)
-            (title . , .title)
-            (page . ,local-page)
-            (top . ,(car (pdf-util-edges-transform
-                          region (cons .top .top) t))))
-        `((type . ,'goto-remote)
-          (title . , .title)
-          (filename . ,filename)
-          (page . , .page)
-          (top . , .top))))))
 
 (pdf-virtual-define-adapter pagelinks (page &optional file-or-buffer)
   (cl-destructuring-bind (filename ext-page region)
@@ -779,39 +838,40 @@ argument denotes a VPDF document."
                outline))))
        outlines files))))
 
-(pdf-virtual-define-adapter gettext (page edges &optional selection-style file-or-buffer)
-  (cl-destructuring-bind (filename ext-page region)
+(pdf-virtual-define-adapter gettext (page edges &optional
+                                          selection-style file-or-buffer)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
     (let ((edges (pdf-util-edges-transform region edges)))
-      (pdf-info-gettext ext-page edges selection-style filename))))
+      (pdf-info-gettext file-page edges selection-style filename))))
 
 (pdf-virtual-define-adapter getselection (page edges &optional
                                                selection-style file-or-buffer)
-  (cl-destructuring-bind (filename ext-page region)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
     (let ((edges (pdf-util-edges-transform region edges)))
       (pdf-info-compose-queries
-          ((results (pdf-info-getselection ext-page edges selection-style filename)))
+          ((results (pdf-info-getselection file-page edges selection-style filename)))
         (pdf-util-edges-transform
          region
          (pdf-virtual--filter-edges region (car results)) t)))))
 
 (pdf-virtual-define-adapter charlayout (page &optional edges-or-pos file-or-buffer)
-  (cl-destructuring-bind (filename ext-page region)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
     (let ((edges-or-pos (pdf-util-edges-transform region edges-or-pos)))
       (pdf-info-compose-queries
-          ((results (pdf-info-charlayout ext-page edges-or-pos filename)))
+          ((results (pdf-info-charlayout file-page edges-or-pos filename)))
         (mapcar (lambda (elt)
                   `(,(car elt)
                     . ,(pdf-util-edges-transform region (cdr elt) t)))
                 (pdf-virtual--filter-edges region (car results) 'cadr))))))
 
 (pdf-virtual-define-adapter pagesize (page &optional file-or-buffer)
-  (cl-destructuring-bind (filename ext-page region)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
     (pdf-info-compose-queries
-        ((result (pdf-info-pagesize ext-page filename)))
+        ((result (pdf-info-pagesize file-page filename)))
       (if (null region)
           (car result)
         (pdf-util-with-edges (region)
@@ -823,12 +883,12 @@ argument denotes a VPDF document."
          (file-pages (pdf-virtual-document-pages pages)))
     (pdf-info-compose-queries
         ((annotations
-          (pdf-virtual-dopages (filename ext-pages _region)
+          (pdf-virtual-dopages (filename file-pages _region)
               file-pages
-            (pdf-info-getannots ext-pages filename))))
+            (pdf-info-getannots file-pages filename))))
       (let ((page (car pages))
             result)
-        (pdf-virtual-dopages (_filename ext-pages region)
+        (pdf-virtual-dopages (_filename file-pages region)
             file-pages
           (dolist (a (pop annotations))
             (let ((edges (delq nil `(,(cdr (assq 'edges a))
@@ -836,7 +896,7 @@ argument denotes a VPDF document."
               (when (pdf-virtual--filter-edges region edges)
                 (let-alist a
                   (setcdr (assq 'page a)
-                          (+ page (- .page (car ext-pages))))
+                          (+ page (- .page (car file-pages))))
                   (setcdr (assq 'id a)
                           (intern (format "%s/%d" .id (cdr (assq 'page a)))))
                   (when region
@@ -847,7 +907,7 @@ argument denotes a VPDF document."
                       (setcdr (assq 'markup-edges a)
                               (pdf-util-edges-transform region .markup-edges t))))
                   (push a result)))))
-          (cl-incf page (1+ (- (cdr ext-pages) (car ext-pages)))))
+          (cl-incf page (1+ (- (cdr file-pages) (car file-pages)))))
         (nreverse result)))))
 
 (pdf-virtual-define-adapter getannot (id &optional file-or-buffer)
@@ -926,47 +986,44 @@ argument denotes a VPDF document."
   (signal 'pdf-virtual-unsupported-operation (list 'synctex-forward-search)))
 
 (pdf-virtual-define-adapter synctex-backward-search (page &optional x y file-or-buffer)
-  (cl-destructuring-bind (filename ext-page region)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
-    (pdf-info-compose-queries
-        ((result
-          (cl-destructuring-bind (x &rest y)
-              (pdf-util-edges-transform region (cons x y))
-            (pdf-info-synctex-backward-search ext-page x y filename))))
-      (car result))))
+    (cl-destructuring-bind (x &rest y)
+        (pdf-util-edges-transform region (cons x y))
+      (pdf-info-synctex-backward-search file-page x y filename))))
 
 (pdf-virtual-define-adapter renderpage (page width &optional file-or-buffer
                                              &rest commands)
   (when (symbolp file-or-buffer)
     (push file-or-buffer commands)
     (setq file-or-buffer nil))
-  (cl-destructuring-bind (filename ext-page region)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
     (when region
       (setq commands (append (list :crop-to region) commands)
             width (pdf-util-with-edges (region)
                     (round (* width (max 1 (/ 1.0 (max 1e-6 region-width))))))))
-    (apply 'pdf-info-renderpage ext-page width filename commands)))
+    (apply 'pdf-info-renderpage file-page width filename commands)))
 
 (pdf-virtual-define-adapter boundingbox (page &optional file-or-buffer)
-  (cl-destructuring-bind (filename ext-page region)
+  (cl-destructuring-bind (filename file-page region)
       (pdf-virtual-document-page page)
     (pdf-info-compose-queries
-        ((results (unless region (pdf-info-boundingbox ext-page filename))))
+        ((results (unless region (pdf-info-boundingbox file-page filename))))
       (if region
           (list 0 0 1 1)
         (car results)))))
 
 (pdf-virtual-define-adapter pagelabels (&optional file-or-buffer)
-  (signal 'pdf-virtual-unsupported-operation (list 'pagelabels)))                         
+  (signal 'pdf-virtual-unsupported-operation (list 'pagelabels)))
 
 (pdf-virtual-define-adapter setoptions (&optional file-or-buffer &rest options)
   (when (symbolp file-or-buffer)
     (push file-or-buffer options)
     (setq file-or-buffer nil))
   (pdf-info-compose-queries
-      ((_ (mapc (lambda (f) (apply 'pdf-info-setoptions f options))
-                (pdf-virtual-document-filenames))))
+      ((_ (dolist (f (pdf-virtual-document-filenames))
+            (apply 'pdf-info-setoptions f options))))
     nil))
 
 (pdf-virtual-define-adapter getoptions (&optional file-or-buffer)
