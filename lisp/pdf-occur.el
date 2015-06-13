@@ -193,7 +193,7 @@ For a programmatic search of multiple documents see
           (min 24
                (apply 'max
                  (mapcar 'length
-                         (mapcar 'pdf-occur-abbrev-file-name
+                         (mapcar 'pdf-occur-abbrev-document
                                  (mapcar 'car pdf-occur-search-documents))))))
          (page-sorter (tablist-generate-sorter
                        (if 2-columns-p 0 1)
@@ -274,8 +274,10 @@ FIXME: EVENT not used at the moment."
       (let* ((doc (plist-get item :document))
              (page (plist-get item :page))
              (match (plist-get item :match-edges))
-             (buffer (or (find-buffer-visiting doc)
-                         (find-file-noselect doc)))
+             (buffer (if (bufferp doc)
+                         doc
+                       (or (find-buffer-visiting doc)
+                           (find-file-noselect doc))))
              window)
         (if no-select-window-p
             (setq window (display-buffer buffer))
@@ -499,7 +501,7 @@ matches linked with PAGE."
             ""))
          (displayed-document
           (propertize
-           (pdf-occur-abbrev-file-name filename)
+           (pdf-occur-abbrev-document filename)
            'face 'pdf-occur-document-face))
          (id `(:document ,filename
                :page ,page
@@ -523,7 +525,7 @@ matches linked with PAGE."
                        (format "%d match%s in document `%s'"
                                pdf-occur-number-of-matches
                                (if (/= 1 pdf-occur-number-of-matches) "es" "")
-                               (pdf-occur-abbrev-file-name
+                               (pdf-occur-abbrev-document
                                 (caar pdf-occur-search-documents)))
                      (format "%d match%s in %d documents"
                              pdf-occur-number-of-matches
@@ -769,13 +771,13 @@ in the search list."
 
 ;; FIXME: This will be confusing when searching documents with the
 ;; same base file-name.
-(defun pdf-occur-abbrev-file-name (filename)
-  (if (bufferp filename)
-      (buffer-name filename)
-    (let ((abbrev (file-name-nondirectory filename)))
+(defun pdf-occur-abbrev-document (file-or-buffer)
+  (if (bufferp file-or-buffer)
+      (buffer-name file-or-buffer)
+    (let ((abbrev (file-name-nondirectory file-or-buffer)))
       (if (> (length abbrev) 0)
           abbrev
-        filename))))
+        file-or-buffer))))
 
 (defun pdf-occur-create-batches (documents batch-size)
   (let (queries)
@@ -800,8 +802,9 @@ in the search list."
 (defun pdf-occur-normalize-documents (documents)
   "Normalize list of documents.
 
-Replaces buffers with their filenames and ensures that every
-element looks like \(FILENAME . PAGES\)."
+Replaces buffers with their associated filenames \(if
+applicable\) and ensures that every element looks like
+\(FILENAME-OR-BUFFER . PAGES\)."
   (cl-sort (mapcar (lambda (doc)
                      (unless (consp doc)
                        (setq doc (cons doc nil)))
