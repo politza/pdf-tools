@@ -166,7 +166,7 @@ links via \\[pdf-links-isearch-link].
                     (if (> .page 0)
                         (format "p.%d of " .page)
                       "")
-                    .file)
+                    .filename)
           (format "Link to nonexistent file '%s'" .filename)))
        (uri
         (if (> (length .uri) 0)
