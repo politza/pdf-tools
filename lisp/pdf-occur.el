@@ -770,10 +770,12 @@ in the search list."
 ;; FIXME: This will be confusing when searching documents with the
 ;; same base file-name.
 (defun pdf-occur-abbrev-file-name (filename)
-  (let ((abbrev (file-name-nondirectory filename)))
-    (if (> (length abbrev) 0)
-        abbrev
-      filename)))
+  (if (bufferp filename)
+      (buffer-name filename)
+    (let ((abbrev (file-name-nondirectory filename)))
+      (if (> (length abbrev) 0)
+          abbrev
+        filename))))
 
 (defun pdf-occur-create-batches (documents batch-size)
   (let (queries)
@@ -803,10 +805,13 @@ element looks like \(FILENAME . PAGES\)."
   (cl-sort (mapcar (lambda (doc)
                      (unless (consp doc)
                        (setq doc (cons doc nil)))
-                     (when (bufferp (car doc))
+                     (when (and (bufferp (car doc))
+                                (buffer-file-name (car doc)))
                        (setq doc (cons (buffer-file-name (car doc))
                                        (cdr doc))))
-                     (cons (expand-file-name (car doc)) (cdr doc)))
+                     (if (stringp (car doc))
+                         (cons (expand-file-name (car doc)) (cdr doc))
+                       doc))
                    documents)
            'string-lessp
            :key 'car))
