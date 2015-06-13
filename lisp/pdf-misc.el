@@ -199,8 +199,7 @@
   "Display all available metadata in a separate buffer."
   (interactive)
   (pdf-util-assert-pdf-buffer)
-  (let* ((file (file-name-nondirectory
-                (buffer-file-name)))
+  (let* ((buffer (current-buffer))
          (md (pdf-info-metadata)))
     (with-current-buffer (get-buffer-create "*PDF-Metadata*")
       (let* ((inhibit-read-only t)
@@ -210,7 +209,7 @@
              (fmt (format "%%%ds:%%s\n" pad))
              window)
         (erase-buffer)
-        (setq header-line-format file
+        (setq header-line-format (buffer-name buffer)
               buffer-read-only t)
         (font-lock-mode 1)
         (font-lock-add-keywords nil
