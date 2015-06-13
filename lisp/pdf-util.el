@@ -692,9 +692,12 @@ string."
       " " 'display (propertize
 		    "\u2192" ;;right arrow
 		    'display '(height 2)
-		    'face '(:foreground
+		    'face `(:foreground
                             "orange red"
-                            :background "white")))
+                            :background
+                            ,(if (bound-and-true-p pdf-view-midnight-minor-mode)
+                                 (cdr pdf-view-midnight-colors)
+                               "white"))))
      dx dy)))
 
 (defvar pdf-util--face-colors-cache (make-hash-table))
