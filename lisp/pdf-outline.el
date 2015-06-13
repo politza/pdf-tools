@@ -369,11 +369,13 @@ Then quit the outline window."
   "Display the page corresponding to the link at POS."
   (interactive)
   (unless pos (setq pos (point)))
-  (let ((link (pdf-outline-link-at-pos pos)))
+  (let ((inhibit-redisplay t)
+        (link (pdf-outline-link-at-pos pos)))
     (unless link
       (error "Nothing to follow here"))
     (with-selected-window (pdf-outline-get-pdf-window)
-      (pdf-links-action-perform link))))
+      (pdf-links-action-perform link))
+    (force-mode-line-update t)))
 
 (defun pdf-outline-mouse-display-link (event)
   "Display the page corresponding to the position of EVENT."
