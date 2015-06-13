@@ -348,12 +348,16 @@ ranges corresponding to PAGES. Each element has the form
   "Return the number of pages in DOC."
   (length (pdf-virtual-document-page-array doc)))
 
-(pdf-virtual-document-defun page-of (filename &optional file-page doc)
+(pdf-virtual-document-defun page-of (filename &optional file-page limit doc)
   "Return a page number displaying FILENAME's page FILE-PAGE in DOC.
 
 If FILE-PAGE is nil, return the first page displaying FILENAME.
+If LIMIT is non-nil, it should be a range \(FIRST . LAST\) in
+which the returned page should fall. This is useful if there are
+more than one page displaying FILE-PAGE. LIMIT is ignored, if
+FILE-PAGE is nil.
 
-Return nil if there is no such page."
+Return nil if there is no matching page."
 
   (if (null file-page)
       (cadr (assoc filename (pdf-virtual-document-file-map doc)))
@@ -369,10 +373,13 @@ Return nil if there is no such page."
                     (last (pdf-virtual-range-last page)))
                (when (and (>= file-page first)
                           (<= file-page last))
-                 (throw 'found
-                        (+ (pdf-virtual-range-index-start page)
-                           (- file-page (pdf-virtual-range-first page))
-                           1)))
+                 (let ((r (+ (pdf-virtual-range-index-start page)
+                             (- file-page (pdf-virtual-range-first page))
+                             1)))
+                   (when (or (null limit)
+                             (and (>= r (car limit))
+                                  (<= r (cdr limit))))
+                     (throw 'found r))))
                (cl-incf pn (1+ (- last first))))))
          (cdr (assoc filename (pdf-virtual-document-file-map doc))))
         nil))))
@@ -642,11 +649,12 @@ PAGE should be a page-number."
          ,@body))))
 
 (defun pdf-virtual--perform-search (string pages &optional regexp-p no-error)
-  (let* ((file-pages (pdf-virtual-document-pages pages)))
+  (let* ((pages (pdf-virtual-document-normalize-pages pages))
+         (file-pages (pdf-virtual-document-pages pages)))
     (pdf-info-compose-queries
         ((responses
           (pdf-virtual-dopages (filename pages _region)
-            file-pages
+              file-pages
             (if regexp-p
                 (pdf-info-search-string string pages filename)
               ;; FIXME: no-error won't work with synchronous calls.
@@ -667,8 +675,9 @@ PAGE should be a page-number."
                       (apply-partially 'alist-get 'edges)))))
             (dolist (m matches)
               (push `((page . ,(pdf-virtual-document-page-of
-                                filename (alist-get 'page m)))
-                      ,@(cdr m))
+                                filename (alist-get 'page m)
+                                pages))
+                      ,@m)
                     result))))
         (nreverse result)))))
 

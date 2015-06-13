@@ -60,7 +60,7 @@
       (dotimes (i (length pages))
         (should (equal (1+ i)
                        (pdf-virtual-document-page-of
-                        "test.pdf" (nth i pages) doc)))))))
+                        "test.pdf" (nth i pages) nil doc)))))))
 
 (ert-deftest pdf-virtual-open ()
   (with-pdf-virtual-test-buffer
