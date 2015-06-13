@@ -28,6 +28,12 @@
 ;;
 
 ;;; Code:
+(eval-when-compile
+  (unless (or (> emacs-major-version 24)
+              (and (= emacs-major-version 24)
+                   (>= emacs-minor-version 4)))
+    (error "pdf-virtual.el only works with Emacs >= 24.4")))
+
 (require 'let-alist)
 
 
@@ -401,20 +407,13 @@ PAGE-RANGE.
 ;;;###autoload
 (define-derived-mode pdf-virtual-view-mode pdf-view-mode "VPDF-View"
   "Major mode in virtual PDF buffers."
-  (if (= (pdf-virtual-document-number-of-pages) 0)
-      (progn
-        (message "Docüment is empty, switching to edit mode.")
-        (pdf-virtual-edit-mode))
-    (setq-local write-contents-functions nil)
-    (remove-hook 'kill-buffer-hook 'pdf-view-close-document t)
-    (setq-local header-line-format
-                `(:eval (pdf-virtual-buffer-current-file)))
-    (unless noninteractive
-      (message (substitute-command-keys "Press \\[pdf-virtual-edit-mode] to edit.")))))
+  (setq-local write-contents-functions nil)
+  (remove-hook 'kill-buffer-hook 'pdf-view-close-document t)
+  (setq-local header-line-format
+              `(:eval (pdf-virtual-buffer-current-file)))
+  (unless noninteractive
+    (message (substitute-command-keys "Press \\[pdf-virtual-edit-mode] to edit."))))
 
-(advice-add 'pdf-virtual-view-mode
-            :before 'pdf-virtual-view-mode-prepare)
-    
 ;;;###autoload
 (define-minor-mode pdf-virtual-global-minor-mode
   "Enable recognition and handling of VPDF files."
@@ -434,8 +433,11 @@ PAGE-RANGE.
         (when pdf-virtual-global-minor-mode
           (advice-add orig :around fn))))))
 
-(defun pdf-virtual-view-mode-prepare (&optional no-message-p)
-  (let (list)
+(advice-add 'pdf-virtual-view-mode
+            :around 'pdf-virtual-view-mode-prepare)
+
+(defun pdf-virtual-view-mode-prepare (fn)
+  (let (list unreadable)
     (save-excursion
       (goto-char 1)
       (unless (looking-at pdf-virtual-magic-mode-regexp)
@@ -446,11 +448,19 @@ PAGE-RANGE.
            list
            nil
            (lambda (filename _error)
-             (unless no-message-p
-               (message
-                "Skipping unreadable file %s " filename)))))
-    (unless pdf-virtual-global-minor-mode
-      (pdf-virtual-global-minor-mode 1))))
+             (push filename unreadable))))
+    (when unreadable
+      (display-warning
+       'pdf-virtual
+       (format "Some documents could not be opened:\n%s"
+               (mapconcat (lambda (f)
+                            (concat " " f))
+                          unreadable "\n"))))
+    (if (= (pdf-virtual-document-number-of-pages) 0)
+        (error "Docüment is empty.")
+      (unless pdf-virtual-global-minor-mode
+        (pdf-virtual-global-minor-mode 1))
+      (funcall fn))))
 
 
 ;; * ================================================================== *
