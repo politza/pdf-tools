@@ -121,8 +121,9 @@ Usually a page's label is it's displayed page number."
 (defvar-local pdf-outline-pdf-window nil
   "The PDF window corresponding to this outline buffer.")
 
-(defvar-local pdf-outline-pdf-file nil
-  "The PDF file corresponding to this outline buffer.")
+(defvar-local pdf-outline-pdf-document nil
+  "The PDF filename or buffer corresponding to this outline
+  buffer.")
 
 (defvar-local pdf-outline-follow-mode-last-link nil)
 
@@ -236,7 +237,7 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
         (set (make-local-variable 'other-window-scroll-buffer)
              pdf-buffer)
         (setq pdf-outline-pdf-window pdf-window
-              pdf-outline-pdf-file pdf-file)
+              pdf-outline-pdf-document (or pdf-file pdf-buffer))
         (current-buffer)))))
 
 (defun pdf-outline-buffer-name (&optional pdf-buffer)
@@ -272,11 +273,17 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
 
 (defun pdf-outline-get-pdf-window (&optional if-visible-p)
   (save-selected-window
-    (let* ((buffer (or
-                    (find-buffer-visiting
-                     pdf-outline-pdf-file)
-                    (find-file-noselect
-                     pdf-outline-pdf-file)))
+    (let* ((buffer (cond
+                    ((buffer-live-p pdf-outline-pdf-document)
+                     pdf-outline-pdf-document)
+                    ((bufferp pdf-outline-pdf-document)
+                     (error "PDF buffer was killed"))
+                    (t
+                     (or
+                      (find-buffer-visiting
+                       pdf-outline-pdf-document)
+                      (find-file-noselect
+                       pdf-outline-pdf-document)))))
            (pdf-window
             (if (and (window-live-p pdf-outline-pdf-window)
                      (eq buffer

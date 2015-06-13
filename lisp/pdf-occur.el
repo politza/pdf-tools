@@ -813,7 +813,9 @@ element looks like \(FILENAME . PAGES\)."
                          (cons (expand-file-name (car doc)) (cdr doc))
                        doc))
                    documents)
-           'string-lessp
+           (lambda (a b) (string-lessp
+                          (if (bufferp a) (buffer-name a) a)
+                          (if (bufferp b) (buffer-name b) b)))
            :key 'car))
 
 (provide 'pdf-occur)
