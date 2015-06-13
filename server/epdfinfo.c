@@ -3525,7 +3525,7 @@ int main(int argc, char **argv)
   char *line = NULL;
   ssize_t read;
   size_t line_size;
-  const char *error_log = "/tmp/epdfinfo.log"; /* "/dev/null"; */
+  const char *error_log = "/dev/null";
 
   if (argc > 2)
     {
