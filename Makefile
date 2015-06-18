@@ -6,7 +6,7 @@ EFLAGS = -Q -L $(PWD)/lisp --batch
 PACKAGE_VERSION = 0.70
 PKGFILE_CONTENT = (define-package "pdf-tools" "$(PACKAGE_VERSION)"	\
 		   "Support library for PDF documents."			\
-		   (quote ((emacs "24.3")))				\
+		   (quote ((emacs "24.3") (let-alist "1.0.1")))		\
 		   :keywords						\
 		   (quote ("files" "multimedia")))
 
