@@ -9,4 +9,5 @@
 
 (development
  (depends-on "emacs" "24.3")
- (depends-on "let-alist"))
+ (depends-on "let-alist")
+ (depends-on "tablist"))
