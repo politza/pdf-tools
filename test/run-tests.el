@@ -15,7 +15,14 @@
   (error "load-file-name is unset"))
 
 (cd (file-name-directory load-file-name))
-(setq package-user-dir (make-temp-file "package" t))
+(setq package-user-dir (expand-file-name "elpa" (make-temp-file "package" t)))
+
+(defvar cask-elpa (format "../.cask/%s/elpa" emacs-version))
+
+(unless (file-directory-p cask-elpa)
+  (error "Do `cask install' first"))
+(copy-directory (format "../.cask/%s/elpa" emacs-version)
+                (file-name-directory package-user-dir))
 (add-hook 'kill-emacs-hook (lambda nil
                              (when (file-exists-p package-user-dir)
                                (delete-directory package-user-dir t))))
