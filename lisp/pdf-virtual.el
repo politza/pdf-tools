@@ -54,11 +54,6 @@
 
 (put 'pdf-virtual-document 'permanent-local t)
 
-(defvar-local pdf-virtual-page-hash nil
-  "A list representing the virtual document.")
-
-(put 'pdf-virtual-page-hash 'permanent-local t)
-
 (defvar pdf-virtual-adapter-alist nil
   "Alist of server functions.
 
