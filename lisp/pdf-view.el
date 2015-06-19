@@ -1114,16 +1114,16 @@ Stores the region in `pdf-view-active-region'."
                                                 (+ (car begin) (car dxy))))
                                     (max 0 (min (cdr size)
                                                 (+ (cdr begin) (cdr dxy)))))))))
-                (setq region
-                      (pdf-util-scale-pixel-to-relative
-                       (list (min (car begin) (car end))
-                             (min (cdr begin) (cdr end))
-                             (max (car begin) (car end))
-                             (max (cdr begin) (cdr end)))))
-                (pdf-view-display-region
-                 (cons region pdf-view-active-region)
-                 render-rectangle-p)
-                (pdf-util-scroll-to-edges region))))
+                (let ((iregion (list (min (car begin) (car end))
+                                     (min (cdr begin) (cdr end))
+                                     (max (car begin) (car end))
+                                     (max (cdr begin) (cdr end)))))
+                  (setq region
+                        (pdf-util-scale-pixel-to-relative iregion))
+                  (pdf-view-display-region
+                   (cons region pdf-view-active-region)
+                   render-rectangle-p)
+                  (pdf-util-scroll-to-edges iregion)))))
       (setq pdf-view-active-region
             (append pdf-view-active-region
                     (list region)))
