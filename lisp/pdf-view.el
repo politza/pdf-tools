@@ -28,6 +28,7 @@
 (require 'pdf-info)
 (require 'pdf-cache)
 (require 'jka-compr)
+(require 'bookmark)
 
 
 ;; * ================================================================== *
@@ -259,8 +260,6 @@ regarding display of the region in the later function.")
     (define-key map (kbd "C-c C-r p") 'pdf-view-printer-minor-mode)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
-
-(defvar bookmark-make-record-function)
 
 (define-derived-mode pdf-view-mode special-mode "PDFView"
   "Major mode in PDF buffers.
@@ -1258,11 +1257,6 @@ the `convert' programm is used. "
 ;; * Bookmark + Register Integration
 ;; * ================================================================== *
 
-(declare-function bookmark-make-record-default
-                  "bookmark" (&optional no-file no-context posn))
-(declare-function bookmark-prop-get "bookmark" (bookmark prop))
-(declare-function bookmark-default-handler "bookmark" (bmk))
-
 (defun pdf-view-bookmark-make-record  (&optional no-page no-slice no-size no-origin)
   "Create a bookmark PDF record.
 
@@ -1322,8 +1316,6 @@ See also `pdf-view-bookmark-make-record'."
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
     (set-buffer (or (find-buffer-visiting file)
                     (find-file-noselect file)))))
-
-(defvar bookmark-after-jump-hook)
 
 (defun pdf-view-bookmark-jump (bmk)
   "Switch to bookmark BMK.
