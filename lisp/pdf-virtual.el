@@ -39,6 +39,7 @@
 
 (require 'let-alist)
 (require 'pdf-info)
+(require 'pdf-util)
 
 
 ;; * ================================================================== *

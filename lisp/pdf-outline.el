@@ -24,6 +24,7 @@
 (require 'outline)
 (require 'pdf-links)
 (require 'pdf-view)
+(require 'pdf-util)
 (require 'cl-lib)
 (require 'imenu)
 (require 'let-alist)
