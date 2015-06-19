@@ -40,7 +40,7 @@
 
 
 ;; * ================================================================== *
-;; * Compatibility with older Emacssen (< 24.3)
+;; * Compatibility with older Emacssen (< 25.1)
 ;; * ================================================================== *
 
 ;; The with-file-modes macro is only available in recent Emacs
