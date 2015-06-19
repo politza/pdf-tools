@@ -357,7 +357,7 @@ See also `pdf-info-renderpage-highlight' and
 
 (defun pdf-cache-prefetch-pages-function-default ()
   (let ((page (pdf-view-current-page)))
-    (cl-remove-duplicates
+    (pdf-util-remove-duplicates
      (cl-remove-if-not
       (lambda (page)
         (and (>= page 1)
@@ -376,9 +376,9 @@ See also `pdf-info-renderpage-highlight' and
        (list 1 (pdf-cache-number-of-pages))
        ;; Links
        (mapcar
-        'cl-cadddr
+        (apply-partially 'alist-get 'page)
         (cl-remove-if-not
-         (lambda (link) (eq (assq 'type link) 'goto-dest))
+         (lambda (link) (eq (alist-get 'type link) 'goto-dest))
          (pdf-cache-pagelinks
           (pdf-view-current-page)))))))))
 
