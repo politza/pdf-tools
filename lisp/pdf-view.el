@@ -147,7 +147,7 @@ used."
   :group 'pdf-view
   :type 'boolean)
 
-(defcustom pdf-view-image-relief 2
+(defcustom pdf-view-image-relief 0
   "Add a shadow rectangle around the page's image.
 
 See :relief property in Info node `(elisp) Image Descriptors'."
