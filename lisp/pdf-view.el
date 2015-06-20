@@ -329,7 +329,6 @@ PNG images in Emacs buffers."
   (add-hook 'write-contents-functions
             'pdf-view--write-contents-function nil t)
   (add-hook 'kill-buffer-hook 'pdf-view-close-document nil t)
-  (add-hook 'after-revert-hook 'pdf-view--after-revert-hook nil t)
   (pdf-view-add-hotspot-function
    'pdf-view-text-regions-hotspots-function -9)
   
@@ -363,7 +362,6 @@ a local copy of a remote file."
             (set-buffer-modified-p nil)
             (setq pdf-view--server-file-name
                   (pdf-view-buffer-file-name))
-            (pdf-view-redisplay t)
             t)
         (when (file-exists-p tempfile)
           (delete-file tempfile))))))
@@ -376,12 +374,13 @@ a local copy of a remote file."
   ;; later versions the semantics that nil means the default function should
   ;; not relied upon.
   (let ((revert-buffer-function (when (fboundp #'revert-buffer--default)
-				  #'revert-buffer--default)))
-    (revert-buffer ignore-auto noconfirm 'preserve-modes)))
-
-(defun pdf-view--after-revert-hook ()
-  (pdf-info-close)
-  (pdf-view-redisplay t))
+				  #'revert-buffer--default))
+        (after-revert-hook
+         (cons #'pdf-info-close
+               after-revert-hook)))
+    (prog1
+        (revert-buffer ignore-auto noconfirm 'preserve-modes)
+      (pdf-view-redisplay t))))
 
 (defun pdf-view-close-document ()
   "Like `pdf-info-close', but returns immediately."
@@ -948,6 +947,15 @@ This tells the various modes to use their face's dark colors."
   "Display the PDF as it would be printed."
   nil " Prn" nil
   (pdf-util-assert-pdf-buffer)
+  (let ((enable (lambda ()
+                  (pdf-info-setoptions :render/printed t))))
+    (cond
+     (pdf-view-printer-minor-mode
+      (add-hook 'after-save-hook enable nil t)
+      (add-hook 'after-revert-hook enable nil t))
+     (t
+      (remove-hook 'after-save-hook enable t)
+      (remove-hook 'after-revert-hook enable t))))
   (pdf-info-setoptions :render/printed pdf-view-printer-minor-mode)
   (pdf-cache-clear-images) 
   (pdf-view-redisplay t))
@@ -960,14 +968,21 @@ The colors are determined by the variable
 
   nil " Mid" nil
   (pdf-util-assert-pdf-buffer)
-  (cond
-   (pdf-view-midnight-minor-mode
-    (pdf-info-setoptions
-     :render/foreground (or (car pdf-view-midnight-colors) "black")
-     :render/background (or (cdr pdf-view-midnight-colors) "white")
-     :render/usecolors t))
-   (t
-    (pdf-info-setoptions :render/usecolors nil)))
+  ;; FIXME: Maybe these options should be passed stateless to pdf-info-renderpage ?
+  (let ((enable (lambda ()
+                  (pdf-info-setoptions
+                   :render/foreground (or (car pdf-view-midnight-colors) "black")
+                   :render/background (or (cdr pdf-view-midnight-colors) "white")
+                   :render/usecolors t))))
+    (cond
+     (pdf-view-midnight-minor-mode
+      (add-hook 'after-save-hook enable nil t)
+      (add-hook 'after-revert-hook enable nil t)
+      (funcall enable))
+     (t
+      (remove-hook 'after-save-hook enable t)
+      (remove-hook 'after-revert-hook enable t)
+      (pdf-info-setoptions :render/usecolors nil))))
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
