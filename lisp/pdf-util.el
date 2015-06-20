@@ -57,20 +57,22 @@ MODES is as for `set-default-file-modes'."
                (progn
                  (set-default-file-modes ,modes)
                  ,@body)
-             (set-default-file-modes ,umask))))))
-  (unless (fboundp 'alist-get) ;;25.1
-    (defun alist-get (key alist &optional default remove)
-      "Get the value associated to KEY in ALIST.
+             (set-default-file-modes ,umask)))))))
+
+(unless (fboundp 'alist-get) ;;25.1
+  (defun alist-get (key alist &optional default remove)
+    "Get the value associated to KEY in ALIST.
 DEFAULT is the value to return if KEY is not found in ALIST.
 REMOVE, if non-nil, means that when setting this element, we should
 remove the entry if the new value is `eql' to DEFAULT."
-      (ignore remove) ;;Silence byte-compiler.
-      (let ((x (assq key alist)))
-        (if x (cdr x) default))))
-  (require 'register)
-  (unless (fboundp 'register-read-with-preview)
-    (defalias 'register-read-with-preview 'read-char
-      "Compatibility alias for pdf-tools.")))
+    (ignore remove) ;;Silence byte-compiler.
+    (let ((x (assq key alist)))
+      (if x (cdr x) default))))
+
+(require 'register)
+(unless (fboundp 'register-read-with-preview)
+  (defalias 'register-read-with-preview 'read-char
+    "Compatibility alias for pdf-tools."))
 
 ;; In Emacs 24.3 window-width does not have a PIXELWISE argument.
 (defmacro pdf-util-window-pixel-width (&optional window)
