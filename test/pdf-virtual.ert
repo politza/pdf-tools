@@ -1,5 +1,6 @@
 ;; -*- lexical-binding: t -*-
 
+(unless (version< emacs-version "24.4")
 (require 'pdf-virtual)
 (require 'ert)
 
@@ -223,3 +224,4 @@
 ;; (ert-deftest pdf-virtual-getoptions ()
 ;;   )
 
+)
