@@ -197,31 +197,55 @@
   (with-pdf-virtual-test-buffer
    (should-error (pdf-info-save))))
 
-;; (ert-deftest pdf-virtual-getattachment-from-annot ()
-;;   )
+(ert-deftest pdf-virtual-adapter-argument-handling ()
+  (let ((enabled-p pdf-virtual-global-minor-mode))
+    (unwind-protect
+        (progn
+          (pdf-virtual-global-minor-mode 1)
+          (with-pdf-virtual-test-buffer
+            (should (stringp (pdf-info-renderpage 1 100 :alpha 0.1)))
+            (should (stringp (pdf-info-renderpage
+                              1 100 (current-buffer) :alpha 0.2))))
+          (pdf-test-with-test-pdf
+            (should (plist-get (pdf-info-setoptions
+                                :render/printed t)
+                               :render/printed))
+            (should-not (plist-get (pdf-info-setoptions
+                                    (current-buffer)
+                                    :render/printed nil)
+                                   :render/printed))
+            (should (plist-get (pdf-info-setoptions
+                                (buffer-file-name)
+                                :render/printed t)
+                               :render/printed))))
+      (unless enabled-p
+        (pdf-virtual-global-minor-mode -1)))))
 
-;; (ert-deftest pdf-virtual-getattachments ()
-;;   )
+  ;; (ert-deftest pdf-virtual-getattachment-from-annot ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-synctex-forward-search ()
-;;   )
+  ;; (ert-deftest pdf-virtual-getattachments ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-synctex-backward-search ()
-;;   )
+  ;; (ert-deftest pdf-virtual-synctex-forward-search ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-renderpage ()
-;;   )
+  ;; (ert-deftest pdf-virtual-synctex-backward-search ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-boundingbox ()
-;;   )
+  ;; (ert-deftest pdf-virtual-renderpage ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-pagelabels ()
-;;   )
+  ;; (ert-deftest pdf-virtual-boundingbox ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-setoptions ()
-;;   )
+  ;; (ert-deftest pdf-virtual-pagelabels ()
+  ;;   )
 
-;; (ert-deftest pdf-virtual-getoptions ()
-;;   )
+  ;; (ert-deftest pdf-virtual-setoptions ()
+  ;;   )
 
-)
+  ;; (ert-deftest pdf-virtual-getoptions ()
+  ;;   )
+
+  )

@@ -724,6 +724,7 @@ PAGE should be a page-number."
   (let ((fn (intern (format "pdf-virtual-%s" name)))
         (base-fn (intern (format "pdf-info-%s" name)))
         (base-fn-arg (make-symbol "fn"))
+        (true-file-or-buffer (make-symbol "true-file-or-buffer"))
         (args (cl-remove-if (lambda (elt)
                               (memq elt '(&optional &rest)))
                             arglist)))
@@ -742,27 +743,27 @@ argument denotes a VPDF document."
                   (if doc (concat doc "\n\n") "")
                   base-fn
                   base-fn)
-         (if (and
-              ;;This is supposed to handle a (&optional file-or-buffer &rest args)
-              ;;case.
-              (or (stringp file-or-buffer)
-                  (bufferp file-or-buffer)
-                  (null file-or-buffer))
-              (not (or (and (or (null file-or-buffer)
-                                (bufferp file-or-buffer))
-                            (pdf-virtual-buffer-p file-or-buffer))
-                       (and (stringp file-or-buffer)
-                            (pdf-virtual-filename-p file-or-buffer)))))
-             (,(if (memq '&rest arglist) 'apply 'funcall) ,base-fn-arg ,@args)
-           (cond
-            ((null file-or-buffer)
-             (setq file-or-buffer (current-buffer)))
-            ((stringp file-or-buffer)
-             (setq file-or-buffer (find-file-noselect file-or-buffer))))           
-           (save-current-buffer
-             (when (bufferp file-or-buffer)
-               (set-buffer file-or-buffer))
-             ,@body))))))
+         (let ((,true-file-or-buffer
+                (cond
+                 ((or (bufferp file-or-buffer)
+                      (stringp file-or-buffer)) file-or-buffer)
+                 ((or (null file-or-buffer)
+                      ,(not (null (memq '&rest arglist))))
+                  (current-buffer)))))
+           (if (cond
+                ((null ,true-file-or-buffer) t)
+                ((bufferp ,true-file-or-buffer)
+                 (not (pdf-virtual-buffer-p ,true-file-or-buffer)))
+                ((stringp ,true-file-or-buffer)
+                 (not (pdf-virtual-filename-p ,true-file-or-buffer))))
+               (,(if (memq '&rest arglist) 'apply 'funcall) ,base-fn-arg ,@args)
+             (when (stringp ,true-file-or-buffer)
+               (setq ,true-file-or-buffer
+                     (find-file-noselect ,true-file-or-buffer)))
+             (save-current-buffer
+               (when (bufferp ,true-file-or-buffer)
+                 (set-buffer ,true-file-or-buffer))
+               ,@body)))))))
 
 (define-error 'pdf-virtual-unsupported-operation
   "Operation not supported in VPDF buffer")
@@ -999,7 +1000,7 @@ argument denotes a VPDF document."
 
 (pdf-virtual-define-adapter renderpage (page width &optional file-or-buffer
                                              &rest commands)
-  (when (symbolp file-or-buffer)
+  (when (keywordp file-or-buffer)
     (push file-or-buffer commands)
     (setq file-or-buffer nil))
   (cl-destructuring-bind (filename file-page region)
@@ -1023,7 +1024,7 @@ argument denotes a VPDF document."
   (signal 'pdf-virtual-unsupported-operation (list 'pagelabels)))
 
 (pdf-virtual-define-adapter setoptions (&optional file-or-buffer &rest options)
-  (when (symbolp file-or-buffer)
+  (when (keywordp file-or-buffer)
     (push file-or-buffer options)
     (setq file-or-buffer nil))
   (pdf-info-compose-queries
