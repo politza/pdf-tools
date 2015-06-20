@@ -147,6 +147,14 @@ used."
   :group 'pdf-view
   :type 'boolean)
 
+(defcustom pdf-view-image-relief 2
+  "Add a shadow rectangle around the page's image.
+
+See :relief property in Info node `(elisp) Image Descriptors'."
+  :group 'pdf-view
+  :type '(integer :tag "Pixel")         
+  :link '(info-link "(elisp) Image Descriptors"))
+
 
 ;; * ================================================================== *
 ;; * Internal variables and macros
@@ -735,7 +743,8 @@ See also `pdf-view-use-imagemagick'."
 (defmacro pdf-view-create-image (data &rest props)
   "Like `create-image', but with set DATA-P and TYPE arguments."
   (declare (indent 1) (debug t))
-  `(create-image ,data (pdf-view-image-type) t ,@props))
+  `(create-image ,data (pdf-view-image-type) t ,@props
+                 :relief (or pdf-view-image-relief 0)))
 
 (defun pdf-view-create-page (page &optional window)
   "Create an image of PAGE for display on WINDOW."
