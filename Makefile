@@ -35,7 +35,9 @@ distclean: clean
 	rm -rf .cask
 	! [ -f server/Makefile ] || $(MAKE) -C server distclean
 
-package: server/epdfinfo lisp/*.el
+package: $(PACKAGE_NAME).tar
+
+$(PACKAGE_NAME).tar: server/epdfinfo lisp/*.el
 	mkdir -p '$(PACKAGE_DIR)'
 	cp lisp/*.el README server/epdfinfo '$(PACKAGE_DIR)'
 	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
