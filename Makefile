@@ -1,4 +1,12 @@
 EMACS ?= emacs
+
+# Handle the mess when inside Emacs.
+unexport INSIDE_EMACS		#cask not like this.
+ifeq ($(EMACS), t)
+EMACS = emacs
+endif
+
+EMACS_VERSION = $(shell $(EMACS) -Q --batch --eval '(princ emacs-version)')
 EFLAGS = -Q -L $(PWD)/lisp --batch
 
 # Note: If you change this, also change it in lisp/pdf-tools.el and
@@ -13,7 +21,7 @@ PKGFILE_CONTENT = (define-package "pdf-tools" "$(PACKAGE_VERSION)"	\
 PACKAGE_NAME = pdf-tools-$(PACKAGE_VERSION)
 PACKAGE_DIR = $(PACKAGE_NAME)
 
-.PHONY: all clean distclean package bytecompile test check melpa
+.PHONY: all clean distclean package bytecompile test check melpa cask-install
 
 all: package
 
@@ -24,6 +32,7 @@ clean:
 	! [ -f server/Makefile ] || $(MAKE) -C server clean
 
 distclean: clean
+	rm -rf .cask
 	! [ -f server/Makefile ] || $(MAKE) -C server distclean
 
 package: server/epdfinfo
@@ -53,11 +62,16 @@ server/Makefile: server/configure
 server/configure: server/configure.ac
 	cd server && ./autogen.sh
 
-bytecompile: 
+bytecompile: cask-install
 	cask exec $(EMACS) $(EFLAGS) -f batch-byte-compile lisp/*.el
 
-test: all
+test: all cask-install
 	cask exec $(EMACS) $(EFLAGS) -l test/run-tests.el $(PACKAGE_NAME).tar
+
+cask-install: .cask/$(EMACS_VERSION)
+
+.cask/$(EMACS_VERSION):
+	cask install
 
 check: bytecompile test
 
