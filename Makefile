@@ -7,7 +7,7 @@ EMACS = emacs
 endif
 
 EMACS_VERSION = $(shell $(EMACS) -Q --batch --eval '(princ emacs-version)')
-EFLAGS = -Q -L $(PWD)/lisp --batch
+EFLAGS = -Q --batch
 
 # Note: If you change this, also change it in lisp/pdf-tools.el and
 # server/configure.ac .
@@ -35,7 +35,7 @@ distclean: clean
 	rm -rf .cask
 	! [ -f server/Makefile ] || $(MAKE) -C server distclean
 
-package: server/epdfinfo
+package: server/epdfinfo lisp/*.el
 	mkdir -p '$(PACKAGE_DIR)'
 	cp lisp/*.el README server/epdfinfo '$(PACKAGE_DIR)'
 	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
@@ -63,7 +63,7 @@ server/configure: server/configure.ac
 	cd server && ./autogen.sh
 
 bytecompile: cask-install
-	cask exec $(EMACS) $(EFLAGS) -f batch-byte-compile lisp/*.el
+	cask exec $(EMACS) $(EFLAGS) -L $(PWD)/lisp -f batch-byte-compile lisp/*.el
 
 test: all cask-install
 	cask exec $(EMACS) $(EFLAGS) -l test/run-tests.el $(PACKAGE_NAME).tar
