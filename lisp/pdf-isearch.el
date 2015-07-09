@@ -171,6 +171,8 @@ that not every isearch command work as expected.
   (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-isearch-minor-mode
+    (when (boundp 'character-fold-search)
+      (setq-local character-fold-search nil))
     (set (make-local-variable 'isearch-search-fun-function)
          (lambda nil 'pdf-isearch-search-function))
     (set (make-local-variable 'isearch-push-state-function)
@@ -195,6 +197,8 @@ that not every isearch command work as expected.
     (add-hook 'isearch-mode-end-hook 'pdf-isearch-mode-cleanup nil t)
     (add-hook 'isearch-update-post-hook 'pdf-isearch-update nil t))
    (t
+    (when (boundp 'character-fold-search)
+      (kill-local-variable 'character-fold-search))
     (kill-local-variable 'search-exit-option)
     (kill-local-variable 'isearch-allow-scroll)
     (kill-local-variable 'isearch-search-fun-function)
