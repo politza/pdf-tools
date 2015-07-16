@@ -1599,7 +1599,10 @@ annotation_print (const annotation_t *annot, /* const */ PopplerPage *page)
     }
 #endif
   putchar ('\n');
- theend: error:
+ theend:
+#ifdef HAVE_POPPLER_ANNOT_MARKUP
+ error:
+#endif
   if (region) cairo_region_destroy (region);
 }
 
