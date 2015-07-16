@@ -155,6 +155,11 @@ See :relief property in Info node `(elisp) Image Descriptors'."
   :type '(integer :tag "Pixel")         
   :link '(info-link "(elisp) Image Descriptors"))
 
+(defcustom pdf-view-max-image-width 4800
+  "Maximum width of any image displayed in pixel."
+  :group 'pdf-view
+  :type '(integer :tag "Pixel"))
+
 
 ;; * ================================================================== *
 ;; * Internal variables and macros
@@ -922,8 +927,12 @@ If WINDOW is t, redisplay pages in all windows."
          (setq scale height-scale))
         (t
          (setq scale width-scale))))
-    (cons (floor (max 1 (* (car pagesize) scale)))
-          (floor (max 1 (* (cdr pagesize) scale))))))
+    (setq width (floor (* (car pagesize) scale))
+          height (floor (* (cdr pagesize) scale)))
+    (when (> width (max 1 (or pdf-view-max-image-width width)))
+      (setq width pdf-view-max-image-width
+            height (* height (/ (float pdf-view-max-image-width) width))))
+    (cons (max 1 width) (max 1 height))))
 
 (defun pdf-view-text-regions-hotspots-function (page size)
   "Return a list of hotspots for text regions on PAGE using SIZE.
