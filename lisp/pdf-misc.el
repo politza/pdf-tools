@@ -263,7 +263,8 @@ It is called with one argument, the PDF file."
   (let ((programm (pdf-misc-print-programm interactive-p)))
     (unless programm
       (error "No print programm available"))
-    (start-process "printing" nil programm filename)))
+    (start-process "printing" nil programm filename)
+    (message "print job sent!")))
 
 (provide 'pdf-misc)
 
