@@ -230,10 +230,22 @@
       (display-buffer (current-buffer)))
     md))
 
+(defgroup pdf-misc nil
+  "Miscellaneous options for PDF documents."
+  :group 'pdf-tools)
+
 (defcustom pdf-misc-print-programm nil
   "The program used for printing.
 
 It is called with one argument, the PDF file."
+  :group 'pdf-misc
+  :type 'file)
+
+(defcustom pdf-misc-print-programm-args ""
+  "Arguments passed to pdf-misc-print-programm.
+
+Should be the empty string, rather than nil,
+when no arguments are passed."
   :group 'pdf-misc
   :type 'file)
 
@@ -263,7 +275,9 @@ It is called with one argument, the PDF file."
   (let ((programm (pdf-misc-print-programm interactive-p)))
     (unless programm
       (error "No print programm available"))
-    (start-process "printing" nil programm filename)))
+    (start-process "printing" nil programm pdf-misc-print-programm-args filename)
+    (message "print job sent as: %s %s %s"
+             programm pdf-misc-print-programm-args filename)))
 
 (provide 'pdf-misc)
 
