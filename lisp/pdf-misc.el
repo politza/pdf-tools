@@ -230,6 +230,10 @@
       (display-buffer (current-buffer)))
     md))
 
+(defgroup pdf-misc nil
+  "Miscellaneous options for PDF documents."
+  :group 'pdf-tools)
+
 (defcustom pdf-misc-print-programm nil
   "The program used for printing.
 
