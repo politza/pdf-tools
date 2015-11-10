@@ -1642,7 +1642,7 @@ belong to the same page and A1 is displayed above/left of A2."
             (pdf-annot-getannot id pdf-annot-list-document-buffer)))))
 
 (defconst pdf-annot-org-exportable-properties
-  (list 'page 'edges 'type 'id 'flags 'color 'modified 'label 'subject 'opacity 'created 'markup-edges 'icon))
+  (list 'page 'edges 'id 'flags 'color 'modified 'label 'subject 'opacity 'created 'markup-edges 'icon))
 ;; some properties are not changeable by default.
 ;; we miss some information when importing, such as creation date.
 (defconst pdf-annot-org-importable-properties
@@ -1662,6 +1662,7 @@ belong to the same page and A1 is displayed above/left of A2."
          (progn
            (org-insert-heading-respect-content)
            (insert (symbol-name (pdf-annot-get-id annot)))
+           (insert (concat " :" (symbol-name (pdf-annot-get-type annot)) ":"))
            (insert (concat "\n" (pdf-annot-get annot 'contents)))
            (mapcar
             '(lambda (field) ;; traverse all fields
@@ -1670,6 +1671,7 @@ belong to the same page and A1 is displayed above/left of A2."
                                    (format "%s" (cdr field)))))
             annot)))
        annots)
+      (org-set-tags 1)
       (write-file filename t))))
 
 (defun pdf-annot-import-from-org (orgfile)
@@ -1691,7 +1693,7 @@ belong to the same page and A1 is displayed above/left of A2."
                   (cons propname
                         (cond ;; convert from string to proper types
                          ((member propname (list 'page 'flags 'opacity)) (string-to-number propval))
-                         ((member propname (list 'type 'id)) (intern propval))
+                         ((member propname (list 'id)) (intern propval))
                          ((string-equal propval "nil") nil)
                          ((member propname (list 'edges 'modified))
                           (mapcar 'string-to-number (split-string propval " \\|(\\|)" t)))
@@ -1703,6 +1705,9 @@ belong to the same page and A1 is displayed above/left of A2."
                          (t propval)))
                   properties))))
            (org-entry-properties))
+          ;; include 'type
+          (push (cons 'type (intern (car (org-get-tags))))
+                properties)
           ;; add contents -- they are the subtree text, after the properties
           (push (cons 'contents
                       (let ((beg (save-excursion (re-search-forward ":END:\n") (point)))
