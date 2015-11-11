@@ -1683,7 +1683,16 @@ are referenced by its edges, but functions for these tasks need region."
            (org-insert-heading-respect-content)
            (insert (symbol-name (pdf-annot-get-id annot)))
            (insert (concat " :" (symbol-name (pdf-annot-get-type annot)) ":"))
-           (insert (concat "\n" (pdf-annot-get annot 'contents)))
+           ;; insert text from marked-up region in an org-mode quote
+           (when (pdf-annot-get annot 'markup-edges)
+             (insert (concat "\n#+BEGIN_QUOTE\n"
+                             (with-current-buffer buffer
+                               (pdf-info-gettext (pdf-annot-get annot 'page)
+                                                 (pdf-annot-edges-to-region
+                                                  (pdf-annot-get annot 'markup-edges))))
+                             "\n#+END_QUOTE")))
+           (insert (concat "\n\n" (pdf-annot-get annot 'contents)))
+           ;; set org properties for each of the remaining fields
            (mapcar
             '(lambda (field) ;; traverse all fields
                (when (member (car field) pdf-annot-org-exportable-properties)
