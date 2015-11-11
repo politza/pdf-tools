@@ -21,8 +21,8 @@
 
 (unless (file-directory-p cask-elpa)
   (error "Do `cask install' first"))
-(copy-directory (format "../.cask/%s/elpa" emacs-version)
-                (file-name-directory package-user-dir))
+(add-to-list 'package-directory-list
+	     (format "../.cask/%s/elpa" emacs-version))
 (add-hook 'kill-emacs-hook (lambda nil
                              (when (file-exists-p package-user-dir)
                                (delete-directory package-user-dir t))))
