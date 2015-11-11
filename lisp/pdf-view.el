@@ -1077,16 +1077,16 @@ Deactivate the region if DEACTIVATE-P is non-nil."
     (pdf-view-redisplay t)))
 
 (defun pdf-view-mouse-set-region (event &optional allow-extend-p
-                                        render-rectangle-p)
+                                        rectangle-p)
   "Selects a region of text using the mouse.
 
 Allow for stacking of regions, if ALLOW-EXTEND-P is non-nil.
-Highlight the region with a rectangle if RENDER-RECTANGLE-P
-is non-nil, otherwise highlight text only.
+
+Create a rectangular region, if RECTANGLE-P is non-nil.
 
 Stores the region in `pdf-view-active-region'."
   (interactive "@e")
-  (setq pdf-view--have-rectangle-region render-rectangle-p)
+  (setq pdf-view--have-rectangle-region rectangle-p)
   (unless (and (eventp event)
                (mouse-event-p event))
     (signal 'wrong-type-argument (list 'mouse-event-p event)))
@@ -1146,15 +1146,18 @@ Stores the region in `pdf-view-active-region'."
                                                 (+ (car begin) (car dxy))))
                                     (max 0 (min (cdr size)
                                                 (+ (cdr begin) (cdr dxy)))))))))
-                (let ((iregion (list (min (car begin) (car end))
-                                     (min (cdr begin) (cdr end))
-                                     (max (car begin) (car end))
-                                     (max (cdr begin) (cdr end)))))
+                (let ((iregion (if rectangle-p
+				   (list (min (car begin) (car end))
+					 (min (cdr begin) (cdr end))
+					 (max (car begin) (car end))
+					 (max (cdr begin) (cdr end)))
+				 (list (car begin) (cdr begin)
+				       (car end) (cdr end)))))
                   (setq region
                         (pdf-util-scale-pixel-to-relative iregion))
                   (pdf-view-display-region
                    (cons region pdf-view-active-region)
-                   render-rectangle-p)
+                   rectangle-p)
                   (pdf-util-scroll-to-edges iregion)))))
       (setq pdf-view-active-region
             (append pdf-view-active-region
