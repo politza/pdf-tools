@@ -1648,13 +1648,33 @@ belong to the same page and A1 is displayed above/left of A2."
 (defconst pdf-annot-org-importable-properties
   (list 'contents 'edges 'flags 'color 'label 'opacity 'icon))
 
+(defun pdf-annot-edges-to-region (edges)
+  "Attempt to get 4-entry region \(LEFT TOP RIGHT BOTTOM\) from several edges.
+We need this to import annotations and to get marked-up text, because annotations
+are referenced by its edges, but functions for these tasks need region."
+  (let ((left0 (nth 0 (car edges)))
+        (top0 (nth 1 (car edges)))
+        (bottom0 (nth 3 (car edges)))
+        (top1 (nth 1 (car (last edges))))
+        (right1 (nth 2 (car (last edges))))
+        (bottom1 (nth 3 (car (last edges))))
+        (n (safe-length edges)))
+    ;; we try to guess the line height to move
+    ;; the region away from the boundary and
+    ;; avoid double lines
+    (list left0
+          (+ top0 (/ (- bottom0 top0) 2))
+          right1
+          (- bottom1 (/ (- bottom1 top1) 2 )))))
+
 (defun pdf-annot-export-to-org ()
   "Export annotations to an Org file."
   (interactive)
   (let ((annots (sort (pdf-annot-getannots) 'pdf-annot-compare-annotations))
         (filename (format "%s.org"
                           (file-name-sans-extension
-                           (buffer-name)))))
+                           (buffer-name))))
+        (buffer (current-buffer)))
     (with-temp-buffer
       (insert (concat "#+TITLE: Notes for " (file-name-sans-extension filename)))
       (mapc
@@ -1719,7 +1739,7 @@ belong to the same page and A1 is displayed above/left of A2."
             (pdf-annot-add-annotation (pdf-annot-get properties 'type)
                                       (if (eq (pdf-annot-get properties 'type) 'text)
                                           (pdf-annot-get properties 'edges)
-                                        (pdf-annot-get properties 'markup-edges))
+                                        (pdf-annot-edges-to-region (pdf-annot-get properties 'markup-edges)))
                                       (delq nil (mapcar
                                                  (lambda (x)
                                                    (if (member (car x) pdf-annot-org-importable-properties)
