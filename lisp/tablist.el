@@ -295,12 +295,14 @@ as argument for the function `completion-in-region'.")
   (lambda nil
     (add-to-list 'savehist-additional-variables 'tablist-named-filter)))
 
+;;;###autoload
 (define-minor-mode tablist-minor-mode
   nil nil nil nil
   (unless (derived-mode-p 'tabulated-list-mode)
     (error "Buffer is not in Tabulated List Mode"))
   (tablist-init (not tablist-minor-mode)))
 
+;;;###autoload
 (define-derived-mode tablist-mode tabulated-list-mode "TL"
   (tablist-init))
 
