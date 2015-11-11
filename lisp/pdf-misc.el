@@ -241,13 +241,11 @@ It is called with one argument, the PDF file."
   :group 'pdf-misc
   :type 'file)
 
-(defcustom pdf-misc-print-programm-args ""
-  "Arguments passed to pdf-misc-print-programm.
-
-Should be the empty string, rather than nil,
-when no arguments are passed."
+(defcustom pdf-misc-print-programm-args nil
+  "List of additional arguments passed to `pdf-misc-print-programm'."
   :group 'pdf-misc
-  :type 'file)
+  :type 'file
+  :type '(repeat string))
 
 (defun pdf-misc-print-programm (&optional interactive-p)
   (or (and pdf-misc-print-programm
@@ -272,12 +270,14 @@ when no arguments are passed."
   (interactive
    (list (pdf-view-buffer-file-name) t))
   (cl-check-type filename (and string file-readable))
-  (let ((programm (pdf-misc-print-programm interactive-p)))
+  (let ((programm (pdf-misc-print-programm interactive-p))
+	(args (append pdf-misc-print-programm-args (list filename))))
     (unless programm
       (error "No print programm available"))
-    (start-process "printing" nil programm pdf-misc-print-programm-args filename)
-    (message "print job sent as: %s %s %s"
-             programm pdf-misc-print-programm-args filename)))
+    (apply #'start-process "printing" nil programm args)
+    (message "Print job started: %s %s"
+	     programm (mapconcat #'identity args " "))))
+				 
 
 (provide 'pdf-misc)
 
