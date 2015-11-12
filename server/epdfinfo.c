@@ -1227,6 +1227,25 @@ annotation_get_by_key (document_t *doc, const gchar *key)
 }
 
 #ifdef HAVE_POPPLER_ANNOT_MARKUP
+void
+annotation_translate_quadrilateral (PopplerPage *page, PopplerQuadrilateral *q, gboolean inverse)
+{
+  PopplerRectangle cbox;
+  gdouble xs, ys;
+
+  poppler_page_get_crop_box (page, &cbox);
+  xs = MIN (cbox.x1, cbox.x2);
+  ys = MIN (cbox.y1, cbox.y2);
+  
+  if (inverse)
+    {
+      xs = -xs; ys = -ys;
+    }
+
+  q->p1.x -= xs, q->p2.x -= xs; q->p3.x -= xs; q->p4.x -= xs;
+  q->p1.y -= ys, q->p2.y -= ys; q->p3.y -= ys; q->p4.y -= ys;
+}
+
 static cairo_region_t*
 annotation_markup_get_text_regions (PopplerPage *page, PopplerAnnotTextMarkup *a)
 {
@@ -1242,6 +1261,7 @@ annotation_markup_get_text_regions (PopplerPage *page, PopplerAnnotTextMarkup *a
       PopplerQuadrilateral *q = &g_array_index (quads, PopplerQuadrilateral, i);
       cairo_rectangle_int_t r;
 
+      annotation_translate_quadrilateral (page, q, FALSE);
       q->p1.y = height - q->p1.y;
       q->p2.y = height - q->p2.y;
       q->p3.y = height - q->p3.y;
@@ -1296,6 +1316,7 @@ annotation_markup_append_text_region (PopplerPage *page, PopplerRectangle *regio
       q.p3.x = r->x1;
       q.p3.y = height - r->y2;
 
+      annotation_translate_quadrilateral (page, &q, TRUE);
       g_array_append_val (garray, q);
     }
   g_list_free (regions);
