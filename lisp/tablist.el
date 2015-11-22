@@ -255,7 +255,7 @@ column.
 
 The function is called with 4 further arguments: ID, INDEX,
 STRING and POS, where ID represents an entry, INDEX is the index
-of the column to complete, STRING it's current value and POS an
+of the column to complete, STRING its current value and POS an
 offset of the current position of point into STRING.
 
 The function should return a collection for this column, suitable
@@ -1825,7 +1825,7 @@ Named filter are saved in the variable `tablist-named-filter'."
 (defun tablist-display-filter (&optional flag)
   "Display the current filter according to FLAG.
 
-If FLAG has the value 'toggle, toggle it's visibility.
+If FLAG has the value 'toggle, toggle its visibility.
 If FLAG has the 'state, then do nothing but return the current 
 visibility."
   (interactive (list 'toggle))
