@@ -611,7 +611,7 @@ at the top edge of the page moves to the previous page."
 (defun pdf-view-goto-label (label)
   "Goto the page corresponding to LABEL.
 
-Usually the label of a document's page is the same as it's
+Usually the label of a document's page is the same as its
 displayed page number."
   (interactive
    (list (let ((labels (pdf-info-pagelabels)))

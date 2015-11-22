@@ -178,7 +178,7 @@ links via \\[pdf-links-isearch-link].
 
 ;;;###autoload
 (defun pdf-links-action-perform (link)
-  "Follow LINK, depending on it's type.
+  "Follow LINK, depending on its type.
 
 This may turn to another page, switch to another PDF buffer or
 invoke `pdf-links-browse-uri-function'.

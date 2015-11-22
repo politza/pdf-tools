@@ -119,7 +119,7 @@ searching across multiple lines.")
     kmap)
   "Keymap used in `pdf-isearch-active-mode'.
 
-This keymap is used, when isearching in PDF buffers.  It's parent
+This keymap is used, when isearching in PDF buffers.  Its parent
 keymap is `isearch-mode-map'.")
 
 (put 'image-scroll-up 'isearch-scroll t)

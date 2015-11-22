@@ -498,7 +498,7 @@ PAGE should be a page-number."
 (advice-add 'pdf-virtual-view-mode
             :around 'pdf-virtual-view-mode-prepare)
 
-;; This needs to run before pdf-view-mode does it's thing.
+;; This needs to run before pdf-view-mode does its thing.
 (defun pdf-virtual-view-mode-prepare (fn)
   (let (list unreadable)
     (save-excursion

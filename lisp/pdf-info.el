@@ -722,7 +722,7 @@ representing the final page."
 
 All queries in each QUERIES form are run by the server in the
 order they appear and the results collected in a list, which is
-bound to VAR.  Then BODY is evaluated and it's value becomes the
+bound to VAR.  Then BODY is evaluated and its value becomes the
 final result of all queries, unless at least one of them provoked
 an error.  In this case BODY is ignored and the error is the
 result.
@@ -797,7 +797,7 @@ i.e. `pdf-info-asynchronous' is non-nil, transparently.
                        (funcall ,callback ,status ,response)
                      (apply (car ,callback)
                        ,status ,response (cdr ,callback))))))))
-       ;; Wrap each query in an asynchronous call, with it's VAR as
+       ;; Wrap each query in an asynchronous call, with its VAR as
        ;; callback argument, so the PUSH-FN can put it in the alist
        ;; RESULTS.
        ,@(mapcar (lambda (form)
@@ -1072,7 +1072,7 @@ See the glib documentation at url
   "Search for a PCRE on PAGES of docüment FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats and
-`pdf-info-search-string' for it's return value.
+`pdf-info-search-string' for its return value.
 
 Uses the flags in `pdf-info-regexp-flags', which see.  If
 `case-fold-search' is non-nil, the caseless flag is added.
@@ -1129,7 +1129,7 @@ TYPE may be one of
 
 goto-dest -- This is a internal link to some page.  Each element
 contains additional keys PAGE and TOP, where PAGE is the page of
-the link and TOP it's vertical position.
+the link and TOP its vertical position.
 
 goto-remote -- This a external link to some document.  Same as
 goto-dest, with an additional FILENAME of the external PDF.
@@ -1288,12 +1288,12 @@ This function returns the annotations for PAGES as a list of
 alists.  Each element of this list describes one annotation and
 contains the following keys.
 
-page     - It's page number. 
-edges    - It's area.
+page     - Its page number. 
+edges    - Its area.
 type     - A symbol describing the annotation's type.
 id       - A document-wide unique symbol referencing this annotation.
-flags    - It's flags, binary encoded.
-color    - It's color in standard Emacs notation.
+flags    - Its flags, binary encoded.
+color    - Its color in standard Emacs notation.
 contents - The text of this annotation.
 modified - The last modification date of this annotation.
 
