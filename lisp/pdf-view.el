@@ -886,7 +886,7 @@ If WINDOW is t, redisplay pages in all windows."
       (overlay-put ol 'pdf-view t))
     (overlay-put ol 'window (car winprops))
     (unless (windowp (car winprops))
-      ;; It's a pseudo entry.  Let's make sure it's not displayed (the
+      ;; Its a pseudo entry.  Let's make sure its not displayed (the
       ;; `window' property is only effective if its value is a window).
       (cl-assert (eq t (car winprops)))
       (delete-overlay ol))
