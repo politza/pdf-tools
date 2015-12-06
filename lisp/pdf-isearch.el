@@ -43,7 +43,7 @@
 (defgroup pdf-isearch nil
   "Isearch in pdf buffers."
   :group 'pdf-tools)
-  
+
 (defface pdf-isearch-match
   '((((background dark)) (:inherit isearch))
     (((background light)) (:inherit isearch)))
@@ -90,7 +90,7 @@ return a result like `pdf-info-search-regexp'.")
 
 A match may contain more than one edges-element, e.g. when regexp
 searching across multiple lines.")
-  
+
 (defvar-local pdf-isearch-current-matches nil
   "A list of matches of the last search.")
 
@@ -103,7 +103,7 @@ searching across multiple lines.")
 ;; * ================================================================== *
 
 (declare-function pdf-occur "pdf-occur.el")
-                  
+
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap [remap occur] 'pdf-occur)
@@ -455,11 +455,11 @@ coordinates, sorted top to bottom, then left to right."
 (defun pdf-isearch-search-fun ()
   (funcall (or pdf-isearch-search-fun-function
                'pdf-isearch-search-fun-default)))
-  
+
 (defun pdf-isearch-search-fun-default ()
   "Return default functions to use for the search."
   (cond
-   (isearch-word
+   ((eq isearch-word t)
     (lambda (string &optional pages)
       ;; Use lax versions to not fail at the end of the word while
       ;; the user adds and removes characters in the search string
@@ -470,23 +470,12 @@ coordinates, sorted top to bottom, then left to right."
 			      (length (isearch--state-string
                                        (car isearch-cmds))))))))
         (pdf-info-search-regexp
-	 (if (functionp isearch-word)
-	     (funcall isearch-word string lax)
-	   (pdf-isearch-word-search-regexp
-            string lax pdf-isearch-hyphenation-character))
+	 (pdf-isearch-word-search-regexp
+	  string lax pdf-isearch-hyphenation-character)
 	 pages 'invalid-regexp))))
-   ;; ((and isearch-regexp isearch-regexp-lax-whitespace
-   ;;       search-whitespace-regexp)
-   ;;  (if isearch-forward
-   ;;      're-search-forward-lax-whitespace
-   ;;    're-search-backward-lax-whitespace))
    (isearch-regexp
     (lambda (string &optional pages)
       (pdf-info-search-regexp string pages 'invalid-regexp)))
-   ;; ((and isearch-lax-whitespace search-whitespace-regexp)
-   ;;  (if isearch-forward
-   ;;      'search-forward-lax-whitespace
-   ;;    'search-backward-lax-whitespace))
    (t
     'pdf-info-search-string)))
 
