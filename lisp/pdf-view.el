@@ -444,7 +444,7 @@ a local copy of a remote file."
 
 (defun pdf-view-scale-reset ()
   (interactive)
-  (setq pdf-view-display-size 1.0)
+  (setq pdf-view-display-size (default-value 'pdf-view-display-size))
   (pdf-view-redisplay t))
 
 
