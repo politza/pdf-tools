@@ -129,8 +129,8 @@
   $ pkg install autotools gmake poppler-glib
 #+END_SRC
 
-     If you choose not to install from MELPA, you must substitute
-    `gmake` for `make` in the build instructions below.
+     If you choose not to install from melpa, you must substitute
+    ~gmake~ for ~make~ in the instructions below.
 *** Compilation
     Now it's time to compile the source.      
 #+begin_src sh
