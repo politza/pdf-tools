@@ -259,8 +259,11 @@ CALLBACK may be a function, which will be locally put on
 `compilation-finish-functions', which see."
   (if (file-executable-p pdf-info-epdfinfo-program)
       (message "%s" "Server already build.")
-    (unless (executable-find "make")
-      (error "Executable `make' command not found"))
+    (if (eq system-type 'berkeley-unix)
+        (unless (executable-find "gmake")
+          (error "Executable `gmake' command not found"))
+      (unless (executable-find "make")
+        (error "Executable `make' command not found")))
     (unless build-directory
       (setq build-directory
             (expand-file-name
@@ -281,9 +284,14 @@ CALLBACK may be a function, which will be locally put on
            (compilation-buffer-name-function
             (lambda (&rest _)
               (setq compilation-buffer
-                    (generate-new-buffer-name "*compile pdf-tools*")))))
+                    (generate-new-buffer-name "*compile pdf-tools*"))))
+           (make-cmd
+            (if (eq system-type 'berkeley-unix)
+                "gmake"
+              "make")))
       (compile 
-       (format "make V=0 -kC '%s' %smelpa-build"
+       (format "%s V=0 -kC '%s' %smelpa-build"
+               make-cmd
                build-directory
                (if install-server-deps "install-server-deps " " "))
        install-server-deps)

@@ -122,6 +122,15 @@
      or likewise within Emacs using `setenv`.
      
      After that, compilation should proceed as normal.
+**** Compiling on FreeBSD
+     Although not officially suppported, it has been reported that
+     pdf-tools work well on FreeBSD.  Install the dependencies with
+#+BEGIN_SRC sh
+  $ pkg install autotools gmake poppler-glib
+#+END_SRC
+
+     If you choose not to install from MELPA, you must substitute
+    `gmake` for `make` in the build instructions below.
 *** Compilation
     Now it's time to compile the source.      
 #+begin_src sh
