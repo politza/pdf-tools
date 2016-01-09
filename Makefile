@@ -68,7 +68,7 @@ bytecompile: cask-install
 	cask exec $(EMACS) $(EFLAGS) -L $(PWD)/lisp -f batch-byte-compile lisp/*.el
 
 test: all cask-install
-	cask exec $(EMACS) $(EFLAGS) -l test/run-tests.el $(PACKAGE_NAME).tar
+	PACKAGE_TAR=$(PACKAGE_NAME).tar cask exec ert-runner
 
 cask-install: .cask/$(EMACS_VERSION)
 

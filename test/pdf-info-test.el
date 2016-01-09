@@ -1,9 +1,5 @@
 ;; -*- lexical-binding: t -*-
 
-(require 'let-alist)
-(require 'pdf-info)
-(require 'ert)
-
 (ert-deftest pdf-info-open/close ()
   (pdf-test-with-test-pdf
     (should-not (pdf-info-open))
@@ -18,7 +14,7 @@
 
 (ert-deftest pdf-info-search-string ()
   (pdf-test-with-test-pdf
-   (let (matches) 
+   (let (matches)
      (should (setq matches (pdf-info-search-string "PDF Tools")))
      (should (= 2 (length matches)))
      (should (cl-every (lambda (m)
@@ -27,11 +23,11 @@
                                 (cl-every 'pdf-test-relative-edges-p .edges)
                                 (= 1 .page))))
                        matches)))))
-              
+
 
 (ert-deftest pdf-info-search-regexp ()
   (pdf-test-with-test-pdf
-    (let (case-fold-search matches) 
+    (let (case-fold-search matches)
       (should (setq matches (pdf-info-search-regexp "PDF Tools")))
       (should (= 2 (length matches)))
       (should (cl-every (lambda (m)
@@ -174,7 +170,7 @@
       (should (= nannots (length (pdf-info-getannots)))))))
 
 (ert-deftest pdf-info-mvannot ()
-  (skip-unless (pdf-info-writable-annotations-p))  
+  (skip-unless (pdf-info-writable-annotations-p))
   (pdf-test-with-test-pdf
     (let ((edges '(0.25 0.25 1.0 1.0))
           (id (cdr (assq 'id (car (pdf-info-getannots))))))
@@ -253,4 +249,3 @@
 ;; (ert-deftest pdf-info-boundingbox ()
 ;;   (pdf-test-with-test-pdf
 ;;     ))
-
