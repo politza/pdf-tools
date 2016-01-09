@@ -69,7 +69,8 @@
 
 ;; ---
 (require 'f)
-
+(require 'undercover)
+(undercover "lisp/*.el")
 (require 'let-alist)
 (require 'pdf-info)
 (require 'ert)
