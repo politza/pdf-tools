@@ -28,6 +28,16 @@ addons:
   apt:
     packages:
     - python-poppler
+    - gcc
+    - g++
+    - make
+    - automake
+    - autoconf
+    - libpng-dev
+    - libz-dev
+    - libpoppler-glib-dev
+    - libpoppler-private-dev
+    - gtklp
 
 notifications:
   email: false
