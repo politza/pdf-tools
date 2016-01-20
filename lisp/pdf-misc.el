@@ -244,7 +244,6 @@ It is called with one argument, the PDF file."
 (defcustom pdf-misc-print-programm-args nil
   "List of additional arguments passed to `pdf-misc-print-programm'."
   :group 'pdf-misc
-  :type 'file
   :type '(repeat string))
 
 (defun pdf-misc-print-programm (&optional interactive-p)
