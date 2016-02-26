@@ -54,7 +54,7 @@ if test "$HAVE_POPPLER_ANNOT_MARKUP" = yes; then
 fi
 
 # Checks for header files.
-AC_CHECK_HEADERS([stdlib.h string.h strings.h])
+AC_CHECK_HEADERS([stdlib.h string.h strings.h err.h])
 
 AC_MSG_CHECKING([for error.h])
 SAVED_CFLAGS=$CFLAGS
@@ -76,7 +76,7 @@ AC_C_BIGENDIAN
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STRTOD
-AC_CHECK_FUNCS([strcspn strtol])
+AC_CHECK_FUNCS([strcspn strtol getline])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

@@ -18,7 +18,9 @@
 #include <config.h>
 
 #include <assert.h>
-#include <err.h>
+#ifdef HAVE_ERR_H
+#  include <err.h>
+#endif
 #ifdef HAVE_ERROR_H
 #  include <error.h>
 #endif
@@ -44,6 +46,86 @@
 /* ================================================================== *
  * Helper Functions
  * ================================================================== */
+
+#ifndef HAVE_ERR_H
+/**
+ * Print error message and quit.
+ *
+ * @param eval Return code
+ * @param fmt Formatting string
+ */
+static void
+err(int eval, const char *fmt, ...)
+{
+  va_list args;
+
+  fprintf (stderr, "epdfinfo: ");
+  if (fmt != NULL)
+    {
+      va_start (args, fmt);
+      vfprintf (stderr, fmt, args);
+      va_end (args);
+      fprintf (stderr, ": %s\n", strerror(errno));
+    }
+  else
+    {
+      fprintf (stderr, "\n");
+    }
+
+  fflush (stderr);
+  exit (eval);
+}
+#endif
+
+#ifndef HAVE_GETLINE
+/**
+ * Read one line from a file.
+ *
+ * @param lineptr Pointer to malloc() allocated buffer
+ * @param n Pointer to size of buffer
+ * @param stream File pointer to read from
+ */
+static ssize_t
+getline(char **lineptr, size_t *n, FILE *stream)
+{
+  size_t len = 0;
+  int ch;
+
+  if ((lineptr == NULL) || (n == NULL))
+    {
+      errno = EINVAL;
+      return -1;
+    }
+
+  if (*lineptr == NULL)
+    {
+      *lineptr = malloc (128);
+      *n = 128;
+    }
+
+  while ((ch = fgetc (stream)) != EOF)
+    {
+      (*lineptr)[len] = ch;
+
+      if (++len >= *n)
+        {
+          *n += 128;
+          *lineptr = realloc (*lineptr, *n);
+        }
+
+      if (ch == '\n')
+        break;
+    }
+  (*lineptr)[len] = '\0';
+
+  if (!len)
+    {
+      len = -1;
+    }
+
+  return len;
+}
+#endif
 
 /**
  * Free a list of command arguments.
@@ -3550,6 +3632,12 @@ int main(int argc, char **argv)
   ssize_t read;
   size_t line_size;
   const char *error_log = "/dev/null";
+
+#ifdef __MINGW32__
+  error_log = "NUL";
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
+#endif
 
   if (argc > 2)
     {
