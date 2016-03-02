@@ -259,8 +259,9 @@ CALLBACK may be a function, which will be locally put on
 `compilation-finish-functions', which see."
   (if (file-executable-p pdf-info-epdfinfo-program)
       (message "%s" "Server already build.")
-    (unless (executable-find "make")
-      (error "Executable `make' command not found"))
+    (if (not (eq system-type 'windows-nt))
+	(unless (executable-find "make")
+	  (error "Executable `make' command not found")))
     (unless build-directory
       (setq build-directory
             (expand-file-name
@@ -282,11 +283,19 @@ CALLBACK may be a function, which will be locally put on
             (lambda (&rest _)
               (setq compilation-buffer
                     (generate-new-buffer-name "*compile pdf-tools*")))))
-      (compile 
-       (format "make V=0 -kC '%s' %smelpa-build"
-               build-directory
-               (if install-server-deps "install-server-deps " " "))
-       install-server-deps)
+      (if (not (eq system-type 'windows-nt))
+	  (compile
+	   (format "make V=0 -kC '%s' %smelpa-build"
+		   build-directory
+		   (if install-server-deps "install-server-deps " " "))
+	   install-server-deps)
+	(let* ((arch (upcase (nth 2 (split-string system-configuration "-"))))
+	       (msys2-install-directory
+		(file-name-directory (read-file-name "Path to msys2_shell.bat: "))))
+	  (compile (format "%susr/bin/bash.exe --login -c 'MSYSTEM=%s source /etc/profile; LANG=C make V=0 -kC \"%s\" melpa-build'"
+			   msys2-install-directory
+			   arch
+			   build-directory))))
       (when (and compilation-buffer
                  (buffer-live-p (get-buffer compilation-buffer)))
         (when callback
