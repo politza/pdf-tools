@@ -62,7 +62,9 @@
   :group 'pdf-tools)
   
 (defcustom pdf-info-epdfinfo-program
-  (expand-file-name "epdfinfo"
+  (expand-file-name (if (eq system-type 'windows-nt)
+			"epdfinfo.exe"
+		      "epdfinfo")
                     (file-name-directory
                      (or load-file-name default-directory)))
   "Filename of the epdfinfo executable."

@@ -88,6 +88,11 @@ install-server-deps:
 
 melpa-build: server/epdfinfo
 	-cp -p server/epdfinfo ..
+	@if [ "$(shell uname -o)" = "Msys" ]; then \
+		for f in $(shell ldd server/epdfinfo | awk '/mingw/ {print $$3}'); do \
+			cp $$f ..; \
+		done; \
+	fi
 	$(MAKE) distclean
 	@if [ -x ../epdfinfo ]; then \
 		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
