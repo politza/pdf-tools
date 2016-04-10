@@ -247,8 +247,8 @@ PDF buffers."
 
 ;;;###autoload
 (defun pdf-tools--melpa-build-server (&optional build-directory
-                                                  skip-dependencies-p
-                                                  callback)
+						skip-dependencies-p
+						callback)
   "Compile the epdfinfo program in BUILD-DIRECTORY.
 
 This is a helper function when installing via melpa.
@@ -257,38 +257,43 @@ Don't try to install dependencies if SKIP-DEPENDENCIES-P is non-nil.
 
 CALLBACK may be a function, which will be locally put on
 `compilation-finish-functions', which see."
+
   (if (file-executable-p pdf-info-epdfinfo-program)
       (message "%s" "Server already build.")
-    (if (not (eq system-type 'windows-nt))
-	(unless (executable-find "make")
-	  (error "Executable `make' command not found")))
-    (unless build-directory
-      (setq build-directory
-            (expand-file-name
-             "build"
-             (file-name-directory pdf-info-epdfinfo-program))))
-    (unless (file-directory-p build-directory)
-      (error "No such directory: %s" build-directory))
-    (let* ((have-apt-and-sudo
-            (and (executable-find "apt-get")
-                 (executable-find "sudo")))
-           (install-server-deps
-            (and have-apt-and-sudo
-                 (not skip-dependencies-p)
-                 (y-or-n-p "Should I try to install dependencies with apt-get ?")))
-           (compilation-auto-jump-to-first-error nil)
-           (compilation-scroll-output t)
-           compilation-buffer
-           (compilation-buffer-name-function
-            (lambda (&rest _)
-              (setq compilation-buffer
-                    (generate-new-buffer-name "*compile pdf-tools*")))))
+    (let* ((make-cmd
+	    (if (eq system-type 'berkeley-unix) "gmake" "make"))
+	   (have-apt-and-sudo
+	    (and (executable-find "apt-get")
+		 (executable-find "sudo")))
+	   (install-server-deps
+	    (and have-apt-and-sudo
+		 (not skip-dependencies-p)
+		 (y-or-n-p "Should I try to install dependencies with apt-get ?")))
+	   (compilation-auto-jump-to-first-error nil)
+	   (compilation-scroll-output t)
+	   compilation-buffer
+	   (compilation-buffer-name-function
+	    (lambda (&rest _)
+	      (setq compilation-buffer
+		    (generate-new-buffer-name "*compile pdf-tools*")))))
+      (unless (eq system-type 'windows-nt)
+	(unless (executable-find make-cmd)
+	  (error "Executable `%s' command not found"
+		 make-cmd)))
+      (unless build-directory
+	(setq build-directory
+	      (expand-file-name
+	       "build"
+	       (file-name-directory pdf-info-epdfinfo-program))))
+      (unless (file-directory-p build-directory)
+	(error "No such directory: %s" build-directory))
       (if (not (eq system-type 'windows-nt))
 	  (compile
-	   (format "make V=0 -kC '%s' %smelpa-build"
-		   build-directory
-		   (if install-server-deps "install-server-deps " " "))
-	   install-server-deps)
+	      (format "%s V=0 -kC '%s' %smelpa-build"
+		      make-cmd
+		      build-directory
+		      (if install-server-deps "install-server-deps " " "))
+	    install-server-deps)
 	(let* ((arch (upcase (nth 2 (split-string system-configuration "-"))))
 	       (msys2-install-directory
 		(file-name-directory (read-file-name "Path to msys2_shell.bat: "))))
@@ -296,11 +301,6 @@ CALLBACK may be a function, which will be locally put on
 			   msys2-install-directory
 			   arch
 			   build-directory))))
-      (when (and compilation-buffer
-                 (buffer-live-p (get-buffer compilation-buffer)))
-        (when callback
-          (with-current-buffer compilation-buffer
-            (add-hook 'compilation-finish-functions callback nil t))))
       compilation-buffer)))
 
 
