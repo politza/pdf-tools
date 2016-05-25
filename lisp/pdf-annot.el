@@ -1225,7 +1225,7 @@ property."
              (format "File attachment `%s' of %s"
                      (or (cdr (assq 'filename att)) "unnamed")
                      (if (cdr (assq 'size att))
-                         (format "size %d" (file-size-human-readable
+                         (format "size %s" (file-size-human-readable
                                             (cdr (assq 'size att))))
                        "unknown size"))))
           (t
