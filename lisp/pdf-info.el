@@ -339,6 +339,11 @@ error."
        ((null status) response)
        ((eq status 'error) 
         (error "epdfinfo: %s" response))
+       ((eq status 'password-required)
+        (let ((password (read-passwd "Password for PDF: ")))
+          (pdf-info-open nil password)
+          ;; retry command
+          (apply 'pdf-info-query cmd args)))
        ((eq status 'interrupted)
         (error "epdfinfo: Command was interrupted"))
        (t
@@ -395,8 +400,8 @@ error."
 
 Returns a cons \(STATUS . RESULT\), where STATUS is one of nil
 for a regular response, error for an error \(RESULT contains the
-error message\) or interrupted, i.e. the command was
-interrupted."
+error message\), symbol password-required or interrupted, i.e. the
+command was interrupted."
   (with-current-buffer
       (get-buffer-create " *pdf-info-query--parse-response*")
     (erase-buffer)
@@ -405,11 +410,13 @@ interrupted."
     (cond
      ((looking-at "ERR\n")
       (forward-line)
-      (cons 'error (buffer-substring-no-properties
-                    (point)
-                    (progn
-                      (re-search-forward "^\\.\n")
-                      (1- (match-beginning 0))))))
+      (if (looking-at "PASSWORD REQUIRED")
+          (cons 'password-required nil)
+        (cons 'error (buffer-substring-no-properties
+                      (point)
+                      (progn
+                        (re-search-forward "^\\.\n")
+                        (1- (match-beginning 0)))))))
      ((looking-at "OK\n")
       (let (result)
         (forward-line)
