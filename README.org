@@ -62,11 +62,9 @@
    section is still relevant.
    
 *** Server Prerequisites
-    You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
-    Other operating systems are currently not supported (patches
-    welcome).  The following instructions assume a Debian-based
-    system. (The prerequisites may be installed automatically on this
-    kind of systems, see [[Compilation]] .)
+    The following instructions assume a Debian-based system. (The
+    prerequisites may be installed automatically on this kind of
+    systems, see [[Compilation]] .)
     
     First make sure a suitable build-system is installed.  We need at
     least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~, ~automake~
@@ -131,11 +129,30 @@
 
      If you choose not to install from melpa, you must substitute
     ~gmake~ for ~make~ in the instructions below.
+**** Compiling on Windows
+First, don't use MELPA; you must install =pdf-tools= manually from this
+repository. Then, you need to install [[https://www.cygwin.com/][Cygwin]]. The following dependencies are
+needed:
+
+- libpoppler-devel (*Lib* category)
+- libpoppler-glib-devel (*Lib* category)
+- libpng-devel (*Devel* category)
+- make (*Devel* category)
+- gcc-core (*Devel* category)
+- gcc-g++ (*Devel* category)
+- autoconf (*Devel* category)
+- automake (*Devel* category)
+- perl (*Perl* category)
+- emacs-w32 (*Editors* category)
+
+Just enter the dependency name above and click to choose. For example, enter
+=libpoppler-devel= into the search box.
+
 *** Compilation
     Now it's time to compile the source.      
 #+begin_src sh
     $ cd /path/to/pdf-tools
-    $ make install-server-deps # optional
+    $ make install-server-deps # optional, not for Windows
     $ make -s
 #+end_src
     The ~make install-server-deps~ command will try to install all
