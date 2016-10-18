@@ -39,7 +39,7 @@
 ;; * ================================================================== *
 
 (defgroup pdf-annot nil
-  "Annoatation support for PDF documents."
+  "Annotation support for PDF documents."
   :group 'pdf-tools)
 
 (defcustom pdf-annot-activate-handler-functions nil
@@ -52,7 +52,7 @@ value if it has `handled' it.  If no such function exists, the
 default handler `pdf-annot-default-handler' will be
 called.
 
-This hook is ment to allow for custom annotations.  FIXME:
+This hook is meant to allow for custom annotations.  FIXME:
 Implement and describe basic org example."
   :group 'pdf-annot
   :type 'hook)
@@ -116,7 +116,7 @@ If this variable has a non-nil value,
 `x-gtk-use-system-tooltips' is set to nil if appropriate, in
 order to display text properties;
 
-`tooltip-hide-delay' is set to infinity, in order to not beeing
+`tooltip-hide-delay' is set to infinity, in order to not being
 annoyed while reading the annotations."
   :group 'pdf-annot)
 
@@ -516,7 +516,7 @@ rectangles of the page where A is rendered."
 Sets A's buffer's modified flag and runs the hook
 `pdf-annot-modified-functions'.
 
-This function alwasy returns nil."
+This function always returns nil."
   (interactive
    (list (pdf-annot-read-annotation
           "Click on the annotation you wish to delete")))
@@ -614,10 +614,10 @@ The DO-SAVE argument is given to
     unique))
       
 
-(defun pdf-annot-attachment-save (attachment &optional regenrate-p)
+(defun pdf-annot-attachment-save (attachment &optional regenerate-p)
   "Save ATTACHMENT's data to a unique filename and return it's name.
 
-If REGENRATE-P is non-nil, copy attachment's file even if the
+If REGENERATE-P is non-nil, copy attachment's file even if the
 copy already exists.
 
 Signal an error, if ATTACHMENT has no, or a non-existing, `file'
@@ -630,7 +630,7 @@ See `pdf-info-getattachments'"
       (error "Attachment's file property is invalid"))
     (let* ((filename
             (pdf-annot-attachment-unique-filename attachment)))
-      (when (or regenrate-p
+      (when (or regenerate-p
                 (not (file-exists-p filename)))
         (copy-file datafile filename nil nil t t))
       filename)))
@@ -1003,7 +1003,7 @@ Return the new annotation."
   "Add a new text annotation at POS in the selected window.
 
 POS should be a image position object or a cons \(X . Y\), both
-beeing image coordinates.
+being image coordinates.
 
 ICON determines how the annotation is displayed and should be
 listed in `pdf-annot-standard-text-icons'.  Any other value is ok
@@ -1164,7 +1164,7 @@ Offer `pdf-annot-color-history' as default values."
   "Merge ALISTS into a single one.
 
 Suppresses successive duplicate entries of keys after the first
-occurence in ALISTS."
+occurrence in ALISTS."
 
   (let (merged)
     (dolist (elt (apply 'append alists))
@@ -1454,7 +1454,7 @@ annotation's contents and otherwise `text-mode'. "
     km))
 
 (defun pdf-annot-property-completions (property)
-  "Return a list of completion candidats for annotation property PROPERTY.
+  "Return a list of completion candidates for annotation property PROPERTY.
 
 Return nil, if not available."
   (cl-case property

@@ -521,7 +521,7 @@ point to the correct position."
 Don't move if already at the beginning, or if not at a word
 character.
 
-This function is ment to be put on `pdf-sync-backward-hook', when
+This function is meant to be put on `pdf-sync-backward-hook', when
 word-level searching is desired."
   (interactive)
   (unless (or (looking-at "\\b\\w")
@@ -705,7 +705,7 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
       (error
        (if (null sfilename)
            (signal (car err) (cdr err))
-         ;; It would be embarassing, if the unmodified buffer-file-name
+         ;; It would be embarrassing, if the unmodified buffer-file-name
          ;; would actually work for some reason.
          (condition-case nil
              (cons pdf
@@ -725,7 +725,7 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
 
 Returns either the absolute path of the database or nil.
 
-See als `pdf-sync-locate-synctex-file-functions'."
+See also `pdf-sync-locate-synctex-file-functions'."
   (cl-check-type pdffile string)
   (setq pdffile (expand-file-name pdffile))
   (or (run-hook-with-args-until-success

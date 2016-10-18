@@ -3,7 +3,7 @@
 * Version 0.70
 ** View
 *** Register integration
-    The keys m and ' now set resp. jump to a register corresponging to
+    The keys m and ' now set resp. jump to a register corresponding to
     a position in the PDF. Also '' is handled special: It jumps to the
     position before the last register-jump.
 *** Export parts of a page as an image
@@ -65,7 +65,7 @@
 ** Compatible with Emacs 24.3
 ** Integrate with bookmark.el
 ** Compiling on OSX
-   PDF Tools should now compile on OSX, though tis is unsupported.
+   PDF Tools should now compile on OSX, though it is unsupported.
 ** MELPA
    Try to handle an update via MELPA by package.el by shutting down
    the server, recompiling and restarting it.  This may be deactivated

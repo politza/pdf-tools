@@ -1,4 +1,4 @@
-;;; pdf-info.el --- Extract infos from pdf-files via a helper process. -*- lexical-binding: t -*-
+;;; pdf-info.el --- Extract info from pdf-files via a helper process. -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2013, 2014  Andreas Politz
 
@@ -74,7 +74,7 @@
 (defcustom pdf-info-log nil
   "Whether to log the communication with the server.
 
-If this is non-nil, all communication with the epdfinfo programm
+If this is non-nil, all communication with the epdfinfo program
 will be logged to the buffer \"*pdf-info-log*\"."
   :group 'pdf-info
   :type 'boolean)
@@ -200,7 +200,7 @@ server, that it never ran.")
         (when (file-exists-p tempfile)
           (delete-file tempfile)))))
   (when interactive-p
-    (message "The epdfinfo programm appears to be working."))
+    (message "The epdfinfo program appears to be working."))
   nil)
     
 (defun pdf-info-process-assert-running (&optional force)
@@ -335,7 +335,7 @@ error."
     (signal-process (pdf-info-process) 'SIGUSR1)))
                              
 (defun pdf-info-query--escape (arg)
-  "Escape ARG for transmision to the server."
+  "Escape ARG for transmission to the server."
   (if (null arg)
       (string)
     (with-current-buffer (get-buffer-create " *pdf-info-query--escape*")
@@ -729,7 +729,7 @@ final result of all queries, unless at least one of them provoked
 an error.  In this case BODY is ignored and the error is the
 result.
 
-This macro handles synchrounus and asynchronous calls,
+This macro handles synchronous and asynchronous calls,
 i.e. `pdf-info-asynchronous' is non-nil, transparently.
 
 \(FN \(\(VAR QUERIES\)...\) BODY\)"
@@ -812,7 +812,7 @@ i.e. `pdf-info-asynchronous' is non-nil, transparently.
        (let ((pdf-info-asynchronous ,terminal-fn))
          (pdf-info-ping))
        ;; CALLBACK is the original value of pdf-info-asynchronous.  If
-       ;; nil, this is a synchrounus query.
+       ;; nil, this is a synchronous query.
        (unless ,callback
          (while (and (not ,done)
                      (eq (process-status (pdf-info-process))
@@ -949,13 +949,13 @@ A No-op, if BUFFER has not running server instance."
      (t (list 'text)))))
 
 (defun pdf-info-open (&optional file-or-buffer password)
-  "Open the docüment FILE-OR-BUFFER using PASSWORD.
+  "Open the document FILE-OR-BUFFER using PASSWORD.
 
-Generally, docüments are opened and closed automatically on
+Generally, documents are opened and closed automatically on
 demand, so this function is rarely needed, unless a PASSWORD is
-set on the docüment.
+set on the document.
 
-Manually opened docüments are never closed automatically."
+Manually opened documents are never closed automatically."
 
   (pdf-info-query
    'open (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -1071,7 +1071,7 @@ See the glib documentation at url
 (defun pdf-info-search-regexp (pcre &optional pages  
                                     no-error
                                     file-or-buffer)
-  "Search for a PCRE on PAGES of docüment FILE-OR-BUFFER.
+  "Search for a PCRE on PAGES of document FILE-OR-BUFFER.
 
 See `pdf-info-normalize-page-range' for valid PAGES formats and
 `pdf-info-search-string' for its return value.
@@ -1120,7 +1120,7 @@ this kind of error as a `invalid-regexp' error."
                          (list (match-string 1 (cadr err))))))))))))
 
 (defun pdf-info-pagelinks (page &optional file-or-buffer)
-  "Return a list of links on PAGE in docüment FILE-OR-BUFFER.
+  "Return a list of links on PAGE in document FILE-OR-BUFFER.
 
 This function returns a list of alists with the following keys.
 EDGES represents the relative bounding-box of the link , TYPE is
@@ -1429,7 +1429,7 @@ returned and owned by the caller."
 
 ID should be a symbol which was previously returned in a
 `pdf-info-getannots' query, and referencing an attachment of type
-`file', otherwise an error is signalled.
+`file', otherwise an error is signaled.
 
 See `pdf-info-getattachments' for the kind of return value of this
 function and the meaning of DO-SAVE."

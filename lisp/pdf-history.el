@@ -49,7 +49,7 @@
 
 This is a simple stack-based history.  Turning the page or
 following a link pushes the left-behind page on the stack, which
-may be naviagted with the following keys.
+may be navigated with the following keys.
 
 \\{pdf-history-minor-mode-map}"
   nil nil nil

@@ -313,12 +313,12 @@ Open nodes as necessary."
     (pdf-outline-move-to-page page)))
 
 (defun pdf-outline-quit-and-kill ()
-  "Quit browing the outline and kill it's buffer."
+  "Quit browsing the outline and kill it's buffer."
   (interactive)
   (pdf-outline-quit t))
 
 (defun pdf-outline-quit (&optional kill)
-  "Quit browing the outline buffer."
+  "Quit browsing the outline buffer."
   (interactive "P")
   (let ((win (selected-window)))
     (pdf-outline-select-pdf-window t)
@@ -399,7 +399,7 @@ Then quit the outline window."
          (select-window win))))
 
 (defun pdf-outline-toggle-subtree ()
-  "Toggel hidden state of the current complete subtree."
+  "Toggle hidden state of the current complete subtree."
   (interactive)
   (save-excursion
     (outline-back-to-heading)

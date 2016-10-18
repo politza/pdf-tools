@@ -1,4 +1,4 @@
-;;; pdf-misc.el --- Miscellanous commands for PDF buffer.
+;;; pdf-misc.el --- Miscellaneous commands for PDF buffer.
 
 ;; Copyright (C) 2013, 2014  Andreas Politz
 
@@ -242,7 +242,7 @@ It is called with one argument, the PDF file."
   :type 'file)
 
 (defcustom pdf-misc-print-programm-args nil
-  "List of additional arguments passed to `pdf-misc-print-programm'."
+  "List of additional arguments passed to `pdf-misc-print-program'."
   :group 'pdf-misc
   :type '(repeat string))
 
@@ -272,7 +272,7 @@ It is called with one argument, the PDF file."
   (let ((programm (pdf-misc-print-programm interactive-p))
 	(args (append pdf-misc-print-programm-args (list filename))))
     (unless programm
-      (error "No print programm available"))
+      (error "No print program available"))
     (apply #'start-process "printing" nil programm args)
     (message "Print job started: %s %s"
 	     programm (mapconcat #'identity args " "))))

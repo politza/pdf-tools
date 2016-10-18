@@ -233,7 +233,7 @@ different images have to be displayed."
   "A function for filtering isearch matches.
 
 The function receives one argument: a list of matches, each
-beeing a list of edges. It should return a subset of this list.
+being a list of edges. It should return a subset of this list.
 Edge coordinates are in image-space.")
 
 (defvar pdf-isearch-narrow-to-page nil
@@ -742,7 +742,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 ;; * Debug
 ;; * ================================================================== *
 
-;; The following isearch-search function is debugable.
+;; The following isearch-search function is debuggable.
 ;; 
 (when nil
   (defun isearch-search ()

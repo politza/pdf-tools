@@ -130,7 +130,7 @@ Both args are unevaluated."
         (ifn (intern (format "pdf-info-%s" command)))
         (doc (format "Cached version of `pdf-info-%s', which see.
 
-Make shure, not to modify it's return value." command)))
+Make sure, not to modify it's return value." command)))
     `(defun ,fn ,args
        ,doc
        (let ((hit-value (pdf-cache--data-get ',command ,(if page-arg-p 'page))))
