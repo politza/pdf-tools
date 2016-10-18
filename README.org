@@ -12,12 +12,12 @@
 
    This rendering is performed by a special library named, for
    whatever reason, poppler, running inside a server program.  This
-   program is called ~epdfinfo~ and it's job is it to successively
+   program is called ~epdfinfo~ and its job is it to successively
    read requests from Emacs and produce the proper results, i.e. the
    PNG image of a PDF page.  
    
    Actually, displaying PDF files is just one part of PDF Tools.
-   Since poppler can provide us with all kinds of informations about a
+   Since poppler can provide us with all kinds of information about a
    document and is also able to modify it, there is a lot more we can
    do with it. [[http://www.dailymotion.com/video/x2bc1is_pdf-tools-tourdeforce_tech?forcedQuality%3Dhd720][Watch]]
 

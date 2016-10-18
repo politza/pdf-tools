@@ -51,7 +51,7 @@ Quits the server and sets `pdf-info-epdfinfo-program' to
 ../server/epdfinfo.
 
 Installs a `compilation-finish-functions' which will restart
-epdfinfo after a succesful recompilation.
+epdfinfo after a successful recompilation.
 
 Sets up `load-path' and reloads all PDF Tools lisp files."
   nil nil nil

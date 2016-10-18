@@ -71,7 +71,7 @@ the cost of slightly increased search time."
   "The history variable for search strings.")
 
 (defvar pdf-occur-search-pages-left nil
-  "The toatl number of pages left to search.")
+  "The total number of pages left to search.")
 
 (defvar pdf-occur-search-documents nil
   "The list of searched documents.
@@ -257,7 +257,7 @@ This immediately kills the search process."
 
 
 ;; * ================================================================== *
-;; * Finding occurences
+;; * Finding occurrences
 ;; * ================================================================== *
 
 
