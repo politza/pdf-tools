@@ -1004,10 +1004,12 @@ The colors are determined by the variable
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
-(and (char-displayable-p ?⎙)
+;; This check uses an implementation detail, which hopefully gets the
+;; right answer.
+(and (fontp (char-displayable-p ?⎙))
      (setcdr (assq 'pdf-view-printer-minor-mode minor-mode-alist)
              (list " ⎙" )))
-(and (char-displayable-p ?🌙)
+(and (fontp (char-displayable-p ?🌙))
      (setcdr (assq 'pdf-view-midnight-minor-mode minor-mode-alist)
              (list  " 🌙" )))
 
