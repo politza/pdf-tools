@@ -3056,7 +3056,8 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   column = synctex_node_column (node);
 
   OK_BEGIN ();
-  printf("%s:%d:%d\n", filename, line, column);
+  print_response_string (filename, COLON);
+  printf("%d:%d\n", line, column);
   OK_END ();
 
  error:
