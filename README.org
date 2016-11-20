@@ -119,7 +119,14 @@
 #+BEGIN_SRC sh
   $ export PKG_CONFIG_PATH=/usr/local/Cellar/zlib/1.2.8/lib/pkgconfig:/usr/local/lib/pkgconfig:/opt/X11/lib/pkgconfig
 #+END_SRC
-     or likewise within Emacs using `setenv`.
+     or likewise within Emacs using `setenv`, like so:
+     
+#+BEGIN_SRC emacs-lisp
+(setenv "PKG_CONFIG_PATH"
+        (concat
+         "/usr/local/Cellar/zlib/1.2.8/lib/pkgconfig:/usr/local/lib/pkgconfig:/opt/X11/lib/pkgconfig:"
+         (getenv "PKG_CONFIG_PATH")))
+#+END_SRC
      
      After that, compilation should proceed as normal.
 **** Compiling on FreeBSD
