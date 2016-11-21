@@ -111,7 +111,7 @@
      to have been successfully compiled.  You will need to install
      poppler which you can get with homebrew via
 #+BEGIN_SRC sh
-  $ brew install poppler
+  $ brew install poppler automake
 #+END_SRC
 
      You will also have to help ~pkg-config~ find some libraries by
