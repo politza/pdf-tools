@@ -367,8 +367,15 @@ a local copy of a remote file."
     (let ((tempfile (pdf-info-save pdf-view--server-file-name)))
       (unwind-protect
           (progn
-            (pdf-info-close pdf-view--server-file-name)
+            ;; Order matters here: We need to first copy the new
+            ;; content (tempfile) to the PDF, and then close the PDF.
+            ;; Since while closing the file (and freeing its resources
+            ;; in the process), it may be immediately reopened due to
+            ;; redisplay happening inside the pdf-info-close function
+            ;; (while waiting for a response from the process.).
             (copy-file tempfile (buffer-file-name) t)
+            (pdf-info-close pdf-view--server-file-name)
+
             (when pdf-view--buffer-file-name
               (copy-file tempfile pdf-view--buffer-file-name t))
             (clear-visited-file-modtime)
