@@ -1279,13 +1279,9 @@ by a header."
               (make-directory temporary-file-directory))
             (unless data
               (setq tempfile (make-temp-file "pdf-annot" nil ".png"))
+              ;; FIXME: Why is this with-temp-buffer needed (which it is) ?
               (with-temp-buffer
-                (funcall
-                 (cl-case org-latex-create-formula-image-program
-                   (dvipng 'org-create-formula-image-with-dvipng)
-                   (imagemagick 'org-create-formula-image-with-imagemagick)
-                   (t (error
-                       "Invalid value of `org-latex-create-formula-image-program'")))
+                (org-create-formula-image
                  contents tempfile org-format-latex-options t))
               (setq data (pdf-util-munch-file tempfile))
               (if (and (> (length data) 3)
