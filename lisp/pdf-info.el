@@ -198,7 +198,7 @@ server, that it never ran.")
       (error "pdf-info-epdfinfo-program is not executable"))
     (when pdf-info-epdfinfo-error-filename
       (unless (file-writable-p pdf-info-epdfinfo-error-filename)
-        (error "pdf-info-epdfinfo-error-filename be nil or a writable filename")))
+        (error "pdf-info-epdfinfo-error-filename should be nil or a writable filename")))
     (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo"))
           (default-directory "~"))
       (unwind-protect 
