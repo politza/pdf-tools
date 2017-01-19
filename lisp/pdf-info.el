@@ -71,6 +71,16 @@
   :group 'pdf-info
   :type '(file :must-match t))
 
+(defcustom pdf-info-epdfinfo-error-filename nil
+  "Filename for error output of the epdfinfo executable.
+
+If nil, discard any error messages.  Useful for debugging."
+  :group 'pdf-info
+  :type `(choice (const :tag "None" nil)
+                 ,@(when (file-directory-p "/tmp/")
+                     '((const "/tmp/epdfinfo.log")))
+                 (file)))
+
 (defcustom pdf-info-log nil
   "Whether to log the communication with the server.
 
@@ -186,14 +196,19 @@ server, that it never ran.")
       (error "pdf-info-epdfinfo-program is unset or not a string"))
     (unless (file-executable-p executable)
       (error "pdf-info-epdfinfo-program is not executable"))
+    (when pdf-info-epdfinfo-error-filename
+      (unless (file-writable-p pdf-info-epdfinfo-error-filename)
+        (error "pdf-info-epdfinfo-error-filename be nil or a writable filename")))
     (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo"))
           (default-directory "~"))
       (unwind-protect 
           (with-temp-buffer
             (with-temp-file tempfile
               (insert "quit\n"))
-            (unless (= 0 (call-process
-                          executable tempfile (current-buffer)))
+            (unless (= 0 (apply #'call-process
+                                executable tempfile (current-buffer)
+                                nil (when pdf-info-epdfinfo-error-filename
+                                      (list pdf-info-epdfinfo-error-filename))))
               (error "Error running `%s': %s"
                      pdf-info-epdfinfo-program
                      (buffer-string))))              
@@ -236,8 +251,10 @@ error."
     (pdf-info-check-epdfinfo)
     (let* ((process-connection-type)    ;Avoid 4096 Byte bug #12440.
            (default-directory "~")
-           (proc (start-process
-                  "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program)))
+           (proc (apply #'start-process
+                        "epdfinfo" " *epdfinfo*" pdf-info-epdfinfo-program
+                        (when pdf-info-epdfinfo-error-filename
+                          (list pdf-info-epdfinfo-error-filename)))))
       (with-current-buffer " *epdfinfo*"
         (erase-buffer))
       (set-process-query-on-exit-flag proc nil)
