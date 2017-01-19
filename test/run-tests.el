@@ -1,6 +1,7 @@
 
 (require 'package)
 (require 'ert)
+(require 'cl-lib)
 
 (unless (= 1 (length command-line-args-left))
   (error "Missing package tar or too many arguments"))
@@ -17,10 +18,17 @@
 (cd (file-name-directory load-file-name))
 (setq package-user-dir (expand-file-name "elpa" (make-temp-file "package" t)))
 
-(defvar cask-elpa (format "../.cask/%s/elpa" emacs-version))
+(defvar cask-elpa
+  (cl-labels ((directory-if-exists-p (directory)
+                (and (file-directory-p directory)
+                     directory)))
+    (or (directory-if-exists-p
+         (format "../.cask/%s/elpa" emacs-version))
+        (directory-if-exists-p
+         (format "../.cask/%d.%d/elpa"
+                 emacs-major-version emacs-minor-version))
+        (error "Do `cask install' first"))))
 
-(unless (file-directory-p cask-elpa)
-  (error "Do `cask install' first"))
 (add-to-list 'package-directory-list
 	     (format "../.cask/%s/elpa" emacs-version))
 (add-hook 'kill-emacs-hook (lambda nil
