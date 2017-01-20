@@ -59,18 +59,25 @@
   (declare (indent 0) (debug t))
   (let ((buffer (make-symbol "buffer")))
     `(let ((,buffer (find-file-noselect
-                     (expand-file-name "test.pdf"))))
-       (pdf-info-quit)
-       (pdf-info-process-assert-running t)
+                     (expand-file-name "test.pdf")))
+           (pdf-info-epdfinfo-error-filename (make-temp-file "epdfinfo.log")))
        (unwind-protect
-           (with-current-buffer ,buffer ,@body)
+           (progn
+             (pdf-info-quit)
+             (pdf-info-process-assert-running t)
+             (with-current-buffer ,buffer ,@body))
          (when (buffer-live-p ,buffer)
            (set-buffer-modified-p nil)
            (kill-buffer))
+         (when (file-exists-p pdf-info-epdfinfo-error-filename)
+           (with-temp-buffer
+             (insert-file-contents pdf-info-epdfinfo-error-filename)
+             (unless (= 1 (point-max))
+               (message ">>> %s <<<" (buffer-string))))
+           (delete-file pdf-info-epdfinfo-error-filename))
          (pdf-info-quit)))))
 
 (dolist (file (directory-files "." t "\\.ert\\'"))
   (load-file file))
-
 (ert-run-tests-batch-and-exit t)
     
