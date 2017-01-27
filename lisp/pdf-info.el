@@ -992,7 +992,20 @@ This command is rarely needed, see also `pdf-info-open'."
             (run-hooks 'pdf-info-close-document-hook))
         (with-temp-buffer
           (run-hooks 'pdf-info-close-document-hook))))))
-  
+
+(defun pdf-info-encrypted-p (&optional file-or-buffer)
+  "Return non-nil if FILE-OR-BUFFER requires a password.
+
+Note: This function returns nil, if the document is encrypted,
+but was already opened (presumably using a password)."
+
+  (condition-case err
+      (pdf-info-open
+       (pdf-info--normalize-file-or-buffer file-or-buffer))
+    (error (or (string-match-p
+                ":Document is encrypted\\'" (cadr err))
+               (signal (car err) (cdr err))))))
+
 (defun pdf-info-metadata (&optional file-or-buffer)
   "Extract the metadata from the document FILE-OR-BUFFER.
 

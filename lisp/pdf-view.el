@@ -29,6 +29,7 @@
 (require 'pdf-cache)
 (require 'jka-compr)
 (require 'bookmark)
+(require 'password-cache)
 
 
 ;; * ================================================================== *
@@ -350,8 +351,22 @@ PNG images in Emacs buffers."
             'pdf-view-new-window-function nil t)
   (image-mode-setup-winprops)
 
+  ;; Decryption needs to be done before any other function calls into
+  ;; pdf-info.el .
+  (pdf-view-decrypt-document)
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1)))
+
+(defun pdf-view-decrypt-document ()
+  "Read a password, if the document is encrypted and open it."
+  (interactive)
+  (when (pdf-info-encrypted-p)
+    (let* ((key (concat "/pdf-tools" (buffer-file-name)))
+           (password (password-read (format "Enter password for `%s': "
+                                            (buffer-file-name))
+                                    key)))
+      (pdf-info-open nil password)
+      (password-cache-add key password))))
 
 (defun pdf-view-buffer-file-name ()
   "Return the local filename of the PDF in the current buffer.
