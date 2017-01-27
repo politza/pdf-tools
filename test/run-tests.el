@@ -55,11 +55,11 @@
                         (>= x 0)))
                  edges)))
 
-(defmacro pdf-test-with-test-pdf (&rest body)
+(defmacro pdf-test-with-pdf (pdf-filename &rest body)
   (declare (indent 0) (debug t))
   (let ((buffer (make-symbol "buffer")))
     `(let ((,buffer (find-file-noselect
-                     (expand-file-name "test.pdf")))
+                     (expand-file-name ,pdf-filename)))
            (pdf-info-epdfinfo-error-filename (make-temp-file "epdfinfo.log")))
        (unwind-protect
            (progn
@@ -77,7 +77,19 @@
            (delete-file pdf-info-epdfinfo-error-filename))
          (pdf-info-quit)))))
 
+
+(defmacro pdf-test-with-test-pdf (&rest body)
+  `(pdf-test-with-pdf "test.pdf" ,@body))
+
+(defmacro pdf-test-with-encrypted-pdf (password-list &rest body)
+  `(let ((password-list ,password-list))
+     ;;overload read-passwd so it will return passwords from the password-list
+     (cl-letf (((symbol-function 'read-passwd)
+                (lambda (unused-prompt)
+                  (let ((pass (car password-list)))
+                    (setq password-list (cdr password-list)) pass))))
+       (pdf-test-with-pdf "encrypted.pdf" ,@body))))
+
 (dolist (file (directory-files "." t "\\.ert\\'"))
   (load-file file))
 (ert-run-tests-batch-and-exit t)
-    

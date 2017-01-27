@@ -883,9 +883,17 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
     case ARG_DOC:
       {
         document_t *doc = document_open (ctx, arg, NULL, &gerror);
-        cerror_if_not (doc, error_msg,
-                       "Error opening %s:%s", arg,
-                       gerror ? gerror->message : "Unknown reason");
+        if (!doc) {
+            if (g_error_matches(gerror, POPPLER_ERROR, POPPLER_ERROR_ENCRYPTED)) {
+                if (error_msg)
+                    *error_msg = g_strdup("PASSWORD REQUIRED");
+                goto error;
+            } else {
+                cerror_if_not (doc, error_msg,
+                               "Error opening %s:%s", arg,
+                               gerror ? gerror->message : "Unknown reason");
+            }
+        }
 
         cmd_arg->value.doc = doc;
         break;
@@ -1820,8 +1828,13 @@ cmd_open (const epdfinfo_t *ctx, const command_arg_t *args)
     passwd = NULL;
 
   doc = document_open(ctx, filename, passwd, &gerror);
-  perror_if_not (doc, "Error opening %s:%s", filename,
-                gerror ? gerror->message : "unknown error");
+  if (g_error_matches(gerror, POPPLER_ERROR, POPPLER_ERROR_ENCRYPTED)) {
+      printf_error_response ("PASSWORD REQUIRED");
+      goto error;
+  } else {
+      perror_if_not (doc, "Error opening %s:%s", filename,
+                     gerror ? gerror->message : "unknown error");
+  }
   OK ();
 
  error:

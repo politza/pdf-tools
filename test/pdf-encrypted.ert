@@ -1,0 +1,14 @@
+;; -*- lexical-binding: t -*-
+
+(require 'pdf-info)
+(require 'ert)
+
+(ert-deftest pdf-encrypted-open ()
+  (pdf-test-with-encrypted-pdf
+   '("pdftool")
+   (should (= 6 (pdf-info-number-of-pages)))))
+
+(ert-deftest pdf-encrypted-open-first-wrong-password ()
+  (pdf-test-with-encrypted-pdf
+   '("wrong password" "pdftool")
+   (should (= 6 (pdf-info-number-of-pages)))))
