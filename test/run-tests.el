@@ -55,11 +55,11 @@
                         (>= x 0)))
                  edges)))
 
-(defmacro pdf-test-with-test-pdf (&rest body)
+(defmacro pdf-test-with-pdf (pdf-filename &rest body)
   (declare (indent 0) (debug t))
   (let ((buffer (make-symbol "buffer")))
     `(let ((,buffer (find-file-noselect
-                     (expand-file-name "test.pdf")))
+                     (expand-file-name ,pdf-filename)))
            (pdf-info-epdfinfo-error-filename (make-temp-file "epdfinfo.log")))
        (unwind-protect
            (progn
@@ -67,8 +67,10 @@
              (pdf-info-process-assert-running t)
              (with-current-buffer ,buffer ,@body))
          (when (buffer-live-p ,buffer)
-           (set-buffer-modified-p nil)
-           (kill-buffer))
+           (with-current-buffer ,buffer
+             (set-buffer-modified-p nil)
+             (let (kill-buffer-hook)
+               (kill-buffer))))
          (when (file-exists-p pdf-info-epdfinfo-error-filename)
            (with-temp-buffer
              (insert-file-contents pdf-info-epdfinfo-error-filename)
@@ -76,6 +78,12 @@
                (message ">>> %s <<<" (buffer-string))))
            (delete-file pdf-info-epdfinfo-error-filename))
          (pdf-info-quit)))))
+
+(defmacro pdf-test-with-test-pdf (&rest body)
+  `(pdf-test-with-pdf "test.pdf" ,@body))
+
+(defmacro pdf-test-with-encrypted-pdf (&rest body)
+  `(pdf-test-with-pdf "encrypted.pdf" ,@body))
 
 (dolist (file (directory-files "." t "\\.ert\\'"))
   (load-file file))

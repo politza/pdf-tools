@@ -6,8 +6,11 @@
 
 (ert-deftest pdf-info-open/close ()
   (pdf-test-with-test-pdf
-    (should-not (pdf-info-open))
-    (should (pdf-info-close))))
+   (should-not (pdf-info-open))
+   (should (pdf-info-close)))
+  (pdf-test-with-encrypted-pdf 
+   (should-error (pdf-info-open nil "Invalid Password"))
+   (should-not (pdf-info-open nil "pdftool"))))
 
 (ert-deftest pdf-info-metadata ()
   (pdf-test-with-test-pdf
