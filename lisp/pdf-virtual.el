@@ -1035,5 +1035,8 @@ argument denotes a VPDF document."
 (pdf-virtual-define-adapter getoptions (&optional file-or-buffer)
   (signal 'pdf-virtual-unsupported-operation (list 'getoptions)))
 
+(pdf-virtual-define-adapter encrypted-p (&optional file-or-buffer)
+  nil)
+
 (provide 'pdf-virtual)
 ;;; pdf-virtual.el ends here
