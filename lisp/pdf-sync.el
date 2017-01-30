@@ -89,6 +89,7 @@ locate it."
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap [double-mouse-1] 'pdf-sync-backward-search-mouse)
     (define-key kmap [C-mouse-1] 'pdf-sync-backward-search-mouse)
+    (define-key kmap (kbd "C-c C-g") 'pdf-sync-backward-isearch-match)
     kmap))
 
 (defcustom pdf-sync-backward-redirect-functions nil
@@ -297,6 +298,22 @@ Has no effect if `pdf-sync-backward-use-heuristic' is nil."
       (error "Outside of image area"))
     (pdf-sync-backward-search (car xy) (cdr xy))))
   
+(defun pdf-sync-backward-isearch-match ()
+  "Go to the source corresponding to the current isearch match."
+  (interactive)
+    (pdf-util-assert-pdf-window)
+    (unless pdf-isearch-current-match
+      (error "No recent search"))
+
+    (let ((posn  (car   pdf-isearch-current-match)))
+          (let ((left (car posn))
+                (top   (nth 1 posn))
+                (right (nth 2 posn))
+                (bot   (nth 3 posn)))
+      (pdf-sync-backward-search (/ (+ left right) 2.0)
+                                (/ (+ top bot) 2.0))
+            )))
+
 (defun pdf-sync-backward-search (x y)
   "Go to the source corresponding to image coordinates X, Y.
 
