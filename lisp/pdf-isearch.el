@@ -145,7 +145,7 @@ starts an incremental search in this PDF document.  Since this mode
 uses external programs to highlight found matches via
 image-processing, proceeding to the next match may be slow.
 
-Therefore two isearch behaviours have been defined: Normal isearch and
+Therefore two isearch behaviors have been defined: Normal isearch and
 batch mode.  The later one is a minor mode
 \(`pdf-isearch-batch-mode'\), which when activated inhibits isearch
 from stopping at and highlighting every single match, but rather
@@ -214,7 +214,7 @@ that not every isearch command work as expected.
 
 If this mode is enabled, isearching does not stop at every match,
 but rather moves to the next one not currently visible.  This
-behaviour is much faster than ordinary isearch, since far less
+behavior is much faster than ordinary isearch, since far less
 different images have to be displayed."
   nil nil nil
   :group 'pdf-isearch
@@ -571,7 +571,7 @@ is no such page."
                                                  forward)
   "Default function for choosing the next match.
 
-Implements default isearch behaviour, i.e. it stops at every
+Implements default isearch behavior, i.e. it stops at every
 match."
   (cond
    ((null last-match)
