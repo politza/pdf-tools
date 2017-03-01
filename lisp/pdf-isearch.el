@@ -21,7 +21,7 @@
 ;;; Commentary:
 ;;
 ;;; Todo:
-;; 
+;;
 ;; * Add the possibility to limit the search to a range of pages.
 
 (require 'cl-lib)
@@ -107,6 +107,7 @@ searching across multiple lines.")
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap [remap occur] 'pdf-occur)
+    (define-key kmap (kbd "C-c C-v") 'pdf-isearch-sync-backward-current-match)
     kmap)
   "Keymap used in `pdf-isearch-minor-mode'.")
 
@@ -281,7 +282,7 @@ This is a Isearch interface function."
             (re-search-forward ".")
           (re-search-backward ".")))
        ((and (not pdf-isearch-narrow-to-page)
-             (not (pdf-isearch-empty-match-p matches)))                   
+             (not (pdf-isearch-empty-match-p matches)))
         (let ((next-page (pdf-isearch-find-next-matching-page
                           string pdf-isearch-current-page t)))
           (when next-page
@@ -432,6 +433,14 @@ there was no previous search, this function returns t."
     (save-selected-window
       (pdf-occur (or regexp isearch-string) regexp))
     (isearch-message)))
+
+(defun pdf-isearch-sync-backward-current-match ()
+  "Sync backward to the LaTeX source of the current match."
+  (interactive)
+  (if pdf-isearch-current-match
+      (let ((left (caar pdf-isearch-current-match))
+            (top (cadar pdf-isearch-current-match)))
+        (funcall 'pdf-sync-backward-search left top))))
 
 
 ;; * ================================================================== *
@@ -596,7 +605,7 @@ match."
     ;; Next match of new search closest to the last one.
     (pdf-isearch-closest-match
      last-match matches forward))))
-  
+
 (defun pdf-isearch-focus-match-isearch (match)
   "Make the image area in MATCH visible in the selected window."
   (pdf-util-scroll-to-edges (apply 'pdf-util-edges-union match)))
@@ -653,7 +662,7 @@ The direction in which to look is determined by FORWARD-P.
 MATCH should be a list of edges, MATCHES a list of such element;
 it is assumed to be ordered with respect to FORWARD-P."
 
-  
+
   (cl-check-type match pdf-isearch-match)
   (cl-check-type matches (list-of pdf-isearch-match))
   (let ((matched (apply 'pdf-util-edges-union match)))
@@ -743,7 +752,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 ;; * ================================================================== *
 
 ;; The following isearch-search function is debuggable.
-;; 
+;;
 (when nil
   (defun isearch-search ()
     ;; Do the search with the current search string.
