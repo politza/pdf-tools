@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 
 (require 'pdf-view)
 (require 'pdf-util)
@@ -108,7 +108,7 @@ represents the current page."
   "Return t, if at the end of the history."
   (= pdf-history-index
      (1- (length pdf-history-stack))))
-  
+
 (defun pdf-history-backward (n)
   "Go N-times backward in the history."
   (interactive "p")
@@ -131,7 +131,7 @@ represents the current page."
   "Go N-times forward in the history."
   (interactive "p")
   (pdf-history-backward (- n)))
-  
+
 (defun pdf-history-goto (n)
   "Go to item N in the history."
   (interactive "p")

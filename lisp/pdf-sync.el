@@ -18,7 +18,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 ;; The backward search uses a heuristic, which is pretty simple, but
 ;; effective: It extracts the text around the click-position in the
 ;; PDF, normalizes it's whitespace, deletes certain notorious
@@ -41,7 +41,7 @@
 (defgroup pdf-sync nil
   "Jump from TeX sources to PDF pages and back."
   :group 'pdf-tools)
-  
+
 (defcustom pdf-sync-forward-display-pdf-key "C-c C-g"
   "Key to jump from a TeX buffer to it's PDF file.
 
@@ -156,7 +156,7 @@ If nil, just go where Synctex tells us.  Otherwise try to find
 the exact location of the clicked-upon text in the PDF."
   :group 'pdf-sync
   :type 'boolean)
-  
+
 (defcustom pdf-sync-backward-text-translations
   '((88 "X" "sum")
     (94 "textasciicircum")
@@ -275,7 +275,7 @@ Has no effect if `pdf-sync-backward-use-heuristic' is nil."
   :group 'pdf-sync
   :type '(alist :key-type character
                 :value-type (repeat string)))
-  
+
 (defconst pdf-sync-backward-text-flush-regexp
   "[][.·{}|\\]\\|\\C.\\|-\n+"
   "Regexp of ignored text when backward searching.")
@@ -296,7 +296,7 @@ Has no effect if `pdf-sync-backward-use-heuristic' is nil."
     (unless image
       (error "Outside of image area"))
     (pdf-sync-backward-search (car xy) (cdr xy))))
-  
+
 (defun pdf-sync-backward-search (x y)
   "Go to the source corresponding to image coordinates X, Y.
 
@@ -334,7 +334,7 @@ point to the correct position."
                 data)
           (list source
                 (if (not pdf-sync-backward-use-heuristic)
-                    (lambda nil 
+                    (lambda nil
                       (pdf-util-goto-position line column))
                   (let ((context (pdf-sync-backward--get-text-context page x y)))
                     (lambda nil
@@ -356,7 +356,7 @@ point to the correct position."
              words swords similarity-fn 'infix)))
       (setq alignment (cl-remove-if-not 'car (cdr alignment)))
       (cl-assert (< windex (length alignment)))
-      
+
       (let ((word (cdr (nth windex alignment))))
         (unless word
           (setq chindex 0
@@ -378,7 +378,7 @@ point to the correct position."
              ((eq limit 'line)
               (cons (line-beginning-position)
                     (line-end-position)))
-             
+
              ;; Synctex usually jumps to the end macro, in case it
              ;; does not understand the environment.
              ((and (fboundp 'LaTeX-find-matching-begin)
@@ -469,12 +469,12 @@ point to the correct position."
        prefix suffix
        pdf-sync-backward-text-flush-regexp
        pdf-sync-backward-text-translations))))
-        
+
 (defun pdf-sync-backward--tokenize (prefix &optional suffix flush-re translation)
   (with-temp-buffer
     (when prefix (insert prefix))
     (let* ((center (copy-marker (point)))
-           (case-fold-search nil)) 
+           (case-fold-search nil))
       (when suffix (insert suffix))
       (goto-char 1)
       ;; Delete ignored text.
@@ -553,7 +553,7 @@ word-level searching is desired."
       (let ((functions
              '(pdf-sync-backward-search
                pdf-sync-backward--tokenize
-               pdf-util-seq-alignment)))    
+               pdf-util-seq-alignment)))
         (cond
          (pdf-sync-backward-debug-minor-mode
           (dolist (fn functions)
@@ -591,7 +591,7 @@ Needs to have `pdf-sync-backward-debug-minor-mode' enabled."
         (insert sep)
         (insert (nth 0 (car text)))
         (insert (propertize "<|>" 'face highlight))
-        (insert (nth 1 (car text)))        
+        (insert (nth 1 (car text)))
         (insert sep)
         (insert (propertize "Text Token:" 'face 'font-lock-keyword-face))
         (insert sep)
@@ -660,7 +660,7 @@ Needs to have `pdf-sync-backward-debug-minor-mode' enabled."
         (insert sep)
         (goto-char 1)
         (pop-to-buffer (current-buffer))))))
-        
+
 
 ;; * ================================================================== *
 ;; * Forward search (TeX -> PDF)
@@ -785,7 +785,7 @@ The first such filename is returned, or nil if none was found."
                 (setq end beg
                       beg (point-min))
                 (goto-char beg)))))))))
-    
+
 
 ;; * ================================================================== *
 ;; * Compatibility

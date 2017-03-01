@@ -19,9 +19,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 ;;; Code:
-;; 
+;;
 
 (require 'image-mode)
 (require 'pdf-util)
@@ -58,7 +58,7 @@ other value behaves like `fit-width'."
   "Fractional amount of resizing of one resize command."
   :group 'pdf-view
   :type 'number)
-  
+
 (defcustom pdf-view-continuous t
   "In Continuous mode reaching the page edge advances to next/previous page.
 
@@ -153,7 +153,7 @@ used."
 
 See :relief property in Info node `(elisp) Image Descriptors'."
   :group 'pdf-view
-  :type '(integer :tag "Pixel")         
+  :type '(integer :tag "Pixel")
   :link '(info-link "(elisp) Image Descriptors"))
 
 (defcustom pdf-view-max-image-width 4800
@@ -267,7 +267,7 @@ regarding display of the region in the later function.")
     (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
     (define-key map (kbd "m") 'pdf-view-position-to-register)
     (define-key map (kbd "'") 'pdf-view-jump-to-register)
-    
+
     (define-key map (kbd "C-c C-i") 'pdf-view-extract-region-image)
     ;; Rendering
     (define-key map (kbd "C-c C-r m") 'pdf-view-midnight-minor-mode)
@@ -288,7 +288,7 @@ PNG images in Emacs buffers."
                  (let ((file-name-handler-alist nil))
                    (not (and buffer-file-name
                              (file-readable-p buffer-file-name)))))
-             (pdf-tools-pdf-buffer-p))             
+             (pdf-tools-pdf-buffer-p))
     (let ((tempfile (pdf-util-make-temp-file
                      (concat (if buffer-file-name
                                  (file-name-nondirectory
@@ -345,7 +345,7 @@ PNG images in Emacs buffers."
   (add-hook 'kill-buffer-hook 'pdf-view-close-document nil t)
   (pdf-view-add-hotspot-function
    'pdf-view-text-regions-hotspots-function -9)
-  
+
   ;; Keep track of display info
   (add-hook 'image-mode-new-window-functions
             'pdf-view-new-window-function nil t)
@@ -650,7 +650,7 @@ displayed page number."
   (let ((index (cl-position label (pdf-info-pagelabels) :test 'equal)))
     (unless index
       (error "No such label: %s" label))
-    (pdf-view-goto-page (1+ index))))  
+    (pdf-view-goto-page (1+ index))))
 
 
 ;; * ================================================================== *
@@ -792,7 +792,7 @@ See also `pdf-view-use-imagemagick'."
                   (* 2 (car size)))))
          (hotspots (pdf-view-apply-hotspot-functions
                     window page size)))
-    (pdf-view-create-image data 
+    (pdf-view-create-image data
       :width (car size)
       :map hotspots
       :pointer 'arrow)))
@@ -1006,7 +1006,7 @@ This tells the various modes to use their face's dark colors."
       (remove-hook 'after-save-hook enable t)
       (remove-hook 'after-revert-hook enable t))))
   (pdf-info-setoptions :render/printed pdf-view-printer-minor-mode)
-  (pdf-cache-clear-images) 
+  (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
 (define-minor-mode pdf-view-midnight-minor-mode
@@ -1094,7 +1094,7 @@ supercede hotspots in lower ones."
   "Return the active region, a list of edges.
 
 Deactivate the region if DEACTIVATE-P is non-nil."
-  
+
   (pdf-view-assert-active-region)
   (prog1
       pdf-view-active-region
@@ -1229,7 +1229,7 @@ This is more useful for commands like
            (pdf-info-renderpage-text-regions
             page width nil nil
             `(,(car colors) ,(cdr colors) ,@region)))))))
-    
+
 (defun pdf-view-kill-ring-save ()
   "Copy the region to the `kill-ring'."
   (interactive)
@@ -1308,7 +1308,7 @@ the `convert' programm is used. "
                          "-gravity" "Center"
                          "-append"
                          "+gravity"
-                         "-chop" "0x10+0+0")                         
+                         "-chop" "0x10+0+0")
              :apply '((0 0 0 0))))
           (with-current-buffer output-buffer
             (let ((inhibit-read-only t))
@@ -1401,7 +1401,7 @@ works only with bookmarks created by
     (let (bookmark-after-jump-hook)
       (pdf-view-bookmark-jump-handler bmk)
       (run-hooks 'bookmark-after-jump-hook))))
-    
+
 (defun pdf-view-registerv-make ()
   "Create a PDF register entry of the current position."
   (registerv-make
@@ -1445,7 +1445,7 @@ This macro may not work as desired when it is nested.  See also
            (progn ,@body)
          (when ,dedicated-p
            (setq pdf-view-register-alist register-alist))))))
-    
+
 (defun pdf-view-position-to-register (register)
   "Store current PDF position in register REGISTER.
 
@@ -1460,7 +1460,7 @@ See also `point-to-register'."
   "Move point to a position stored in a REGISTER."
   (interactive
    (pdf-view-with-register-alist
-     (list 
+     (list
       (register-read-with-preview "Jump to register: ")
       current-prefix-arg
       (and (or pdf-view-use-dedicated-register

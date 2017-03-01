@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 
 (require 'pdf-info)
 (require 'pdf-util)
@@ -123,7 +123,7 @@ links via \\[pdf-links-isearch-link].
 
 (defun pdf-links-hotspots-function (page size)
   "Create hotspots for links on PAGE using SIZE."
-  
+
   (let ((links (pdf-cache-pagelinks page))
         (id-fmt "link-%d-%d")
         (i 0)
@@ -148,7 +148,7 @@ links via \\[pdf-links-isearch-link].
            (pdf-links-action-perform l)))
         (local-set-key
          (vector id t)
-         'pdf-util-image-map-mouse-event-proxy))) 
+         'pdf-util-image-map-mouse-event-proxy)))
     (nreverse hotspots)))
 
 (defun pdf-links-action-to-string (link)
@@ -225,7 +225,7 @@ scroll the current page."
       (t
        (error "Unrecognized link type: %s" .type)))
     nil))
-    
+
 (defun pdf-links-read-link-action (prompt)
   "Using PROMPT, interactively read a link-action.
 
@@ -258,7 +258,7 @@ See `pdf-links-action-perform' for the interface."
       (error "No links on this page"))
     (unwind-protect
         (let ((image-data
-               (pdf-cache-get-image 
+               (pdf-cache-get-image
                 (pdf-view-current-page)
                 (car size) (car size) 'pdf-links-read-link-action)))
           (unless image-data
@@ -340,7 +340,7 @@ See `pdf-links-action-perform' for the interface."
         (unless links
           (error "No link found at this position"))
         (pdf-links-action-perform (car links))))))
-                   
+
 (defun pdf-links-isearch-link-filter-matches (matches)
   (let ((links (pdf-util-scale
                 (mapcar (apply-partially 'alist-get 'edges)

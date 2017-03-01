@@ -21,7 +21,7 @@
 ;;; Commentary:
 ;;
 ;;; Todo:
-;; 
+;;
 
 ;;; Code:
 
@@ -127,7 +127,7 @@ remove the entry if the new value is `eql' to DEFAULT."
 
 
 ;; * ================================================================== *
-;; * Transforming coordinates 
+;; * Transforming coordinates
 ;; * ================================================================== *
 
 
@@ -467,7 +467,7 @@ value of `next-screen-context-lines'.
 
 Return the required vscroll in lines or nil, if scrolling is not
 needed."
-  
+
   (pdf-util-assert-pdf-window)
   (let* ((win (window-inside-pixel-edges))
          (image-height (cdr (pdf-view-image-size t)))
@@ -501,7 +501,7 @@ needed."
 
 Scroll as little as necessary.  Unless EAGER-P is non-nil, in
 which case scroll as much as possible."
- 
+
   (let ((vscroll (pdf-util-required-vscroll edges eager-p))
         (hscroll (pdf-util-required-hscroll edges eager-p)))
     (when vscroll
@@ -560,7 +560,7 @@ killed."
 (defun pdf-util-delete-dedicated-directory ()
   "Delete current buffer's dedicated directory."
   (delete-directory (pdf-util-dedicated-directory) t))
-  
+
 (defun pdf-util-expand-file-name (name)
   "Expand filename against current buffer's dedicated directory."
   (expand-file-name name (pdf-util-dedicated-directory)))
@@ -575,7 +575,7 @@ See `make-temp-file' for the arguments."
 
 
 ;; * ================================================================== *
-;; * Various 
+;; * Various
 ;; * ================================================================== *
 
 (defmacro pdf-util-debug (&rest body)
@@ -603,7 +603,7 @@ See `make-temp-file' for the arguments."
   (and (window-live-p window)
        (with-selected-window window
          (pdf-util-pdf-buffer-p))))
-  
+
 (defun pdf-util-assert-pdf-window (&optional window)
   (unless (pdf-util-pdf-window-p window)
     (error "Window's buffer is not in PdfView mode")))
@@ -627,7 +627,7 @@ is non-nil."
 (defun pdf-util-hexcolor (color)
   "Return COLOR in hex-format.
 
-Singal an error, if color is invalid." 
+Singal an error, if color is invalid."
   (if (string-match "\\`#[[:xdigit:]]\\{6\\}\\'" color)
       color
     (let ((values (color-values color)))
@@ -719,7 +719,7 @@ string."
 
 (defadvice enable-theme (after pdf-util-clear-faces-cache activate)
   (clrhash pdf-util--face-colors-cache))
-  
+
 (defun pdf-util-face-colors (face &optional dark-p)
   "Return both colors of FACE as a cons.
 
@@ -798,7 +798,7 @@ AWINDOW is deleted."
 
 COLUMN defaults to 0.  Widen the buffer, if the position is
 outside the current limits."
-  (let ((pos 
+  (let ((pos
          (when (> line 0)
            (save-excursion
              (save-restriction
@@ -825,7 +825,7 @@ elements are equal, else -1.
 
 ALIGNMENT-TYPE may be one of the symbols `prefix', `suffix',
 `infix' or nil.  If it is `prefix', trailing elements in SEQ2 may
-be ignored. For example the alignment of 
+be ignored. For example the alignment of
 
 \(0 1\) and \(0 1 2\)
 
@@ -907,7 +907,7 @@ respective sequence."
   "Escape STRING for use as a PCRE.
 
 See also `regexp-quote'."
-  
+
   (let ((to-escape
          (eval-when-compile (append "\0\\|()[]{}^$*+?." nil)))
         (chars (append string nil))
@@ -979,7 +979,7 @@ SPEC may contain the following keys, respectively values.
 
 `:commands' A list of strings representing arguments to convert
 for image manipulations.  It may contain %-escape characters, as
-follows.  
+follows.
 
 %f -- Expands to the foreground color.
 %b -- Expands to the background color.
@@ -1077,7 +1077,7 @@ Return the converted PNG image as a string.  See also
         (delete-file in-file))
       (when (file-exists-p out-file)
         (delete-file out-file)))))
-        
+
 
 (defun pdf-util-convert--create-commands (spec)
   (let ((fg "red")
@@ -1134,10 +1134,10 @@ If RELATIVE-P is non-nil, also check that all values <= 1."
                         (>= x 0)
                         (or (null relative-p)
                             (<= x 1))))
-                 obj)))           
+                 obj)))
 
 (defun pdf-util-edges-empty-p (edges)
-  "Return non-nil, if EDGES area is empty." 
+  "Return non-nil, if EDGES area is empty."
   (pdf-util-with-edges (edges)
     (or (<= edges-width 0)
         (<= edges-height 0))))

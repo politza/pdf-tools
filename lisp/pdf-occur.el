@@ -602,7 +602,7 @@ matches linked with PAGE."
 (defun pdf-occur-search-in-progress-p ()
   (and (numberp pdf-occur-search-pages-left)
        (> pdf-occur-search-pages-left 0)))
-   
+
 (defun pdf-occur-start-search (documents string
                                          &optional regexp-p)
   (pdf-occur-assert-occur-buffer-p)
@@ -715,7 +715,7 @@ in the search list."
          ((and (derived-mode-p 'pdf-view-mode)
                (buffer-file-name))
           (push (buffer-file-name) files)))))
-    
+
     (setq files
           (cl-sort                      ;Looks funny.
            (cl-set-difference

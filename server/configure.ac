@@ -53,6 +53,7 @@ if test "$HAVE_POPPLER_ANNOT_MARKUP" = yes; then
     [Define to 1 to enable adding of markup annotations (requires poppler-glib >= 0.26).])
 fi
 
+AC_CANONICAL_HOST
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h strings.h err.h])
 

@@ -40,11 +40,11 @@
 ;; to realize, annotations retrieved or created are referenced by a
 ;; unique symbol.  Saving these changes creates a new file, the
 ;; original document is never touched.
- 
+
 ;;; Todo:
 ;;
 ;; + Close documents at some time (e.g. when the buffer is killed)
-;; 
+;;
 
 ;;; Code:
 
@@ -60,7 +60,7 @@
 (defgroup pdf-info nil
   "Extract infos from pdf-files via a helper process."
   :group 'pdf-tools)
-  
+
 (defcustom pdf-info-epdfinfo-program
   (expand-file-name (if (eq system-type 'windows-nt)
 			"epdfinfo.exe"
@@ -201,7 +201,7 @@ server, that it never ran.")
         (error "pdf-info-epdfinfo-error-filename should be nil or a writable filename")))
     (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo"))
           (default-directory "~"))
-      (unwind-protect 
+      (unwind-protect
           (with-temp-buffer
             (with-temp-file tempfile
               (insert "quit\n"))
@@ -211,13 +211,13 @@ server, that it never ran.")
                                       (list pdf-info-epdfinfo-error-filename))))
               (error "Error running `%s': %s"
                      pdf-info-epdfinfo-program
-                     (buffer-string))))              
+                     (buffer-string))))
         (when (file-exists-p tempfile)
           (delete-file tempfile)))))
   (when interactive-p
     (message "The epdfinfo program appears to be working."))
   nil)
-    
+
 (defun pdf-info-process-assert-running (&optional force)
   "Assert a running process.
 
@@ -244,7 +244,7 @@ error."
                      (y-or-n-p "The epdfinfo server quit, restart it ? "))
                 (and pdf-info-restart-process-p
                      (not (eq pdf-info-restart-process-p 'ask))))
-      
+
       (when (eq pdf-info-restart-process-p 'ask)
         (setq pdf-info-restart-process-p nil))
       (error "The epdfinfo server quit"))
@@ -337,7 +337,7 @@ error."
         (error "The epdfinfo server quit unexpectedly."))
       (cond
        ((null status) response)
-       ((eq status 'error) 
+       ((eq status 'error)
         (error "epdfinfo: %s" response))
        ((eq status 'interrupted)
         (error "epdfinfo: Command was interrupted"))
@@ -350,7 +350,7 @@ error."
              (eq (process-status (pdf-info-process))
                  'run))
     (signal-process (pdf-info-process) 'SIGUSR1)))
-                             
+
 (defun pdf-info-query--escape (arg)
   "Escape ARG for transmission to the server."
   (if (null arg)
@@ -369,7 +369,7 @@ error."
           (backward-char)))
         (forward-char))
       (buffer-substring-no-properties 1 (point-max)))))
-  
+
 (defmacro pdf-info-query--read-record ()
   "Read a single record of the response in current buffer."
   `(let (records done (beg (point)))
@@ -763,21 +763,21 @@ i.e. `pdf-info-asynchronous' is non-nil, transparently.
                            (listp (cdr form))))
                     let-forms)
     (error "Invalid let-form: %s" let-forms))
-  
+
   (setq let-forms (mapcar (lambda (form)
                             (if (symbolp form)
                                 (list form)
                               form))
                           let-forms))
   (let* ((status (make-symbol "status"))
-         (response (make-symbol "response")) 
+         (response (make-symbol "response"))
          (first-error (make-symbol "first-error"))
          (done (make-symbol "done"))
          (callback (make-symbol "callback"))
          (results (make-symbol "results"))
          (push-fn (make-symbol "push-fn"))
          (terminal-fn (make-symbol "terminal-fn"))
-         (buffer (make-symbol "buffer")))         
+         (buffer (make-symbol "buffer")))
     `(let* (,status
             ,response ,first-error ,done
             (,buffer (current-buffer))
@@ -842,7 +842,7 @@ i.e. `pdf-info-asynchronous' is non-nil, transparently.
          (when ,status
            (error "epdfinfo: %s" ,response))
          ,response))))
-                   
+
 
 ;; * ================================================================== *
 ;; * Buffer local server instances
@@ -859,7 +859,7 @@ restart it."
   (unless buffer
     (setq buffer (current-buffer)))
   (with-current-buffer buffer
-    (unless (and 
+    (unless (and
              (not force-restart-p)
              (local-variable-p 'pdf-info--queue)
              (processp (pdf-info-process))
@@ -942,7 +942,7 @@ A No-op, if BUFFER has not running server instance."
       (setq pdf-info-features
             (let (pdf-info-asynchronous)
               (pdf-info-query 'features)))))
-                          
+
 (defun pdf-info-writable-annotations-p ()
   (not (null (memq 'writable-annotations (pdf-info-features)))))
 
@@ -1014,7 +1014,7 @@ document."
   (pdf-info-query
    'metadata
    (pdf-info--normalize-file-or-buffer file-or-buffer)))
-               
+
 (defun pdf-info-search-string (string &optional pages file-or-buffer)
   "Search for STRING in PAGES of document FILE-OR-BUFFER.
 
@@ -1080,7 +1080,7 @@ searching for regular expressions.
 You should not change this directly, but rather `let'-bind it
 around a call to `pdf-info-search-regexp'.
 
-Valid compile-flags are: 
+Valid compile-flags are:
 
 newline-crlf, newline-lf, newline-cr, dupnames, optimize,
 no-auto-capture, raw, ungreedy, dollar-endonly, anchored,
@@ -1089,7 +1089,7 @@ extended, dotall, multiline and caseless.
 Note that the last one, caseless, is handled special, as it is
 always added if `case-fold-search' is non-nil.
 
-And valid match-flags: 
+And valid match-flags:
 
 match-anchored, match-notbol, match-noteol, match-notempty,
 match-partial, match-newline-cr, match-newline-lf,
@@ -1098,7 +1098,7 @@ match-newline-crlf and match-newline-any.
 See the glib documentation at url
 `https://developer.gnome.org/glib/stable/glib-Perl-compatible-regular-expressions.html'.")
 
-(defun pdf-info-search-regexp (pcre &optional pages  
+(defun pdf-info-search-regexp (pcre &optional pages
                                     no-error
                                     file-or-buffer)
   "Search for a PCRE on PAGES of document FILE-OR-BUFFER.
@@ -1112,7 +1112,7 @@ Uses the flags in `pdf-info-regexp-flags', which see.  If
 If NO-ERROR is non-nil, catch errors due to invalid regexps and
 return nil.  If it is the symbol `invalid-regexp', then re-signal
 this kind of error as a `invalid-regexp' error."
-  
+
   (cl-labels ((orflags (flags alist)
                 (cl-reduce
                  (lambda (v flag)
@@ -1128,7 +1128,7 @@ this kind of error as a `invalid-regexp' error."
            (car pages)
            (cdr pages)
            pcre
-           (orflags `(,(if case-fold-search 
+           (orflags `(,(if case-fold-search
                            'caseless)
                       ,@pdf-info-regexp-flags)
                     (pdf-info-regexp-compile-flags))
@@ -1273,7 +1273,7 @@ The size is in PDF points."
   (pdf-info-query
    'pagesize
    (pdf-info--normalize-file-or-buffer file-or-buffer)
-   page)) 
+   page))
 
 (defun pdf-info-running-p ()
   "Return non-nil, if the server is running."
@@ -1320,7 +1320,7 @@ This function returns the annotations for PAGES as a list of
 alists.  Each element of this list describes one annotation and
 contains the following keys.
 
-page     - Its page number. 
+page     - Its page number.
 edges    - Its area.
 type     - A symbol describing the annotation's type.
 id       - A document-wide unique symbol referencing this annotation.
@@ -1344,7 +1344,7 @@ contains the following keys.
 
 text-icon  - A string describing the purpose of this annotation.
 text-state - A string, e.g. accepted or rejected." ;FIXME: Use symbols ?
-  
+
   (let ((pages (pdf-info-normalize-page-range pages)))
     (pdf-info-query
      'getannots
@@ -1410,13 +1410,13 @@ does not exist.
 EDGES should be a list \(LEFT TOP RIGHT BOT\).  RIGHT and/or BOT
 may also be negative, which means to keep the width
 resp. height."
-  (pdf-info-editannot id `((edges . ,edges)) file-or-buffer))   
+  (pdf-info-editannot id `((edges . ,edges)) file-or-buffer))
 
 (defun pdf-info-editannot (id modifications &optional file-or-buffer)
   "Edit annotation ID, applying MODIFICATIONS.
 
 ID should be a symbol, which was previously returned in a
-`pdf-info-getannots' query.  
+`pdf-info-getannots' query.
 
 MODIFICATIONS is an alist of properties and their new values.
 
@@ -1452,7 +1452,7 @@ returned and owned by the caller."
   (pdf-info-assert-writable-annotations)
   (pdf-info-query
    'save
-   (pdf-info--normalize-file-or-buffer file-or-buffer)))   
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))
 
 (defun pdf-info-getattachment-from-annot (id &optional do-save file-or-buffer)
   "Return the attachment associated with annotation ID.
@@ -1506,7 +1506,7 @@ PDF document.
 Returns an alist with entries PAGE and relative EDGES describing
 the position in the PDF document corresponding to the SOURCE
 location."
-  
+
   (let ((source (if (buffer-live-p (get-buffer source))
                     (buffer-file-name (get-buffer source))
                   source)))
@@ -1516,7 +1516,7 @@ location."
      source
      (or line 1)
      (or column 1))))
-                                        
+
 (defun pdf-info-synctex-backward-search (page &optional x y file-or-buffer)
   "Perform a backward search with synctex.
 
@@ -1539,7 +1539,7 @@ Returns an alist with entries FILENAME, LINE and COLUMN."
 Return the data of the corresponding PNG image."
   (when (keywordp file-or-buffer)
     (push file-or-buffer commands)
-    (setq file-or-buffer nil))      
+    (setq file-or-buffer nil))
   (apply 'pdf-info-query
     'renderpage
     (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -1572,7 +1572,7 @@ Return the data of the corresponding PNG image."
 REGIONS is a list determining foreground and background color and
 the regions to render. So each element should look like \(FG BG
 \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \) . The
-rendering is text-aware.  
+rendering is text-aware.
 
 If SINGLE-LINE-P is non-nil, the edges in REGIONS are each
 supposed to be limited to a single line in the document.  Setting
@@ -1581,11 +1581,11 @@ this, if applicable, avoids rendering problems.
 For the other args see `pdf-info-renderpage'.
 
 Return the data of the corresponding PNG image."
-  
+
   (when (consp file-or-buffer)
     (push file-or-buffer regions)
     (setq file-or-buffer nil))
-  
+
   (apply 'pdf-info-renderpage
     page width file-or-buffer
     (apply 'append
@@ -1600,7 +1600,7 @@ Return the data of the corresponding PNG image."
                                elt)))
               regions))))
 
-(defun pdf-info-renderpage-highlight (page width 
+(defun pdf-info-renderpage-highlight (page width
                                            &optional file-or-buffer
                                            &rest regions)
   "Highlight regions on PAGE with width WIDTH using REGIONS.
@@ -1613,11 +1613,11 @@ STROKE-COLOR ALPHA \(LEFT TOP RIGHT BOT\) \(LEFT TOP RIGHT BOT\) ... \)
 For the other args see `pdf-info-renderpage'.
 
 Return the data of the corresponding PNG image."
-  
+
   (when (consp file-or-buffer)
     (push file-or-buffer regions)
     (setq file-or-buffer nil))
-  
+
   (apply 'pdf-info-renderpage
     page width file-or-buffer
     (apply 'append
@@ -1634,7 +1634,7 @@ Return the data of the corresponding PNG image."
   "Return a bounding-box for PAGE.
 
 Returns a list \(LEFT TOP RIGHT BOT\)."
-  
+
   (pdf-info-query
    'boundingbox
    (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -1650,7 +1650,7 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
     (push file-or-buffer options)
     (setq file-or-buffer nil))
   (unless (= (% (length options) 2) 0)
-    (error "Missing a option value"))           
+    (error "Missing a option value"))
   (apply 'pdf-info-query
     'setoptions
     (pdf-info--normalize-file-or-buffer file-or-buffer)
@@ -1670,15 +1670,15 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
             (t (push value soptions)))
           (push key soptions)))
       soptions)))
-          
-          
+
+
 
 (defun pdf-info-pagelabels (&optional file-or-buffer)
   "Return a list of pagelabels.
 
 Returns a list of strings corresponding to the labels of the
 pages in FILE-OR-BUFFER."
-  
+
   (pdf-info-query
    'pagelabels
    (pdf-info--normalize-file-or-buffer file-or-buffer)))

@@ -3,7 +3,7 @@
 ;; Copyright (C) 2013, 2014  Andreas Politz
 
 ;; Author: Andreas Politz <politza@fh-trier.de>
-;; Keywords: 
+;; Keywords:
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -234,7 +234,7 @@ Setting this after the package was loaded has no effect."
   :group 'pdf-annot
   :type 'key-sequence)
 
-(defvar pdf-annot-minor-mode-map 
+(defvar pdf-annot-minor-mode-map
   (let ((kmap (make-sparse-keymap))
         (smap (make-sparse-keymap)))
     (define-key kmap pdf-annot-minor-mode-map-prefix smap)
@@ -281,7 +281,7 @@ Setting this after the package was loaded has no effect."
 
 (defun pdf-annot-create-context-menu (a)
   "Create a appropriate context menu for annotation A."
-  (let ((menu (make-sparse-keymap))) 
+  (let ((menu (make-sparse-keymap)))
     ;; (when (and (bound-and-true-p pdf-misc-menu-bar-minor-mode)
     ;;            (bound-and-true-p pdf-misc-install-popup-menu))
     ;;   (set-keymap-parent menu
@@ -370,7 +370,7 @@ Setting this after the package was loaded has no effect."
 ALIST should be a property list as returned by
 `pdf-cache-getannots'.  BUFFER should be the buffer of the
 corresponding PDF document. It defaults to the current buffer."
-  
+
   (cons `(buffer . ,(or buffer (current-buffer)))
         alist))
 
@@ -390,7 +390,7 @@ current buffer."
     (setq types (list types)))
   (with-current-buffer buffer
     (let (result)
-      (dolist (a (pdf-info-getannots pages)) 
+      (dolist (a (pdf-info-getannots pages))
         (when (or (null types)
                   (memq (pdf-annot-get a 'type) types))
           (push (pdf-annot-create a) result)))
@@ -416,7 +416,7 @@ modified flag and runs the hook `pdf-annot-modified-functions'.
 Signals an error, if PROPERTY is not modifiable.
 
 Returns the modified annotation."
-  
+
   (declare (indent 2))
   (unless (equal value (pdf-annot-get a property))
     (unless (pdf-annot-property-modifiable-p a property)
@@ -442,12 +442,12 @@ Redisplay modified pages.
 If `pdf-annot-inhibit-modification-hooks' in non-nil, this just
 saves ANNOTATIONS and does not call the hooks until later, when
 the variable is nil and this function is called again."
-  
+
   (unless (memq operation '(nil :insert :change :delete))
     (error "Invalid operation: %s" operation))
   (when (and (null operation) annotations)
     (error "Missing operation argument"))
-  
+
   (when operation
     (let ((list (plist-get pdf-annot-delayed-modified-annotations operation)))
       (dolist (a annotations)
@@ -472,7 +472,7 @@ the variable is nil and this function is called again."
                         (t (copy-sequence union))
                         (nil nil))))
            (pages (mapcar (lambda (a) (pdf-annot-get a 'page)) union)))
-      (when union               
+      (when union
         (unwind-protect
             (run-hook-with-args
              'pdf-annot-modified-functions closure)
@@ -488,7 +488,7 @@ have identical id properties."
            (pdf-annot-get-buffer a2))
        (eq (pdf-annot-get-id a1)
            (pdf-annot-get-id a2))))
-  
+
 (defun pdf-annot-get-buffer (a)
   "Return annotation A's buffer."
   (pdf-annot-get a 'buffer))
@@ -587,8 +587,8 @@ The DO-SAVE argument is given to
 (defun pdf-annot-attachment-delete-base-directory ()
   "Delete all saved attachment files of the current buffer."
   (setq pdf-annot--attachment-file-alist nil)
-  (delete-directory (pdf-annot-attachment-base-directory) t)) 
-    
+  (delete-directory (pdf-annot-attachment-base-directory) t))
+
 (defun pdf-annot-attachment-unique-filename (attachment)
   "Return a unique absolute filename for ATTACHMENT."
   (let* ((filename (or (cdr (assq 'filename attachment))
@@ -612,7 +612,7 @@ The DO-SAVE argument is given to
     (unless (file-exists-p directory)
       (make-directory directory t))
     unique))
-      
+
 
 (defun pdf-annot-attachment-save (attachment &optional regenerate-p)
   "Save ATTACHMENT's data to a unique filename and return it's name.
@@ -711,7 +711,7 @@ Return the window attachment is displayed in."
 
 IMAGE-SIZE should be a cons \(WIDTH . HEIGHT\) and defaults to
 the page-image of the selected window."
-  
+
   (unless image-size
     (pdf-util-assert-pdf-window)
     (setq image-size (pdf-view-image-size)))
@@ -725,7 +725,7 @@ the page-image of the selected window."
   "Set annotation A's position to X,Y in image coordinates.
 
 See `pdf-annot-image-position' for IMAGE-SIZE."
-  
+
   (unless image-size
     (pdf-util-assert-pdf-window)
     (setq image-size (pdf-view-image-size)))
@@ -843,7 +843,7 @@ i.e. a non mouse-movement event is read."
                   (pdf-view-redisplay))))
         (pdf-annot-run-modified-hooks)))
     nil))
-              
+
 (defun pdf-annot-hotspot-function (page size)
   "Create image hotspots for page PAGE of size SIZE."
   (apply 'nconc (mapcar (lambda (a)
@@ -851,8 +851,8 @@ i.e. a non mouse-movement event is read."
                                       'link)
                             (pdf-annot-create-hotspots a size)))
                         (pdf-annot-getannots page))))
-  
-(defun pdf-annot-create-hotspots (a size) 
+
+(defun pdf-annot-create-hotspots (a size)
   "Return a list of image hotspots for annotation A."
   (let ((id (pdf-annot-get-id a))
         (edges (pdf-util-scale
@@ -872,7 +872,7 @@ i.e. a non mouse-movement event is read."
               hotspots)))
     (pdf-annot-create-hotspot-binding id moveable-p a)
     hotspots))
-      
+
 ;; FIXME: Define a keymap as a template for this. Much cleaner.
 (defun pdf-annot-create-hotspot-binding (id moveable-p annotation)
   ;; Activating
@@ -906,7 +906,7 @@ Turn to A's page in WINDOW, and scroll it if necessary.
 
 If HIGHLIGHT-P is non-nil, visually distinguish annotation A from
 other annotations."
-  
+
   (save-selected-window
     (when window (select-window window))
     (pdf-util-assert-pdf-window)
@@ -976,7 +976,7 @@ Return the new annotation."
     (setq edges (list edges)))
   (when (and (eq type 'text)
              (> (length edges) 1))
-    (error "Edges argument should be a single edge-list for text annotations")) 
+    (error "Edges argument should be a single edge-list for text annotations"))
   (let* ((a (apply 'pdf-info-addannot
                    page
                    (if (eq type 'text)
@@ -1063,7 +1063,7 @@ Return the new annotation."
          (pdf-util-read-image-position
           "Click where a new text annotation should be added ..."))
      (event-start ev))))
-    
+
 (defun pdf-annot-add-markup-annotation (list-of-edges type &optional color
                                                       property-alist)
   "Add a new markup annotation in the selected window.
@@ -1158,8 +1158,8 @@ Offer `pdf-annot-color-history' as default values."
                      initial-input 'pdf-annot-color-history
                      defaults
                      inherit-input-method))))
-    (read-color prompt)))  
-    
+    (read-color prompt)))
+
 (defun pdf-annot-merge-alists (&rest alists)
   "Merge ALISTS into a single one.
 
@@ -1171,8 +1171,8 @@ occurrence in ALISTS."
       (unless (assq (car elt) merged)
         (push elt merged)))
     (nreverse merged)))
-  
-  
+
+
 
 ;; * ================================================================== *
 ;; * Displaying annotation contents
@@ -1321,7 +1321,7 @@ by a header."
                              (pdf-annot-get a 'contents))
                     'latex-mode
                   'text-mode)))
-      (unless (derived-mode-p mode) 
+      (unless (derived-mode-p mode)
         (funcall mode))))
   "A function for setting up, e.g. the major-mode, of the edit buffer.
 
@@ -1374,7 +1374,7 @@ annotation's contents and otherwise `text-mode'. "
     (set-buffer-modified-p nil))
   (dolist (win (get-buffer-window-list))
     (quit-window do-kill win)))
-        
+
 (defun pdf-annot-edit-contents-save-annotation ()
   (when pdf-annot-edit-contents--annotation
     (pdf-annot-put pdf-annot-edit-contents--annotation
@@ -1417,7 +1417,7 @@ annotation's contents and otherwise `text-mode'. "
    (display-buffer
     (pdf-annot-edit-contents-noselect a)
     pdf-annot-edit-contents-display-buffer-action)))
-  
+
 (defun pdf-annot-edit-contents-mouse (ev)
   (interactive "@e")
   (let* ((pos (posn-object-x-y (event-start ev)))
@@ -1499,7 +1499,7 @@ belong to the same page and A1 is displayed above/left of A2."
            (if (pdf-annot-get a 'created)
                (pdf-annot-print-property a 'created)
              "Unknown date")))))
-    
+
 (define-derived-mode pdf-annot-list-mode tablist-mode "Annots"
   (setq tabulated-list-entries 'pdf-annot-list-entries
         tabulated-list-format (vector
@@ -1561,15 +1561,15 @@ belong to the same page and A1 is displayed above/left of A2."
         (when (invisible-p (point))
           (tablist-suspend-filter t))
         (tablist-move-to-major-column)))))
-        
-  
+
+
 (defun pdf-annot-list-update (&optional _fn)
   (when (buffer-live-p pdf-annot-list-buffer)
     (with-current-buffer pdf-annot-list-buffer
       (unless tablist-edit-column-minor-mode
         (tablist-revert))
       (tablist-context-window-update))))
-  
+
 (defun pdf-annot-list-context-function (id buffer)
   (with-current-buffer (get-buffer-create "*Contents*")
     (set-window-buffer nil (current-buffer))

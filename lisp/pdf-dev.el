@@ -3,7 +3,7 @@
 ;; Copyright (C) 2015  Andreas Politz
 
 ;; Author: Andreas Politz <politza@hochschule-trier.de>
-;; Keywords: 
+;; Keywords:
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 ;; This file is only ment for developers.  The entry point is
 ;; pdf-dev-minor-mode, which see.
 
@@ -41,7 +41,7 @@
       (push file loaded)
       (load-file file))
     (message "Loaded %s" (mapconcat 'identity loaded " "))))
-    
+
 (define-minor-mode pdf-dev-minor-mode
   "Make developing pdf-tools easier.
 

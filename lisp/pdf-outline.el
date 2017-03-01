@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 
 (require 'outline)
 (require 'pdf-links)
@@ -33,7 +33,7 @@
 
 ;;
 ;; User options
-;; 
+;;
 
 (defgroup pdf-outline nil
   "Display a navigatable outline of a PDF document."
@@ -113,7 +113,7 @@ Usually a page's label is it's displayed page number."
 
 ;;
 ;; Internal Variables
-;; 
+;;
 
 (define-button-type 'pdf-outline
   'face nil
@@ -130,7 +130,7 @@ Usually a page's label is it's displayed page number."
 
 ;;
 ;; Functions
-;; 
+;;
 
 ;;;###autoload
 (define-minor-mode pdf-outline-minor-mode
@@ -200,7 +200,7 @@ rebound to their respective last character.
                (not (eq link pdf-outline-follow-mode-last-link)))
       (setq pdf-outline-follow-mode-last-link link)
       (pdf-outline-display-link (point)))))
-  
+
 ;;;###autoload
 (defun pdf-outline (&optional buffer no-select-window-p)
   "Display an PDF outline of BUFFER.
@@ -247,7 +247,7 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
     ;; (when (buffer-live-p (get-buffer buf))
     ;;   (kill-buffer buf))
     buf))
-  
+
 (defun pdf-outline-insert-outline (pdf-buffer)
   (let ((labels (and pdf-outline-display-labels
                      (pdf-info-pagelabels pdf-buffer)))
@@ -300,7 +300,7 @@ buffer, unless NO-SELECT-WINDOW-P is non-nil."
 
 ;;
 ;; Commands
-;; 
+;;
 
 (defun pdf-outline-move-to-current-page ()
   "Move to the item corresponding to the current page.
@@ -323,7 +323,7 @@ Open nodes as necessary."
   (let ((win (selected-window)))
     (pdf-outline-select-pdf-window t)
     (quit-window kill win)))
-  
+
 (defun pdf-outline-up-heading (arg &optional invisible-ok)
   "Like `outline-up-heading', but `push-mark' first."
   (interactive "p")
@@ -331,7 +331,7 @@ Open nodes as necessary."
     (outline-up-heading arg invisible-ok)
     (unless (= pos (point))
       (push-mark pos))))
-   
+
 (defun pdf-outline-end-of-buffer ()
   "Move to the end of the outline buffer."
   (interactive)
@@ -343,7 +343,7 @@ Open nodes as necessary."
       (forward-line -1))
     (unless (= pos (point))
       (push-mark pos))))
-  
+
 (defun pdf-outline-link-at-pos (&optional pos)
   (unless pos (setq pos (point)))
   (let ((button (or (button-at pos)
@@ -351,7 +351,7 @@ Open nodes as necessary."
     (and button
          (button-get button
                      'pdf-outline-link))))
-  
+
 (defun pdf-outline-follow-link (&optional pos)
   "Select PDF window and move to the page corresponding to POS."
   (interactive)
@@ -372,7 +372,7 @@ Then quit the outline window."
     (unless link
       (error "Nothing to follow here"))
     (pdf-links-action-perform link)))
-  
+
 (defun pdf-outline-display-link (&optional pos)
   "Display the page corresponding to the link at POS."
   (interactive)
@@ -423,7 +423,7 @@ Then quit the outline window."
       (outline-up-heading 1 t)
       (show-children)))
   (back-to-indentation))
-              
+
 (defun pdf-outline-position-of-page (page)
   (let (curpage)
     (save-excursion
@@ -432,13 +432,13 @@ Then quit the outline window."
                   (< curpage page))
         (forward-line))
       (point))))
-      
-  
+
+
 
 ;;
 ;; Imenu Support
-;; 
-  
+;;
+
 
 ;;;###autoload
 (defun pdf-outline-imenu-enable ()
@@ -460,7 +460,7 @@ Then quit the outline window."
   (when (eq pdf-view-mode-map
             (keymap-parent (current-local-map)))
     (use-local-map (keymap-parent (current-local-map)))))
-  
+
 
 (defun pdf-outline-imenu-create-item (link &optional labels)
   (let-alist link
@@ -470,7 +470,7 @@ Then quit the outline window."
           0
           'pdf-outline-imenu-activate-link
           link)))
-  
+
 (defun pdf-outline-imenu-create-index-flat ()
   (let ((labels (and pdf-outline-display-labels
                      (pdf-info-pagelabels)))
@@ -481,8 +481,8 @@ Then quit the outline window."
           (push (pdf-outline-imenu-create-item item labels)
                 index))))
     (nreverse index)))
-        
-    
+
+
 (defun pdf-outline-imenu-create-index-tree ()
   (pdf-outline-imenu-create-index-tree-1
    (pdf-outline-treeify-outline-list

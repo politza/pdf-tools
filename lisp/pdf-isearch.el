@@ -21,7 +21,7 @@
 ;;; Commentary:
 ;;
 ;;; Todo:
-;; 
+;;
 ;; * Add the possibility to limit the search to a range of pages.
 
 (require 'cl-lib)
@@ -281,7 +281,7 @@ This is a Isearch interface function."
             (re-search-forward ".")
           (re-search-backward ".")))
        ((and (not pdf-isearch-narrow-to-page)
-             (not (pdf-isearch-empty-match-p matches)))                   
+             (not (pdf-isearch-empty-match-p matches)))
         (let ((next-page (pdf-isearch-find-next-matching-page
                           string pdf-isearch-current-page t)))
           (when next-page
@@ -596,7 +596,7 @@ match."
     ;; Next match of new search closest to the last one.
     (pdf-isearch-closest-match
      last-match matches forward))))
-  
+
 (defun pdf-isearch-focus-match-isearch (match)
   "Make the image area in MATCH visible in the selected window."
   (pdf-util-scroll-to-edges (apply 'pdf-util-edges-union match)))
@@ -653,7 +653,7 @@ The direction in which to look is determined by FORWARD-P.
 MATCH should be a list of edges, MATCHES a list of such element;
 it is assumed to be ordered with respect to FORWARD-P."
 
-  
+
   (cl-check-type match pdf-isearch-match)
   (cl-check-type matches (list-of pdf-isearch-match))
   (let ((matched (apply 'pdf-util-edges-union match)))
@@ -743,7 +743,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 ;; * ================================================================== *
 
 ;; The following isearch-search function is debuggable.
-;; 
+;;
 (when nil
   (defun isearch-search ()
     ;; Do the search with the current search string.

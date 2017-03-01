@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 
 
 (require 'pdf-view)
@@ -38,7 +38,7 @@
 ;;;###autoload
 (define-minor-mode pdf-misc-minor-mode
   "FIXME:  Not documented."
-  nil nil nil)  
+  nil nil nil)
 
 ;;;###autoload
 (define-minor-mode pdf-misc-size-indication-minor-mode
@@ -50,7 +50,7 @@
     (unless (assq 'pdf-misc-size-indication-minor-mode
                   mode-line-position)
       (setq mode-line-position
-            `((pdf-misc-size-indication-minor-mode 
+            `((pdf-misc-size-indication-minor-mode
                (:eval (pdf-misc-size-indication)))
               ,@mode-line-position))))
    (t
@@ -254,7 +254,7 @@ It is called with one argument, the PDF file."
                                         'executable-find
                                         '("gtklp" "xpp" "gpr")))))
                buffer-file-name
-               (programm 
+               (programm
                 (expand-file-name
                  (read-file-name
                   "Print with: " default nil t nil 'file-executable-p))))
@@ -276,7 +276,7 @@ It is called with one argument, the PDF file."
     (apply #'start-process "printing" nil programm args)
     (message "Print job started: %s %s"
 	     programm (mapconcat #'identity args " "))))
-				 
+
 
 (provide 'pdf-misc)
 

@@ -30,7 +30,7 @@
 ;;
 ;; Note: This package requires external libraries and works currently
 ;; only on GNU/Linux systems.
-;; 
+;;
 ;; Note: If you ever update it, you need to restart Emacs afterwards.
 ;;
 ;; To activate the package put
@@ -48,36 +48,36 @@
 ;; offers some customization options.
 
 ;; Features:
-;; 
+;;
 ;; * View
 ;;   View PDF documents in a buffer with DocView-like bindings.
-;;   
-;; * Isearch 
+;;
+;; * Isearch
 ;;   Interactively search PDF documents like any other buffer. (Though
 ;;   there is currently no regexp support.)
-;;   
+;;
 ;; * Follow links
 ;;   Click on highlighted links, moving to some part of a different
 ;;   page, some external file, a website or any other URI.  Links may
 ;;   also be followed by keyboard commands.
-;;   
+;;
 ;; * Annotations
 ;;   Display and list text and markup annotations (like underline),
 ;;   edit their contents and attributes (e.g. color), move them around,
 ;;   delete them or create new ones and then save the modifications
 ;;   back to the PDF file.
-;;   
+;;
 ;; * Attachments
 ;;   Save files attached to the PDF-file or list them in a dired buffer.
-;;   
+;;
 ;; * Outline
 ;;   Use imenu or a special buffer to examine and navigate the PDF's
 ;;   outline.
-;;   
+;;
 ;; * SyncTeX
 ;;   Jump from a position on a page directly to the TeX source and
 ;;   vice-versa.
-;;   
+;;
 ;; * Misc
 ;;    + Display PDF's metadata.
 ;;    + Mark a region and kill the text from the PDF.
@@ -125,7 +125,7 @@ In order to customize dark and light colors use
     pdf-view-auto-slice-minor-mode
     pdf-occur-global-minor-mode
     pdf-virtual-global-minor-mode))
-    
+
 (defcustom pdf-tools-enabled-modes
   '(pdf-history-minor-mode
     pdf-isearch-minor-mode
@@ -160,7 +160,7 @@ PDF buffers."
 (defconst pdf-tools-auto-mode-alist-entry
   '("\\.[pP][dD][fF]\\'" . pdf-view-mode)
   "The entry to use for `auto-mode-alist'.")
-  
+
 (defun pdf-tools-customize ()
   "Customize Pdf Tools."
   (interactive)
@@ -188,7 +188,7 @@ PDF buffers."
   "Whether PDF Tools should handle upgrading itself."
   :group 'pdf-tools
   :type 'boolean)
-  
+
 ;;;###autoload
 (when (and pdf-tools-handle-upgrades
            (boundp 'pdf-info-epdfinfo-program)
@@ -317,7 +317,7 @@ CALLBACK may be a function, which will be locally put on
 (defun pdf-tools-assert-pdf-buffer (&optional buffer)
   (unless (pdf-tools-pdf-buffer-p buffer)
     (error "Buffer does not contain a PDF document")))
-  
+
 (defun pdf-tools-set-modes-enabled (enable &optional modes)
   (dolist (m (or modes pdf-tools-enabled-modes))
     (let ((enabled-p (and (boundp m)

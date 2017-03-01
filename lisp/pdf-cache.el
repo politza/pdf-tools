@@ -19,9 +19,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;; 
+;;
 ;;; Code:
-;; 
+;;
 
 (require 'pdf-info)
 (require 'pdf-util)
@@ -108,7 +108,7 @@ is nil and VALUE undefined."
   (when pdf-cache--data
     (dolist (page pages)
       (remhash page pdf-cache--data))))
-    
+
 (defun pdf-cache-clear-data ()
   (interactive)
   (when pdf-cache--data
@@ -149,7 +149,7 @@ Make sure, not to modify it's return value." command)))
 (define-pdf-cache-function boundingbox t)
 (define-pdf-cache-function textregions t)
 (define-pdf-cache-function pagesize t)
-  
+
 
 ;; * ================================================================== *
 ;; * PNG image LRU cache
@@ -157,7 +157,7 @@ Make sure, not to modify it's return value." command)))
 
 (defvar pdf-cache-image-inihibit nil
   "Non-nil, if the image cache should be bypassed.")
-  
+
 (defvar-local pdf-cache--image-cache nil)
 
 (defmacro pdf-cache--make-image (page width data hash)
@@ -197,7 +197,7 @@ Does not modify the cache.  See also `pdf-cache-get-image'."
                              (apply 'pdf-cache--image-match image spec))))))
     (and image
          (pdf-cache--image/data image))))
-  
+
 (defun pdf-cache-get-image (page min-width &optional max-width hash)
   "Return PAGE's PNG data as a string.
 
@@ -214,7 +214,7 @@ Returns nil, if no matching image was found."
     (while (and (cdr cache)
                 (not (pdf-cache--image-match
                       (car (cdr cache))
-                      page min-width max-width hash)))                    
+                      page min-width max-width hash)))
       (setq cache (cdr cache)))
     (setq image (cadr cache))
     (when (car cache)
@@ -447,7 +447,7 @@ Used solely in `pdf-cache--prefetch-start'.")
 (defun pdf-cache--prefetch-stop ()
   "Stop prefetching images in current buffer."
   (setq pdf-cache--prefetch-pages nil))
-  
+
 (defun pdf-cache--prefetch-cancel ()
   "Cancel prefetching images in current buffer."
   (pdf-cache--prefetch-stop)
