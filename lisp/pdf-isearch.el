@@ -440,6 +440,7 @@ there was no previous search, this function returns t."
   (if pdf-isearch-current-match
       (let ((left (caar pdf-isearch-current-match))
             (top (cadar pdf-isearch-current-match)))
+        (isearch-exit)
         (funcall 'pdf-sync-backward-search left top))))
 
 
