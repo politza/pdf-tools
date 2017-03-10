@@ -131,6 +131,13 @@
 
      If you choose not to install from melpa, you must substitute
     ~gmake~ for ~make~ in the instructions below.
+
+**** Compiling on Centos
+     It is possible to compile pdf-tools on Centos. Install poppler the dependencies with:
+#+BEGIN_SRC sh
+  $ yum install poppler-devel poppler-glib-devel
+#+END_SRC
+
 *** Compilation
     Now it's time to compile the source.      
 #+begin_src sh
