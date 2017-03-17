@@ -14,8 +14,8 @@
    whatever reason, poppler, running inside a server program.  This
    program is called ~epdfinfo~ and its job is it to successively
    read requests from Emacs and produce the proper results, i.e. the
-   PNG image of a PDF page.  
-   
+   PNG image of a PDF page.
+
    Actually, displaying PDF files is just one part of PDF Tools.
    Since poppler can provide us with all kinds of information about a
    document and is also able to modify it, there is a lot more we can
@@ -24,7 +24,7 @@
 ** Features
 *** View
     View PDF documents in a buffer with DocView-like bindings.
-*** Isearch 
+*** Isearch
     Interactively search PDF documents like any other buffer, either
     for a string or a PCRE.
 *** Occur
@@ -38,7 +38,7 @@
     Display and list text and markup annotations (like underline),
     edit their contents and attributes (e.g. color), move them around,
     delete them or create new ones and then save the modifications
-    back to the PDF file. 
+    back to the PDF file.
 *** Attachments
     Save files attached to the PDF-file or list them in a dired buffer.
 *** Outline
@@ -49,7 +49,7 @@
     vice versa.
 *** Virtual PDF
     Use a collection of documents as if it where one, big single PDF.
-    
+
 *** Misc
    + Display PDF's metadata.
    + Mark a region and kill the text from the PDF.
@@ -60,14 +60,14 @@
    The package may be installed via melpa and it will try to build the
    server part when it is activated the first time, though the next
    section is still relevant.
-   
+
 *** Server Prerequisites
     You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
     Other operating systems are currently not supported (patches
     welcome).  The following instructions assume a Debian-based
     system. (The prerequisites may be installed automatically on this
     kind of systems, see [[Compilation]] .)
-    
+
     First make sure a suitable build-system is installed.  We need at
     least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~, ~automake~
     and ~autoconf~.
@@ -75,9 +75,9 @@
     Next we need to install a few libraries PDF Tools depends on, some
     of which are probably already on your system.
 #+begin_src sh
-  $ sudo aptitude install libpng-dev libz-dev 
-  $ sudo aptitude install libpoppler-glib-dev 
-  $ sudo aptitude install libpoppler-private-dev 
+  $ sudo aptitude install libpng-dev libz-dev
+  $ sudo aptitude install libpoppler-glib-dev
+  $ sudo aptitude install libpoppler-private-dev
 #+end_src
     On some older Ubuntu systems, the final command will possibly give
     an error.  This should be no problem, since in some versions this
@@ -120,7 +120,7 @@
   $ export PKG_CONFIG_PATH=/usr/local/Cellar/zlib/1.2.8/lib/pkgconfig:/usr/local/lib/pkgconfig:/opt/X11/lib/pkgconfig
 #+END_SRC
      or likewise within Emacs using `setenv`.
-     
+
      After that, compilation should proceed as normal.
 **** Compiling on FreeBSD
      Although not officially suppported, it has been reported that
@@ -132,7 +132,7 @@
      If you choose not to install from melpa, you must substitute
     ~gmake~ for ~make~ in the instructions below.
 *** Compilation
-    Now it's time to compile the source.      
+    Now it's time to compile the source.
 #+begin_src sh
     $ cd /path/to/pdf-tools
     $ make install-server-deps # optional
@@ -141,7 +141,7 @@
     The ~make install-server-deps~ command will try to install all
     necessary programs and libraries to build the package, though
     it'll only work, if ~sudo~ and ~apt-get~ are available.
-    
+
     This should compile the source code and create a Emacs Lisp
     Package in the root directory of the project. The configure script
     also tells you at the very end, which features, depending on the
@@ -159,7 +159,7 @@
 #+begin_src elisp
   M-x package-install-file RET pdf-tools-${VERSION}.tar RET
 #+end_src
-    
+
   To complete the installation process, you need to activate the
   package by putting
 #+begin_src elisp
