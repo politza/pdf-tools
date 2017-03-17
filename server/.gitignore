@@ -20,3 +20,5 @@ compile
 config.h.in~
 .clang_complete
 callgrind.out.*
+config.guess
+config.sub
