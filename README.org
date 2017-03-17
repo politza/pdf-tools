@@ -66,7 +66,7 @@
     Other operating systems are currently not supported (patches
     welcome).  The following instructions assume a Debian-based
     system. (The prerequisites may be installed automatically on this
-    kind of systems, see [[Compilation]] .)
+    kind of systems, see [[#Compilation][Compilation]] .)
 
     First make sure a suitable build-system is installed.  We need at
     least a C/C++ compiler (both ~gcc~ and ~g++~), ~make~, ~automake~
@@ -132,6 +132,9 @@
      If you choose not to install from melpa, you must substitute
     ~gmake~ for ~make~ in the instructions below.
 *** Compilation
+    :PROPERTIES:
+    :CUSTOM_ID: Compilation
+    :END:
     Now it's time to compile the source.
 #+begin_src sh
     $ cd /path/to/pdf-tools
