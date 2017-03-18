@@ -21,6 +21,8 @@
    document and is also able to modify it, there is a lot more we can
    do with it. [[http://www.dailymotion.com/video/x2bc1is_pdf-tools-tourdeforce_tech?forcedQuality%3Dhd720][Watch]]
 
+   Please read also about [[#known-problems][known problems.]]
+
 ** Features
 *** View
     View PDF documents in a buffer with DocView-like bindings.
@@ -185,6 +187,30 @@
 
     This also applies when updating via package and melpa.
 
+** Known problems
+    :PROPERTIES:
+    :CUSTOM_ID: known-problems
+    :END:
+
+*** linum-mode
+    PDF Tools does not work well together with ~linum-mode~ and
+    activating it in a ~pdf-view-mode~, e.g. via ~global-linum-mode~,
+    buffer might make Emacs choke.
+
+*** auto-revert
+    Autorevert works by polling the file-system every
+    ~auto-revert-interval~ seconds optionally combined with some
+    event-based reverting via [[https://www.gnu.org/software/emacs/manual/html_node/elisp/File-Notifications.html][file notification]].  But this currently
+    does not work reliably, such that Emacs may revert the PDF-buffer
+    while the corresponding file is still being written to (e.g. by
+    LaTeX) and resulting in various errors.
+
+    With a recent [[https://www.gnu.org/software/auctex/][auctex]] installation, you might want to put the
+    following somewhere in your dotemacs, which will revert the buffer
+    *after* the compilation process has finished.
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
+#+END_SRC
 ** Some keybindings
 
 | Navigation                                 |                       |
