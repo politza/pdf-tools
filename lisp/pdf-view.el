@@ -533,9 +533,15 @@ a local copy of a remote file."
     (user-error "Last page"))
   (when (< (+ (pdf-view-current-page) n) 1)
     (user-error "First page"))
-  (let ((pdf-view-inhibit-redisplay t))
-    (pdf-view-goto-page
-     (+ (pdf-view-current-page) n)))
+  ;; alow page-up, page-down to turn by a page of window-size
+  (let* ((pdf-view-inhibit-redisplay t)
+         (wdn-height (window-height (selected-window)))
+         (lines-to-move (cond ((> n 0) (- wdn-height 4))
+                              ((< n 0) (- 4 wdn-height))
+                              (t 0))))
+    (when (= (window-vscroll) (image-next-line lines-to-move))
+      (pdf-view-goto-page (+ (pdf-view-current-page) n))
+      (if (> n 0) (image-bob) (image-eob))))
   (force-mode-line-update)
   (sit-for 0)
   (when pdf-view--next-page-timer
