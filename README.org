@@ -133,6 +133,13 @@
 
      If you choose not to install from melpa, you must substitute
     ~gmake~ for ~make~ in the instructions below.
+**** Compiling on Windows
+     PDF Tools can be built and used on Windows using the MSYS2
+     compiler. This will work with native (not cygwin) Windows builds of
+     emacs. This includes the standard binaries provided by the GNU
+     project, those available as MSYS2 packages and numerous third-party
+     binaries. It has been tested with emacs 25.1. Instructions are
+     provided under [[Compilation and installation on Windows]], below.
 *** Compilation
     :PROPERTIES:
     :CUSTOM_ID: compilation
@@ -152,6 +159,68 @@
     also tells you at the very end, which features, depending on the
     libpoppler version, will be available.  These commands should give
     no error, otherwise you are in trouble.
+**** Compilation and installation on Windows
+      If using the GNU binaries for Windows, support for PNG and zlib
+      must first be installed by copying the appropriate dlls into
+      emacs' ~bin/~ directory. Most third-party binaries come with this
+      already done.
+     
+      First, install [[http://www.msys2.org/][install MSYS2]] and update
+      the package database and core packages using the instructions
+      provided. Then, to compile PDF tools itself:
+
+      1. Open msys2 shell
+   
+      2. Update and install dependencies, skipping any you already have
+         #+BEGIN_SRC sh
+         pacman -Syu
+         pacman -S base-devel
+         pacman -S mingw-w64-x86_64-toolchain
+         pacman -S mingw-w64-x86_64-zlib
+         pacman -S mingw-w64-x86_64-libpng
+         pacman -S mingw-w64-x86_64-poppler
+         pacman -S mingw-w64-x86_64-imagemagick
+         #+END_SRC
+
+      3. Install PDF tools in Emacs, but do not try to compile the
+         server. Instead, get a separate copy of the source somewhere
+         else.
+         #+BEGIN_SRC sh
+         git clone https://github.com/politza/pdf-tools
+         #+END_SRC
+      
+      4. Open mingw64 shell
+      
+      5. Compile pdf-tools
+         #+BEGIN_SRC sh
+         cd pdf-tools/build
+         make -s
+         #+END_SRC
+      
+      6. This should produce a file ~server/epdfinfo.exe~. Copy this file
+         into the ~pdf-tools/~ installation directory in your Emacs.
+   
+      7. Start Emacs and activate the package.
+         #+BEGIN_SRC 
+         M-x pdf-tools-install RET
+         #+END_SRC
+   
+      8. Test. 
+         #+BEGIN_SRC 
+         M-x pdf-info-check-epdfinfo RET
+         #+END_SRC
+     
+      If this is successful, ~(pdf-tools-install)~ can be added to Emacs'
+      config. Note that libraries from other GNU utilities, such as Git
+      for Windows, may interfere with those needed by PDF Tools.
+      ~pdf-info-check-epdinfo~ will succeed, but errors occur when trying
+      to view a PDF file. This can be fixed by ensuring that the MSYS
+      libraries are always preferred in emacs:
+
+ #+BEGIN_SRC emacs-lisp
+ (setenv "PATH" (concat "C:\\msys64\\mingw64\\bin;" (getenv "PATH")))
+          #+END_SRC
+
 
 *** Installing
     If ~make~ produced the ELP file ~pdf-tools-${VERSION}.tar~ you are
