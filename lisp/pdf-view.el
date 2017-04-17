@@ -491,7 +491,7 @@ a local copy of a remote file."
            (read-number "Page: "))))
   (unless (and (>= page 1)
                (<= page (pdf-cache-number-of-pages)))
-    (error "No such page: %d" page))
+    (user-error "No such page: %d" page))
   (unless window
     (setq window
           (if (pdf-util-pdf-window-p)
