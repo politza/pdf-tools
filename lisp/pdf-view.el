@@ -302,33 +302,33 @@ PNG images in Emacs buffers."
                              (file-readable-p buffer-file-name)))))
              (pdf-tools-pdf-buffer-p))
     (let ((tempfile (pdf-util-make-temp-file
-		     (concat (if buffer-file-name
-				 (file-name-nondirectory
-				  buffer-file-name)
-			       (buffer-name))
-			     "-"))))
+                     (concat (if buffer-file-name
+                                 (file-name-nondirectory
+                                  buffer-file-name)
+                               (buffer-name))
+                             "-"))))
       (write-region nil nil tempfile nil 'no-message)
       (setq-local pdf-view--buffer-file-name tempfile)))
 
   ;; Setup scroll functions
   (if (boundp 'mwheel-scroll-up-function) ; not --without-x build
       (setq-local mwheel-scroll-up-function
-		  #'pdf-view-scroll-up-or-next-page))
+                  #'pdf-view-scroll-up-or-next-page))
   (if (boundp 'mwheel-scroll-down-function)
       (setq-local mwheel-scroll-down-function
-		  #'pdf-view-scroll-down-or-previous-page))
+                  #'pdf-view-scroll-down-or-previous-page))
 
   ;; Clearing overlays
   (add-hook 'change-major-mode-hook
-	    (lambda ()
-	      (remove-overlays (point-min) (point-max) 'pdf-view t))
-	    nil t)
+            (lambda ()
+              (remove-overlays (point-min) (point-max) 'pdf-view t))
+            nil t)
   (remove-overlays (point-min) (point-max) 'pdf-view t) ;Just in case.
 
   ;; Setup other local variables.
   (setq-local mode-line-position
-	      '(" P" (:eval (number-to-string (pdf-view-current-page)))
-		"/" (:eval (number-to-string (pdf-cache-number-of-pages)))))
+              '(" P" (:eval (number-to-string (pdf-view-current-page)))
+                "/" (:eval (number-to-string (pdf-cache-number-of-pages)))))
   (setq-local auto-hscroll-mode nil)
   (setq-local pdf-view--server-file-name (pdf-view-buffer-file-name))
   ;; High values of scroll-conservatively seem to trigger
@@ -338,7 +338,7 @@ PNG images in Emacs buffers."
   (setq-local buffer-read-only t)
   (setq-local view-read-only nil)
   (setq-local bookmark-make-record-function
-	      'pdf-view-bookmark-make-record)
+              'pdf-view-bookmark-make-record)
   (setq-local revert-buffer-function #'pdf-view-revert-buffer)
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
@@ -350,17 +350,17 @@ PNG images in Emacs buffers."
   (setq-local transient-mark-mode t)
 
   (add-hook 'window-configuration-change-hook
-	    'pdf-view-maybe-redisplay-resized-windows nil t)
+            'pdf-view-maybe-redisplay-resized-windows nil t)
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
   (add-hook 'write-contents-functions
-	    'pdf-view--write-contents-function nil t)
+            'pdf-view--write-contents-function nil t)
   (add-hook 'kill-buffer-hook 'pdf-view-close-document nil t)
   (pdf-view-add-hotspot-function
    'pdf-view-text-regions-hotspots-function -9)
 
   ;; Keep track of display info
   (add-hook 'image-mode-new-window-functions
-	    'pdf-view-new-window-function nil t)
+            'pdf-view-new-window-function nil t)
   (image-mode-setup-winprops)
 
   ;; Decryption needs to be done before any other function calls into
@@ -433,7 +433,7 @@ Optional parameters IGNORE-AUTO and NOCONFIRM are defined as in
   ;; later versions the semantics that nil means the default function should
   ;; not relied upon.
   (let ((revert-buffer-function (when (fboundp #'revert-buffer--default)
-				  #'revert-buffer--default))
+                                  #'revert-buffer--default))
 	(after-revert-hook
 	 (cons #'pdf-info-close
 	       after-revert-hook)))
