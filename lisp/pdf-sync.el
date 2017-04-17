@@ -674,7 +674,7 @@ Needs to have `pdf-sync-backward-debug-minor-mode' enabled."
     (let ((buffer (or (find-buffer-visiting pdf)
                       (find-file-noselect pdf))))
       (with-selected-window (display-buffer
-                             buffer pdf-sync-forward-display-action)
+                             buffer pdf-sync-forward-display-action t)
         (pdf-util-assert-pdf-window)
         (pdf-view-goto-page page)
         (let ((top (* y1 (cdr (pdf-view-image-size)))))
