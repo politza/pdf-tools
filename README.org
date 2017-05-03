@@ -318,10 +318,10 @@
 | Close Annotation List         | ~q~                                             |
 | Add and edit annotations      | via Mouse selection and left-click context menu |
 
-| Syncing with Auctex              |                |
-|----------------------------------+----------------|
-| jump to PDF location from source | ~C-c C-g~      |
-| jump source location from PDF    | ~double-click~ |
+| Syncing with Auctex              |             |
+|----------------------------------+-------------|
+| jump to PDF location from source | ~C-c C-g~   |
+| jump source location from PDF    | ~C-mouse-1~ |
 
 | Miscellaneous                                 |           |
 |-----------------------------------------------+-----------|
