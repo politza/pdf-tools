@@ -49,7 +49,6 @@
 ;;; Code:
 
 (require 'tq)
-(require 'cl)
 (require 'cl-lib)
 
 
@@ -65,7 +64,7 @@
 (defcustom pdf-info-epdfinfo-program
   (expand-file-name (if (eq system-type 'windows-nt) "epdfinfo.exe" "epdfinfo")
                     (let ((dir (file-name-directory (or load-file-name default-directory))))
-                      (find-if 'file-exists-p
+                      (cl-find-if 'file-exists-p
                                `(,(expand-file-name "build" dir)
                                  ,(expand-file-name "../server" dir)
                                  dir)
