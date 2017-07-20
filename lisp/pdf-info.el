@@ -49,6 +49,7 @@
 ;;; Code:
 
 (require 'tq)
+(require 'cl)
 (require 'cl-lib)
 
 
