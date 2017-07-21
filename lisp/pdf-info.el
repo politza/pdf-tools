@@ -65,9 +65,8 @@
   (expand-file-name (if (eq system-type 'windows-nt) "epdfinfo.exe" "epdfinfo")
                     (let ((dir (file-name-directory (or load-file-name default-directory))))
                       (cl-find-if 'file-exists-p
-                               `(,(expand-file-name "build" dir)
-                                 ,(expand-file-name "../server" dir))
-                               )))
+                                  `(,(expand-file-name "../server" dir)
+                                    ,dir))))
   "Filename of the epdfinfo executable."
   :group 'pdf-info
   :type '(file :must-match t))
