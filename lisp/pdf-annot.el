@@ -790,11 +790,8 @@ Return nil, if no annotation was found."
       (when window (select-window window))
       (let* ((annots (pdf-annot-getannots (pdf-view-current-page)))
              (size (pdf-view-image-size))
-             (offset (pdf-view-image-offset))
-             (rx (+ (/ (car pos) (float (car size)))
-                    (car offset)))
-             (ry (+ (/ (cdr pos) (float (cdr size)))
-                    (cdr offset)))
+             (rx (/ (car pos) (float (car size))))
+             (ry (/ (cdr pos) (float (cdr size))))
              (rpos (cons rx ry)))
         (or (cl-some (lambda (a)
                        (and (cl-some
