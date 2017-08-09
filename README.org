@@ -60,8 +60,11 @@
 
 ** Installation
    The package may be installed via melpa and it will try to build the
-   server part when it is activated the first time, though the next
-   section is still relevant.
+   server part when it is activated the first time.  Though the next
+   section regarding build-prerequisites is still relevant, the rest
+   of the installation instructions assume a build from within a git
+   repository. (The melpa package has a different directory
+   structure.)
 
 *** Server Prerequisites
     You'll need GNU Emacs \ge 24.3 and some form of a GNU/Linux OS.
