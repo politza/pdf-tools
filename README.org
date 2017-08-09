@@ -230,11 +230,11 @@
     This package depends on the following Elisp packages, which should
     be installed before installing the Pdf Tools package.
 
-    | Package   | Required version              |
-    |-----------+-------------------------------|
-    | [[https://elpa.gnu.org/packages/let-alist.html][let-alist]] | 1.0.4 (comes with Emacs 25.2) |
-    | [[http://melpa.org/#/tablist][tablist]]   | 0.70                          |
-    |-----------+-------------------------------|
+    | Package   | Required version                 |
+    |-----------+----------------------------------|
+    | [[https://elpa.gnu.org/packages/let-alist.html][let-alist]] | >= 1.0.4 (comes with Emacs 25.2) |
+    | [[http://melpa.org/#/tablist][tablist]]   | >= 0.70                          |
+    |-----------+----------------------------------|
 
 *** Installing
     If ~make~ produced the ELP file ~pdf-tools-${VERSION}.tar~ you are
