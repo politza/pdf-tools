@@ -116,6 +116,7 @@ searching across multiple lines.")
     (define-key kmap (kbd "C-d") 'pdf-view-dark-minor-mode)
     (define-key kmap (kbd "C-b") 'pdf-isearch-batch-mode)
     (define-key kmap (kbd "M-s o") 'pdf-isearch-occur)
+    (define-key kmap (kbd "M-s s") 'pdf-isearch-sync-backward)
     kmap)
   "Keymap used in `pdf-isearch-active-mode'.
 
@@ -432,6 +433,18 @@ there was no previous search, this function returns t."
     (save-selected-window
       (pdf-occur (or regexp isearch-string) regexp))
     (isearch-message)))
+
+(defun pdf-isearch-sync-backward ()
+  "Visit the source of the beginning of the current match."
+  (interactive)
+  (pdf-util-assert-pdf-window)
+  (unless pdf-isearch-current-match
+    (user-error "No current or recent match"))
+  (when isearch-mode
+    (isearch-exit))
+  (cl-destructuring-bind (left top _right _bot)
+      (car pdf-isearch-current-match)
+    (pdf-sync-backward-search left top)))
 
 
 ;; * ================================================================== *
