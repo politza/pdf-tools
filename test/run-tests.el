@@ -29,8 +29,7 @@
                  emacs-major-version emacs-minor-version))
         (error "Do `cask install' first"))))
 
-(add-to-list 'package-directory-list
-	     (format "../.cask/%s/elpa" emacs-version))
+(add-to-list 'package-directory-list cask-elpa)
 (add-hook 'kill-emacs-hook (lambda nil
                              (when (file-exists-p package-user-dir)
                                (delete-directory package-user-dir t))))
