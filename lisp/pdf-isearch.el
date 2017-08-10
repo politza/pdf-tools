@@ -107,6 +107,7 @@ searching across multiple lines.")
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
     (define-key kmap [remap occur] 'pdf-occur)
+    (define-key kmap (kbd "C-c C-v") 'pdf-isearch-sync-backward-current-match)
     kmap)
   "Keymap used in `pdf-isearch-minor-mode'.")
 
@@ -432,6 +433,15 @@ there was no previous search, this function returns t."
     (save-selected-window
       (pdf-occur (or regexp isearch-string) regexp))
     (isearch-message)))
+
+(defun pdf-isearch-sync-backward-current-match ()
+  "Sync backward to the LaTeX source of the current match."
+  (interactive)
+  (if pdf-isearch-current-match
+      (let ((left (caar pdf-isearch-current-match))
+            (top (cadar pdf-isearch-current-match)))
+        (isearch-exit)
+        (funcall 'pdf-sync-backward-search left top))))
 
 
 ;; * ================================================================== *
