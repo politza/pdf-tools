@@ -24,39 +24,35 @@
    Please read also about [[#known-problems][known problems.]]
 
 ** Features
-*** View
-    View PDF documents in a buffer with DocView-like bindings.
-*** Isearch
-    Interactively search PDF documents like any other buffer, either
-    for a string or a PCRE.
-*** Occur
-    List lines matching a string or regexp in one or more PDF
-    documents.
-*** Follow links
+   + View :: View PDF documents in a buffer with DocView-like
+             bindings.
+   + Isearch :: Interactively search PDF documents like any other
+                buffer, either for a string or a PCRE.
+   + Occur :: List lines matching a string or regexp in one or more
+              PDF documents.
+   + Follow :: 
     Click on highlighted links, moving to some part of a different
     page, some external file, a website or any other URI.  Links may
     also be followed by keyboard commands.
-*** Annotations
-    Display and list text and markup annotations (like underline),
-    edit their contents and attributes (e.g. color), move them around,
-    delete them or create new ones and then save the modifications
-    back to the PDF file.
-*** Attachments
-    Save files attached to the PDF-file or list them in a dired buffer.
-*** Outline
-    Use imenu or a special buffer to examine and navigate the PDF's
-    outline.
-*** SyncTeX
-    Jump from a position on a page directly to the TeX source and
-    vice versa.
-*** Virtual PDF
+   + Annotations :: Display and list text and markup annotations (like
+                    underline), edit their contents and attributes
+                    (e.g. color), move them around, delete them or
+                    create new ones and then save the modifications
+                    back to the PDF file.
+   + Attachments :: Save files attached to the PDF-file or list them
+                    in a dired buffer.
+   + Outline :: Use imenu or a special buffer to examine and navigate
+                the PDF's outline.
+   + SyncTeX :: Jump from a position on a page directly to the TeX
+                source and vice versa.
+   + Virtual :: 
     Use a collection of documents as if it where one, big single PDF.
 
-*** Misc
-   + Display PDF's metadata.
-   + Mark a region and kill the text from the PDF.
-   + Keep track of visited pages via a history.
-   + Apply a color filter for reading in low light conditions.
+   + Misc ::
+     - Display PDF's metadata.
+     - Mark a region and kill the text from the PDF.
+     - Keep track of visited pages via a history.
+     - Apply a color filter for reading in low light conditions.
 
 ** Installation
    The package may be installed via melpa and it will try to build the
