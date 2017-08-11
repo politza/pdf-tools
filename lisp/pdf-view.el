@@ -162,6 +162,19 @@ See :relief property in Info node `(elisp) Image Descriptors'."
   :group 'pdf-view
   :type '(integer :tag "Pixel"))
 
+(defcustom pdf-view-use-unicode-ligther t
+  "Whether to use unicode symbols in the mode-line
+
+On some systems finding a font which supports those symbols can
+take some time.  If you don't want to spend that time waiting and
+don't care for a nicer looking mode-line, set this variable to a
+non-nil value.
+
+Note, that this option has only an effect when this library is
+loaded."
+  :group 'pdf-view
+  :type 'boolean)
+
 
 ;; * ================================================================== *
 ;; * Internal variables and macros
@@ -1107,14 +1120,15 @@ The colors are determined by the variable
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
-;; This check uses an implementation detail, which hopefully gets the
-;; right answer.
-(and (fontp (char-displayable-p ?⎙))
-     (setcdr (assq 'pdf-view-printer-minor-mode minor-mode-alist)
-             (list " ⎙" )))
-(and (fontp (char-displayable-p ?🌙))
-     (setcdr (assq 'pdf-view-midnight-minor-mode minor-mode-alist)
-	     (list  " 🌙" )))
+(when pdf-view-use-unicode-ligther
+  ;; This check uses an implementation detail, which hopefully gets the
+  ;; right answer.
+  (and (fontp (char-displayable-p ?⎙))
+       (setcdr (assq 'pdf-view-printer-minor-mode minor-mode-alist)
+	       (list " ⎙" )))
+  (and (fontp (char-displayable-p ?🌙))
+       (setcdr (assq 'pdf-view-midnight-minor-mode minor-mode-alist)
+	       (list  " 🌙" ))))
 
 
 ;; * ================================================================== *
