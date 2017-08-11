@@ -30,7 +30,7 @@
                 buffer, either for a string or a PCRE.
    + Occur :: List lines matching a string or regexp in one or more
               PDF documents.
-   + Follow :: 
+   + Follow ::
     Click on highlighted links, moving to some part of a different
     page, some external file, a website or any other URI.  Links may
     also be followed by keyboard commands.
@@ -45,7 +45,7 @@
                 the PDF's outline.
    + SyncTeX :: Jump from a position on a page directly to the TeX
                 source and vice versa.
-   + Virtual :: 
+   + Virtual ::
     Use a collection of documents as if it where one, big single PDF.
 
    + Misc ::
@@ -76,7 +76,7 @@
     Next we need to install a few libraries PDF Tools depends on, some
     of which are probably already on your system.
 #+begin_src sh
-  $ sudo aptitude install libpng-dev zlib1g-dev 
+  $ sudo aptitude install libpng-dev zlib1g-dev
   $ sudo aptitude install libpoppler-glib-dev
   $ sudo aptitude install libpoppler-private-dev
 #+end_src
@@ -165,13 +165,13 @@
       must first be installed by copying the appropriate dlls into
       emacs' ~bin/~ directory. Most third-party binaries come with this
       already done.
-     
+
       First, install [[http://www.msys2.org/][install MSYS2]] and update
       the package database and core packages using the instructions
       provided. Then, to compile PDF tools itself:
 
       1. Open msys2 shell
-   
+
       2. Update and install dependencies, skipping any you already have
          #+BEGIN_SRC sh
          pacman -Syu
@@ -189,28 +189,28 @@
          #+BEGIN_SRC sh
          git clone https://github.com/politza/pdf-tools
          #+END_SRC
-      
+
       4. Open mingw64 shell
-      
+
       5. Compile pdf-tools
          #+BEGIN_SRC sh
          cd pdf-tools/build
          make -s
          #+END_SRC
-      
+
       6. This should produce a file ~server/epdfinfo.exe~. Copy this file
          into the ~pdf-tools/~ installation directory in your Emacs.
-   
+
       7. Start Emacs and activate the package.
-         #+BEGIN_SRC 
+         #+BEGIN_SRC
          M-x pdf-tools-install RET
          #+END_SRC
-   
-      8. Test. 
-         #+BEGIN_SRC 
+
+      8. Test.
+         #+BEGIN_SRC
          M-x pdf-info-check-epdfinfo RET
          #+END_SRC
-     
+
       If this is successful, ~(pdf-tools-install)~ can be added to Emacs'
       config. Note that libraries from other GNU utilities, such as Git
       for Windows, may interfere with those needed by PDF Tools.

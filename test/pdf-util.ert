@@ -27,7 +27,7 @@
 
     (should (equal '(1 . ((nil . ?a) (?b . ?b) (nil . ?c)))
                    (pdf-util-seq-alignment s6 s1 nil 'infix)))
-    
+
     (should (equal '(-3 . ((?a . ?e) (?b . ?f) (?c . ?g)))
                    (pdf-util-seq-alignment s1 s4 nil)))
 
@@ -41,4 +41,3 @@
                                        (downcase b))
                                 1
                               -1)))))))
-        

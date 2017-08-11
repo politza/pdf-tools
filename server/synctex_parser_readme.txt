@@ -99,7 +99,7 @@ Note that version 1.7 was delivered privately.
 - Various typo fixed
 - OutputDebugString replaced by OutputDebugStringA to deliberately disable unicode preprocessing
 - New conditional created because OutputDebugStringA is only available since Windows 2K professional
-1.10: Sun Jan  10 10:12:32 UTC 2010 
+1.10: Sun Jan  10 10:12:32 UTC 2010
 - Bug fix in synctex_parser.c to solve a synchronization problem with amsmath's gather environment.
   Concerns the synctex tool.
 1.11: Sun Jan  17 09:12:31 UTC 2010
@@ -138,4 +138,3 @@ If you include or use a significant part of the synctex package into a software,
 I would appreciate to be listed as contributor and see "SyncTeX" highlighted.
 
 Copyright (c) 2008-2011 jerome DOT laurens AT u-bourgogne DOT fr
-

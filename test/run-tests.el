@@ -87,4 +87,3 @@
 (dolist (file (directory-files "." t "\\.ert\\'"))
   (load-file file))
 (ert-run-tests-batch-and-exit t)
-    

@@ -1,4 +1,4 @@
-/* 
+/*
 Copyright (c) 2008, 2009, 2010 , 2011 jerome DOT laurens AT u-bourgogne DOT fr
 
 This file is part of the SyncTeX package.
@@ -32,9 +32,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 
-Except as contained in this notice, the name of the copyright holder  
-shall not be used in advertising or otherwise to promote the sale,  
-use or other dealings in this Software without prior written  
+Except as contained in this notice, the name of the copyright holder
+shall not be used in advertising or otherwise to promote the sale,
+use or other dealings in this Software without prior written
 authorization from the copyright holder.
 
 */
@@ -302,7 +302,7 @@ char * _synctex_merge_strings(const char * first,...) {
 		_synctex_error("!  _synctex_merge_strings: Memory problem");
 		return NULL;
 	}
-	return NULL;	
+	return NULL;
 }
 
 /*  The purpose of _synctex_get_name is to find the name of the synctex file.
@@ -473,7 +473,7 @@ int _synctex_get_name(const char * output, const char * build_directory, char **
 }
 
 const char * _synctex_get_io_mode_name(synctex_io_mode_t io_mode) {
-    static const char * synctex_io_modes[4] = {"r","rb","a","ab"}; 
+    static const char * synctex_io_modes[4] = {"r","rb","a","ab"};
     unsigned index = ((io_mode & synctex_io_gz_mask)?1:0) + ((io_mode & synctex_io_append_mask)?2:0);// bug pointed out by Jose Alliste
     return synctex_io_modes[index];
 }

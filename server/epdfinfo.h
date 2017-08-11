@@ -178,7 +178,7 @@ typedef enum
 
 typedef struct
 {
-  const char *name; 
+  const char *name;
   command_arg_type_t type;
   size_t offset;
 } document_option_t;

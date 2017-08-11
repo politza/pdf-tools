@@ -25,7 +25,7 @@ PACKAGE_DIR = $(PACKAGE_NAME)
 
 all: package
 
-clean: 
+clean:
 	rm -rf -- $(PACKAGE_DIR)
 	rm -f -- $(PACKAGE_NAME).tar
 	rm -f -- lisp/*.elc
@@ -43,7 +43,7 @@ $(PACKAGE_NAME).tar: server/epdfinfo lisp/*.el
 	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
 	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
 
-melpa-package: 
+melpa-package:
 	$(MAKE) distclean
 	mkdir -p '$(PACKAGE_DIR)/build'
 	cp lisp/*.el README '$(PACKAGE_DIR)'

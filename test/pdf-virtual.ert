@@ -120,7 +120,7 @@
 (ert-deftest pdf-virtual-gettext ()
   (with-pdf-virtual-test-buffer
     (let ((text (pdf-info-gettext 2 '(0 0 1 1))))
-      (should 
+      (should
        (= 2 (with-temp-buffer
               (insert text)
               (count-matches "PDF" 1 (point))))))))

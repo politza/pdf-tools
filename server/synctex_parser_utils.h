@@ -1,4 +1,4 @@
-/* 
+/*
 Copyright (c) 2008, 2009, 2010, 2011 jerome DOT laurens AT u-bourgogne DOT fr
 
 This file is part of the SyncTeX package.
@@ -32,9 +32,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 
-Except as contained in this notice, the name of the copyright holder  
-shall not be used in advertising or otherwise to promote the sale,  
-use or other dealings in this Software without prior written  
+Except as contained in this notice, the name of the copyright holder
+shall not be used in advertising or otherwise to promote the sale,
+use or other dealings in this Software without prior written
 authorization from the copyright holder.
 
 */
@@ -66,13 +66,13 @@ extern "C" {
 #	else
 #		define SYNCTEX_IS_PATH_SEPARATOR(c) ('/' == c)
 #	endif
-    
+
 #	if _WIN32
 #		define SYNCTEX_IS_DOT(c) ('.' == c)
 #	else
 #		define SYNCTEX_IS_DOT(c) ('.' == c)
 #	endif
-    
+
 /*  This custom malloc functions initializes to 0 the newly allocated memory.
  *  There is no bzero function on windows. */
 void *_synctex_malloc(size_t size);
@@ -133,7 +133,7 @@ int _synctex_get_name(const char * output, const char * build_directory, char **
 const char * _synctex_get_io_mode_name(synctex_io_mode_t io_mode);
 
 const char * synctex_ignore_leading_dot_slash(const char * name);
-    
+
 #ifdef __cplusplus
 }
 #endif

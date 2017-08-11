@@ -21,7 +21,7 @@
 
 extern "C"
 {
-  
+
 GType poppler_annot_get_type (void) G_GNUC_CONST;
 GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
 
@@ -57,7 +57,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
 
     if (! s)
       return NULL;
-    
+
     if (s->hasUnicodeMarker()) {
       result = g_convert (s->getCString () + 2,
                           s->getLength () - 2,
@@ -66,7 +66,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
       int len;
       gunichar *ucs4_temp;
       int i;
-    
+
       len = s->getLength ();
       ucs4_temp = g_new (gunichar, len + 1);
       for (i = 0; i < len; ++i) {
@@ -87,13 +87,13 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
   {
     GooString *state = a->annot->getAppearState ();
     char *ustate = _xpoppler_goo_string_to_utf8 (state);
-    
+
     a->annot->setRect (rectangle->x1, rectangle->y1,
                        rectangle->x2, rectangle->y2);
     a->annot->setAppearanceState (ustate);
     g_free (ustate);
   }
-#endif  
+#endif
   // This function is in the library, but the enforced date parsing is
   // incomplete (at least in some versions), because it ignores the
   // timezone.

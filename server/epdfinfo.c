@@ -503,7 +503,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
 
   if (options && options->usecolors)
     image_recolor (surface, &options->fg, &options->bg);
-  
+
   cairo_destroy (cr);
 
   return surface;
@@ -559,7 +559,7 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
       {
         unsigned char *buffer = g_malloc (width * height * 3);
         unsigned char *buffer_p = buffer;
-        
+
         fprintf (file, "P6\n%d %d\n255\n", width, height);
         for (i = 0; i < width * height; ++i, data += 4, buffer_p += 3)
           ARGB_TO_RGB (buffer_p, data);
@@ -1318,7 +1318,7 @@ annotation_translate_quadrilateral (PopplerPage *page, PopplerQuadrilateral *q, 
   poppler_page_get_crop_box (page, &cbox);
   xs = MIN (cbox.x1, cbox.x2);
   ys = MIN (cbox.y1, cbox.y2);
-  
+
   if (inverse)
     {
       xs = -xs; ys = -ys;
@@ -1905,7 +1905,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
 
   re = g_regex_new (regexp, cflags, mflags, &gerror);
   perror_if_not (NULL == gerror, "Invalid regexp: %s", gerror->message);
-  
+
   OK_BEGIN ();
   for (pn = first; pn <= last; ++pn)
     {
@@ -1922,7 +1922,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
       poppler_page_get_text_layout (page, &rectangles, &nrectangles);
       poppler_page_get_size (page, &width, &height);
       g_regex_match (re, text, 0, &match);
-      
+
       while (g_match_info_matches (match))
         {
           const double scale = 100.0;
@@ -1934,7 +1934,7 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
           /* Does this ever happen ? */
           if (! g_match_info_fetch_pos (match, 0, &start, &end))
             continue;
-          
+
           string = g_match_info_fetch (match, 0);
           ustart = g_utf8_strlen (text, start);
           ulen = g_utf8_strlen (string, -1);
@@ -1954,11 +1954,11 @@ cmd_search_regexp(const epdfinfo_t *ctx, const command_arg_t *args)
                   PopplerRectangle *r = rectangles + i;
                   cairo_rectangle_int_t c;
 
-                  c.x = (int) (scale * r->x1 + 0.5); 
-                  c.y = (int) (scale * r->y1 + 0.5); 
-                  c.width = (int) (scale * (r->x2 - r->x1) + 0.5); 
-                  c.height = (int) (scale * (r->y2 - r->y1) + 0.5); 
-              
+                  c.x = (int) (scale * r->x1 + 0.5);
+                  c.y = (int) (scale * r->y1 + 0.5);
+                  c.width = (int) (scale * (r->x2 - r->x1) + 0.5);
+                  c.height = (int) (scale * (r->y2 - r->y1) + 0.5);
+
                   cairo_region_union_rectangle (region, &c);
                 }
 
@@ -1994,11 +1994,11 @@ static void
 cmd_regexp_flags (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   OK_BEGIN ();
-  printf ("caseless:%d\n", G_REGEX_CASELESS);          
-  printf ("multiline:%d\n", G_REGEX_MULTILINE);         
-  printf ("dotall:%d\n", G_REGEX_DOTALL);            
-  printf ("extended:%d\n", G_REGEX_EXTENDED);          
-  printf ("anchored:%d\n", G_REGEX_ANCHORED);          
+  printf ("caseless:%d\n", G_REGEX_CASELESS);
+  printf ("multiline:%d\n", G_REGEX_MULTILINE);
+  printf ("dotall:%d\n", G_REGEX_DOTALL);
+  printf ("extended:%d\n", G_REGEX_EXTENDED);
+  printf ("anchored:%d\n", G_REGEX_ANCHORED);
   printf ("dollar-endonly:%d\n", G_REGEX_DOLLAR_ENDONLY);
   printf ("ungreedy:%d\n", G_REGEX_UNGREEDY);
   printf ("raw:%d\n", G_REGEX_RAW);
@@ -3103,14 +3103,14 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
 
   if (! nrest_args)
     goto theend;
-  
+
   cr = cairo_create (surface);
   cairo_scale (cr, width / pt_width, width / pt_width);
 
   while (i < nrest_args)
     {
       const char* keyword;
-      
+
       perror_if_not (command_arg_parse_arg (ctx, rest_args[i], &rest_arg,
                                             ARG_STRING, &error_msg),
                      "%s", error_msg);
@@ -3142,7 +3142,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
           alpha = rest_arg.value.edge;
         }
       else if (! strcmp (keyword, ":crop-to")
-               || ! strcmp (keyword, ":highlight-region")       
+               || ! strcmp (keyword, ":highlight-region")
                || ! strcmp (keyword, ":highlight-text")
                || ! strcmp (keyword, ":highlight-line"))
         {
@@ -3153,14 +3153,14 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
 
           ++i;
           r = &rest_arg.value.rectangle;
-          
+
           if (! strcmp (keyword, ":crop-to"))
             {
               gdouble w = (cb.x2 - cb.x1);
               gdouble h = (cb.y2 - cb.y1);
               gdouble x1 = cb.x1;
               gdouble y1 = cb.y1;
-              
+
               cb.x1 = r->x1 * w + x1;
               cb.x2 = r->x2 * w + x1;
               cb.y1 = r->y1 * h + y1;
@@ -3173,7 +3173,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
               r->x2 = pt_width * r->x2 * (cb.x2 - cb.x1) + pt_width * cb.x1;
               r->y1 = pt_height * r->y1 * (cb.y2 - cb.y1) + pt_height * cb.y1;
               r->y2 = pt_height * r->y2 * (cb.y2 - cb.y1) + pt_height * cb.y1;
-          
+
               if (! strcmp (keyword, ":highlight-region"))
                 {
                   const double deg = M_PI / 180.0;
@@ -3205,10 +3205,10 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
                   cairo_set_line_width (cr, line_width);
                   cairo_stroke (cr);
                 }
-              else 
+              else
                 {
                   gboolean is_single_line = ! strcmp (keyword, ":highlight-line");
-              
+
                   if (is_single_line)
                     {
                       gdouble m = r->y1 + (r->y2 - r->y1) / 2;
@@ -3245,9 +3245,9 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
       cairo_set_source_surface (cr, surface, -r.x, -r.y);
       cairo_paint (cr);
       cairo_surface_destroy (surface);
-      surface = nsurface;      
+      surface = nsurface;
     }
-  
+
  theend:
   image_write_print_response (surface, PNG);
 
@@ -3386,9 +3386,9 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   guint nrectangles;
   int i;
   gboolean have_position = region.y2 < 0;
-    
+
   perror_if_not (page, "No such page %d", pn);
-  
+
   text = poppler_page_get_text (page);
   text_p = text;
   poppler_page_get_text_layout (page, &rectangles, &nrectangles);
@@ -3396,14 +3396,14 @@ cmd_charlayout(const epdfinfo_t *ctx, const command_arg_t *args)
   region.x1 *= width;
   region.x2 *= width;
   region.y1 *= height;
-  region.y2 *= height;  
+  region.y2 *= height;
 
   OK_BEGIN ();
   for (i = 0; i < nrectangles && *text_p; ++i)
     {
       PopplerRectangle *r = &rectangles[i];
       char *nextc = g_utf8_offset_to_pointer (text_p, 1);
-      
+
       if ((have_position
            && region.x1 >= r->x1
            && region.x1 <= r->x2
@@ -3458,7 +3458,7 @@ cmd_getoptions(const epdfinfo_t *ctx, const command_arg_t *args)
   for (i = 0; i < G_N_ELEMENTS (document_options); ++i)
     {
       command_arg_t arg;
-      
+
       arg.type = document_options[i].type;
       memcpy (&arg.value,
               ((char*) &doc->options) + document_options[i].offset,
@@ -3486,9 +3486,9 @@ cmd_setoptions(const epdfinfo_t *ctx, const command_arg_t *args)
   gchar *error_msg = NULL;
   document_options_t opts = doc->options;
   const size_t nopts = G_N_ELEMENTS (document_options);
-  
+
   perror_if_not (nrest % 2 == 0, "Even number of key/value pairs expected");
-  
+
   while (i < nrest)
     {
       int j;
@@ -3603,7 +3603,7 @@ static const command_t commands [] =
     DEC_CMD (boundingbox),
     DEC_CMD (charlayout),
     DEC_CMD (pagelabels),
-    
+
     /* Annotations */
     DEC_CMD (getannots),
     DEC_CMD (getannot),
@@ -3716,4 +3716,3 @@ int main(int argc, char **argv)
     err (2, NULL);
   exit (EXIT_SUCCESS);
 }
- 

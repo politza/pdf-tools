@@ -16,7 +16,7 @@
    A virtual PDF is a collection of pages (or parts thereof) of
    arbitrary documents, which appear to the rest of pdf-tools as one
    big PDF, though they are always read-only.
-   
+
 * Version 0.60
 ** Regexp support
    You may now search for perl-compatible regular expressions (PCRE)

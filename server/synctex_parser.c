@@ -1,4 +1,4 @@
-/* 
+/*
 Copyright (c) 2008, 2009, 2010 , 2011 jerome DOT laurens AT u-bourgogne DOT fr
 
 This file is part of the SyncTeX package.
@@ -32,9 +32,9 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE
 
-Except as contained in this notice, the name of the copyright holder  
-shall not be used in advertising or otherwise to promote the sale,  
-use or other dealings in this Software without prior written  
+Except as contained in this notice, the name of the copyright holder
+shall not be used in advertising or otherwise to promote the sale,
+use or other dealings in this Software without prior written
 authorization from the copyright holder.
 
 Acknowledgments:
@@ -64,7 +64,7 @@ Thu Jun 19 09:39:21 UTC 2008
 #   else
 #       define HAVE_LOCALE_H 1
 #       define HAVE_SETLOCALE 1
-#       if defined(_MSC_VER) 
+#       if defined(_MSC_VER)
 #          define SYNCTEX_INLINE __inline
 #       else
 #          define SYNCTEX_INLINE inline
@@ -568,9 +568,9 @@ typedef struct {
 	|| (NODE->class->type == synctex_node_type_void_vbox)\
 	|| (NODE->class->type == synctex_node_type_hbox)\
 	|| (NODE->class->type == synctex_node_type_void_hbox))
-	
+
 #define SYNCTEX_HAS_CHILDREN(NODE) (NODE && SYNCTEX_CHILD(NODE))
-	
+
 void _synctex_log_medium_node(synctex_node_t node);
 
 /*  math node creator */
@@ -1357,7 +1357,7 @@ synctex_status_t _synctex_decode_int(synctex_scanner_t scanner, int* value_ref) 
 			* value_ref = result;
 		}
 		return SYNCTEX_STATUS_OK;/*  Successfully scanned an int */
-	}	
+	}
 	return SYNCTEX_STATUS_NOT_OK;/*  Could not scan an int */
 }
 
@@ -1916,7 +1916,7 @@ scan_next_line:
 		} else if (*SYNCTEX_CUR == SYNCTEX_CHAR_BEGIN_SHEET) {
 			++SYNCTEX_CUR;
 			goto deeper;
-            
+
 		} else if (_synctex_next_line(scanner)<SYNCTEX_STATUS_OK) {
             _synctex_error("Unexpected end of nested sheet (3).");
             SYNCTEX_RETURN(SYNCTEX_STATUS_ERROR);
@@ -2644,7 +2644,7 @@ return_on_error:
 		/*  remove the last path extension if any */
 		_synctex_strip_last_path_extension(synctex_name);
 		if (!strlen(synctex_name)) {
-			goto return_on_error;		
+			goto return_on_error;
 		}
 		/*  now insert quotes. */
 		if (add_quotes) {
@@ -3319,7 +3319,7 @@ int synctex_display_query(synctex_scanner_t scanner,const char * name,int line,i
 						SYNCTEX_CUR += SYNCTEX_END - SYNCTEX_START;
 						SYNCTEX_START = SYNCTEX_END;
 						SYNCTEX_END = SYNCTEX_START + size*sizeof(synctex_node_t *);
-					}			
+					}
 					*(synctex_node_t *)SYNCTEX_CUR = node;
 					SYNCTEX_CUR += sizeof(synctex_node_t);
 				}
@@ -3337,7 +3337,7 @@ int synctex_display_query(synctex_scanner_t scanner,const char * name,int line,i
 							SYNCTEX_CUR += SYNCTEX_END - SYNCTEX_START;
 							SYNCTEX_START = SYNCTEX_END;
 							SYNCTEX_END = SYNCTEX_START + size*sizeof(synctex_node_t *);
-						}			
+						}
 						*(synctex_node_t *)SYNCTEX_CUR = node;
 						SYNCTEX_CUR += sizeof(synctex_node_t);
 					}
@@ -3354,7 +3354,7 @@ int synctex_display_query(synctex_scanner_t scanner,const char * name,int line,i
 								SYNCTEX_CUR += SYNCTEX_END - SYNCTEX_START;
 								SYNCTEX_START = SYNCTEX_END;
 								SYNCTEX_END = SYNCTEX_START + size*sizeof(synctex_node_t *);
-							}			
+							}
 							*(synctex_node_t *)SYNCTEX_CUR = node;
 							SYNCTEX_CUR += sizeof(synctex_node_t);
 						}
@@ -3516,7 +3516,7 @@ end:
 				if ((other_node = SYNCTEX_NEXT_HORIZ_BOX(node))) {
 					do {
 						if (_synctex_point_in_box(hitPoint,other_node,synctex_YES)) {
-							node = _synctex_smallest_container(other_node,node); 
+							node = _synctex_smallest_container(other_node,node);
 						}
 					} while((other_node = SYNCTEX_NEXT_HORIZ_BOX(other_node)));
 				}
@@ -3775,7 +3775,7 @@ synctex_bool_t _synctex_point_in_box(synctex_point_t hitPoint, synctex_node_t no
 			return synctex_YES;
 		}
 	}
-	return synctex_NO;	
+	return synctex_NO;
 }
 
 int _synctex_node_distance_to_point(synctex_point_t hitPoint, synctex_node_t node, synctex_bool_t visible) {
@@ -3964,7 +3964,7 @@ SYNCTEX_INLINE static int __synctex_eq_get_closest_children_in_hbox(synctex_poin
 					}
 				}
 			} else if (off7 == 0) {
-				/*  hitPoint is inside node. */ 
+				/*  hitPoint is inside node. */
 				bestDistancesRef->left = bestDistancesRef->right = 0;
 				bestNodesRef->left = node;
 				bestNodesRef->right = NULL;
@@ -3990,19 +3990,19 @@ SYNCTEX_INLINE static int __synctex_eq_get_closest_children_in_hbox(synctex_poin
 			/*  the left node is new, try to narrow the result */
 			if ((node = _synctex_eq_deepest_container(hitPoint,bestNodesRef->left,visible))) {
 				bestNodesRef->left = node;
-			} 
+			}
 			if ((node = _synctex_eq_closest_child(hitPoint,bestNodesRef->left,visible))) {
 				bestNodesRef->left = node;
-			} 
+			}
 		}
 		if (result & SYNCTEX_MASK_RIGHT) {
 			/*  the right node is new, try to narrow the result */
 			if ((node = _synctex_eq_deepest_container(hitPoint,bestNodesRef->right,visible))) {
 				bestNodesRef->right = node;
-			} 
+			}
 			if ((node = _synctex_eq_closest_child(hitPoint,bestNodesRef->right,visible))) {
 				bestNodesRef->right = node;
-			} 
+			}
 		}
 	}
 	return result;
@@ -4057,19 +4057,19 @@ SYNCTEX_INLINE static int __synctex_eq_get_closest_children_in_vbox(synctex_poin
 			/*  the left node is new, try to narrow the result */
 			if ((node = _synctex_eq_deepest_container(hitPoint,bestNodesRef->left,visible))) {
 				bestNodesRef->left = node;
-			} 
+			}
 			if ((node = _synctex_eq_closest_child(hitPoint,bestNodesRef->left,visible))) {
 				bestNodesRef->left = node;
-			} 
+			}
 		}
 		if (result & SYNCTEX_MASK_RIGHT) {
 			/*  the right node is new, try to narrow the result */
 			if ((node = _synctex_eq_deepest_container(hitPoint,bestNodesRef->right,visible))) {
 				bestNodesRef->right = node;
-			} 
+			}
 			if ((node = _synctex_eq_closest_child(hitPoint,bestNodesRef->right,visible))) {
 				bestNodesRef->right = node;
-			} 
+			}
 		}
 	}
 	return result;

@@ -20,7 +20,7 @@ install:
         sudo apt-get install -qq emacs-snapshot;
     fi
   - sudo apt-get install -qq make automake autoconf libpng-dev libz-dev
-  - sudo apt-get install libcairo2-dev libglib2.0-dev 
+  - sudo apt-get install libcairo2-dev libglib2.0-dev
   - POPPLER=poppler-0.28.1
   - wget http://poppler.freedesktop.org/$POPPLER.tar.xz
   - unxz $POPPLER.tar.xz
