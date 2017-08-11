@@ -167,8 +167,8 @@ See :relief property in Info node `(elisp) Image Descriptors'."
 
 On some systems finding a font which supports those symbols can
 take some time.  If you don't want to spend that time waiting and
-don't care for a nicer looking mode-line, set this variable to a
-non-nil value.
+don't care for a nicer looking mode-line, set this variable to
+nil.
 
 Note, that this option has only an effect when this library is
 loaded."
