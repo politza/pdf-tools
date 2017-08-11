@@ -511,7 +511,7 @@ For example, (pdf-view-shrink 1.25) decreases size by 20%."
 (defun pdf-view-scale-reset ()
   "Reset PDF to its default set."
   (interactive)
-  (setq pdf-view-display-size 1.0)
+  (setq pdf-view-display-size (default-value 'pdf-view-display-size))
   (pdf-view-redisplay t))
 
 
