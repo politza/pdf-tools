@@ -134,6 +134,18 @@
 
      If you choose not to install from melpa, you must substitute
     ~gmake~ for ~make~ in the instructions below.
+
+**** Compiling on Centos
+     It is possible to compile pdf-tools on Centos. Install poppler the dependencies with:
+#+BEGIN_SRC sh
+  $ yum install poppler-devel poppler-glib-devel
+#+END_SRC
+
+**** Compiling on Fedora
+#+BEGIN_SRC sh
+  $ sudo dnf install make automake autoconf gcc gcc-c++ ImageMagick libpng-devel zlib-devel poppler-glib-devel
+#+END_SRC
+
 **** Compiling on Windows
      PDF Tools can be built and used on Windows using the MSYS2
      compiler. This will work with native (not cygwin) Windows builds of
