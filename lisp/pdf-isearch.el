@@ -103,6 +103,7 @@ searching across multiple lines.")
 ;; * ================================================================== *
 
 (declare-function pdf-occur "pdf-occur.el")
+(declare-function pdf-sync-backward-search "pdf-sync.el")
 
 (defvar pdf-isearch-minor-mode-map
   (let ((kmap (make-sparse-keymap)))
