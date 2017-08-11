@@ -301,6 +301,11 @@ CALLBACK may be a function, which will be locally put on
 			   msys2-install-directory
 			   arch
 			   build-directory))))
+      (when (and compilation-buffer
+                 (buffer-live-p (get-buffer compilation-buffer)))
+        (when callback
+          (with-current-buffer compilation-buffer
+            (add-hook 'compilation-finish-functions callback nil t))))
       compilation-buffer)))
 
 
