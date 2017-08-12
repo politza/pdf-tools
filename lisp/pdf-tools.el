@@ -260,47 +260,51 @@ CALLBACK may be a function, which will be locally put on
 
   (if (file-executable-p pdf-info-epdfinfo-program)
       (message "%s" "Server already build.")
-    (let* ((make-cmd
-	    (if (eq system-type 'berkeley-unix) "gmake" "make"))
-	   (have-apt-and-sudo
-	    (and (executable-find "apt-get")
-		 (executable-find "sudo")))
-	   (install-server-deps
-	    (and have-apt-and-sudo
-		 (not skip-dependencies-p)
-		 (y-or-n-p "Should I try to install dependencies with apt-get ?")))
-	   (compilation-auto-jump-to-first-error nil)
-	   (compilation-scroll-output t)
-	   compilation-buffer
-	   (compilation-buffer-name-function
-	    (lambda (&rest _)
-	      (setq compilation-buffer
-		    (generate-new-buffer-name "*compile pdf-tools*")))))
-      (unless (eq system-type 'windows-nt)
-	(unless (executable-find make-cmd)
-	  (error "Executable `%s' command not found"
-		 make-cmd)))
+    (let* ((have-apt-and-sudo (and (executable-find "apt-get")
+                                   (executable-find "sudo")))
+           (use-nix-shell (and (executable-find "nix-shell")
+                               (y-or-n-p "Should I use nix-shell to create the build environment? ")))
+           (install-server-deps (and
+                                 (not use-nix-shell)
+                                 have-apt-and-sudo
+                                 (not skip-dependencies-p)
+                                 (y-or-n-p "Should I try to install dependencies with apt-get ? ")))
+           (make-cmd (cond
+                      (use-nix-shell "nix-shell --pure --run make -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler_gi")
+                      ((eq system-type 'berkeley-unix) "gmake")
+                      (t "make")))
+           (compilation-auto-jump-to-first-error nil)
+           (compilation-scroll-output t)
+           compilation-buffer
+           (compilation-buffer-name-function
+            (lambda (&rest _)
+              (setq compilation-buffer
+                    (generate-new-buffer-name "*compile pdf-tools*")))))
+
+      (unless (or use-nix-shell (eq system-type 'windows-nt))
+        (unless (executable-find make-cmd)
+          (error "Executable `%s' command not found"
+                 make-cmd)))
       (unless build-directory
-	(setq build-directory
-	      (expand-file-name
-	       "build"
-	       (file-name-directory pdf-info-epdfinfo-program))))
+        (setq build-directory
+              (file-name-directory pdf-info-epdfinfo-program)))
       (unless (file-directory-p build-directory)
-	(error "No such directory: %s" build-directory))
+        (error "No such directory: %s" build-directory))
       (if (not (eq system-type 'windows-nt))
-	  (compile
-	      (format "%s V=0 -kC '%s' %smelpa-build"
-		      make-cmd
-		      build-directory
-		      (if install-server-deps "install-server-deps " " "))
-	    install-server-deps)
-	(let* ((arch (upcase (nth 2 (split-string system-configuration "-"))))
-	       (msys2-install-directory
-		(file-name-directory (read-file-name "Path to msys2_shell.bat: "))))
-	  (compile (format "%susr/bin/bash.exe --login -c 'MSYSTEM=%s source /etc/profile; LANG=C make V=0 -kC \"%s\" melpa-build'"
-			   msys2-install-directory
-			   arch
-			   build-directory))))
+          (let ((default-directory build-directory))
+          (compile
+           (format (if use-nix-shell "%s" "%s V=0 -kC '%s' %smelpa-build")
+                   make-cmd
+                   build-directory
+                   (if install-server-deps "install-server-deps " " "))
+           install-server-deps))
+        (let* ((arch (upcase (nth 2 (split-string system-configuration "-"))))
+               (msys2-install-directory
+                (file-name-directory (read-file-name "Path to msys2_shell.bat: "))))
+          (compile (format "%susr/bin/bash.exe --login -c 'MSYSTEM=%s source /etc/profile; LANG=C make V=0 -kC \"%s\" melpa-build'"
+                           msys2-install-directory
+                           arch
+                           build-directory))))
       compilation-buffer)))
 
 
