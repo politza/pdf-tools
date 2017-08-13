@@ -533,6 +533,14 @@ For example, (pdf-view-shrink 1.25) decreases size by 20%."
 ;; * Moving by pages and scrolling
 ;; * ================================================================== *
 
+(defmacro pdf-view-catch-error-when-interactive (&rest forms)
+  "If part of an interactive call, translate errors to user-errors."
+  `(if (called-interactively-p 'interactive)
+       (condition-case err
+           (progn ,@forms)
+         (error (user-error (error-message-string err))))
+     ,@forms))
+
 (defun pdf-view-goto-page (page &optional window)
   "Go to PAGE in PDF.
 
@@ -651,7 +659,8 @@ next page only on typing SPC (ARG is nil)."
 		  ;; Workaround rounding/off-by-one issues.
 		  (memq pdf-view-display-size
 			'(fit-height fit-page)))
-	  (pdf-view-next-page)
+          (pdf-view-catch-error-when-interactive
+           (pdf-view-next-page))
 	  (when (/= cur-page (pdf-view-current-page))
 	    (image-bob)
 	    (image-bol 1))
@@ -672,7 +681,8 @@ to previous page only on typing DEL (ARG is nil)."
 		  ;; Workaround rounding/off-by-one issues.
 		  (memq pdf-view-display-size
 			'(fit-height fit-page)))
-	  (pdf-view-previous-page)
+          (pdf-view-catch-error-when-interactive
+           (pdf-view-previous-page))
 	  (when (/= cur-page (pdf-view-current-page))
 	    (image-eob)
 	    (image-bol 1))
@@ -689,7 +699,8 @@ at the bottom edge of the page moves to the next page."
       (let ((hscroll (window-hscroll))
 	    (cur-page (pdf-view-current-page)))
 	(when (= (window-vscroll) (image-next-line arg))
-	  (pdf-view-next-page)
+          (pdf-view-catch-error-when-interactive
+           (pdf-view-next-page))
 	  (when (/= cur-page (pdf-view-current-page))
 	    (image-bob)
 	    (image-bol 1))
@@ -706,7 +717,8 @@ at the top edge of the page moves to the previous page."
       (let ((hscroll (window-hscroll))
 	    (cur-page (pdf-view-current-page)))
 	(when (= (window-vscroll) (image-previous-line arg))
-	  (pdf-view-previous-page)
+          (pdf-view-catch-error-when-interactive
+           (pdf-view-previous-page))
 	  (when (/= cur-page (pdf-view-current-page))
 	    (image-eob)
 	    (image-bol 1))
