@@ -49,9 +49,9 @@ number as a scale factor applied to the document's size.  Any
 other value behaves like `fit-width'."
   :group 'pdf-view
   :type '(choice number
-		 (const fit-height)
-		 (const fit-width)
-		 (const fit-page)))
+                 (const fit-height)
+                 (const fit-width)
+                 (const fit-page)))
 
 (make-variable-buffer-local 'pdf-view-display-size)
 
@@ -112,7 +112,7 @@ dis-/advantages of imagemagick and png."
 This should be a cons \(FOREGROUND . BACKGROUND\) of colors."
   :group 'pdf-view
   :type '(cons (color :tag "Foreground")
-	       (color :tag "Background")))
+               (color :tag "Background")))
 
 (defcustom pdf-view-change-page-hook nil
   "Hook run after changing to another page, but before displaying it.
@@ -212,19 +212,19 @@ regarding display of the region in the later function.")
   `(image-mode-window-get 'page ,window))
 
 (defmacro pdf-view-current-overlay (&optional window)
-    ;;TODO: write documentation!
+  ;;TODO: write documentation!
   `(image-mode-window-get 'overlay ,window))
 
 (defmacro pdf-view-current-image (&optional window)
-    ;;TODO: write documentation!
+  ;;TODO: write documentation!
   `(image-mode-window-get 'image ,window))
 
 (defmacro pdf-view-current-slice (&optional window)
-    ;;TODO: write documentation!
+  ;;TODO: write documentation!
   `(image-mode-window-get 'slice ,window))
 
 (defmacro pdf-view-current-window-size (&optional window)
-    ;;TODO: write documentation!
+  ;;TODO: write documentation!
   `(image-mode-window-get 'window-size ,window))
 
 (defun pdf-view-active-region-p nil
@@ -447,11 +447,11 @@ Optional parameters IGNORE-AUTO and NOCONFIRM are defined as in
   ;; not relied upon.
   (let ((revert-buffer-function (when (fboundp #'revert-buffer--default)
                                   #'revert-buffer--default))
-	(after-revert-hook
-	 (cons #'pdf-info-close
-	       after-revert-hook)))
+        (after-revert-hook
+         (cons #'pdf-info-close
+               after-revert-hook)))
     (prog1
-	(revert-buffer ignore-auto noconfirm 'preserve-modes)
+        (revert-buffer ignore-auto noconfirm 'preserve-modes)
       (pdf-view-redisplay t))))
 
 (defun pdf-view-close-document ()
@@ -502,12 +502,12 @@ For example, (pdf-view-enlarge 1.25) increases size by 25%."
   (interactive
    (list (float pdf-view-resize-factor)))
   (let* ((size (pdf-view-image-size))
-	 (pagesize (pdf-cache-pagesize
-		    (pdf-view-current-page)))
-	 (scale (/ (float (car size))
-		   (float (car pagesize)))))
+         (pagesize (pdf-cache-pagesize
+                    (pdf-view-current-page)))
+         (scale (/ (float (car size))
+                   (float (car pagesize)))))
     (setq pdf-view-display-size
-	  (* factor scale))
+          (* factor scale))
     (pdf-view-redisplay t)))
 
 (defun pdf-view-shrink (factor)
@@ -540,32 +540,32 @@ If optional parameter WINDOW, go to PAGE in all `pdf-view'
 windows."
   (interactive
    (list (if current-prefix-arg
-	     (prefix-numeric-value current-prefix-arg)
-	   (read-number "Page: "))))
+             (prefix-numeric-value current-prefix-arg)
+           (read-number "Page: "))))
   (unless (and (>= page 1)
-	       (<= page (pdf-cache-number-of-pages)))
+               (<= page (pdf-cache-number-of-pages)))
     (error "No such page: %d" page))
   (unless window
     (setq window
-	  (if (pdf-util-pdf-window-p)
-	      (selected-window)
-	    t)))
+          (if (pdf-util-pdf-window-p)
+              (selected-window)
+            t)))
   (save-selected-window
     ;; Select the window for the hooks below.
     (when (window-live-p window)
       (select-window window))
     (let ((changing-p
-	   (not (eq page (pdf-view-current-page window)))))
+           (not (eq page (pdf-view-current-page window)))))
       (when changing-p
-	(run-hooks 'pdf-view-before-change-page-hook)
-	(setf (pdf-view-current-page window) page)
-	(run-hooks 'pdf-view-change-page-hook))
+        (run-hooks 'pdf-view-before-change-page-hook)
+        (setf (pdf-view-current-page window) page)
+        (run-hooks 'pdf-view-change-page-hook))
       (when (window-live-p window)
-	(pdf-view-redisplay window))
+        (pdf-view-redisplay window))
       (when changing-p
-	(pdf-view-deactivate-region)
-	(force-mode-line-update)
-	(run-hooks 'pdf-view-after-change-page-hook))))
+        (pdf-view-deactivate-region)
+        (force-mode-line-update)
+        (run-hooks 'pdf-view-after-change-page-hook))))
   nil)
 
 (defun pdf-view-next-page (&optional n)
@@ -574,7 +574,7 @@ windows."
 Optional parameter N moves N pages forward."
   (interactive "p")
   (pdf-view-goto-page (+ (pdf-view-current-page)
-			 (or n 1))))
+                         (or n 1))))
 
 (defun pdf-view-previous-page (&optional n)
   "View the previous page in the PDF.
@@ -594,7 +594,7 @@ indicate to the user if they are on the last page and more."
   (interactive "p")
   (unless n (setq n 1))
   (when (> (+ (pdf-view-current-page) n)
-	   (pdf-cache-number-of-pages))
+           (pdf-cache-number-of-pages))
     (user-error "Last page"))
   (when (< (+ (pdf-view-current-page) n) 1)
     (user-error "First page"))
@@ -607,14 +607,14 @@ indicate to the user if they are on the last page and more."
     (cancel-timer pdf-view--next-page-timer)
     (setq pdf-view--next-page-timer nil))
   (if (or (not (input-pending-p))
-	  (and (> n 0)
-	       (= (pdf-view-current-page)
-		  (pdf-cache-number-of-pages)))
-	  (and (< n 0)
-	       (= (pdf-view-current-page) 1)))
+          (and (> n 0)
+               (= (pdf-view-current-page)
+                  (pdf-cache-number-of-pages)))
+          (and (< n 0)
+               (= (pdf-view-current-page) 1)))
       (pdf-view-redisplay)
     (setq pdf-view--next-page-timer
-	  (run-with-idle-timer 0.001 nil 'pdf-view-redisplay (selected-window)))))
+          (run-with-idle-timer 0.001 nil 'pdf-view-redisplay (selected-window)))))
 
 (defun pdf-view-previous-page-command (&optional n)
   "View the previous page in the PDF.
@@ -646,16 +646,16 @@ next page only on typing SPC (ARG is nil)."
   (interactive "P")
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
-	    (cur-page (pdf-view-current-page)))
-	(when (or (= (window-vscroll) (image-scroll-up arg))
-		  ;; Workaround rounding/off-by-one issues.
-		  (memq pdf-view-display-size
-			'(fit-height fit-page)))
-	  (pdf-view-next-page)
-	  (when (/= cur-page (pdf-view-current-page))
-	    (image-bob)
-	    (image-bol 1))
-	  (set-window-hscroll (selected-window) hscroll)))
+            (cur-page (pdf-view-current-page)))
+        (when (or (= (window-vscroll) (image-scroll-up arg))
+                  ;; Workaround rounding/off-by-one issues.
+                  (memq pdf-view-display-size
+                        '(fit-height fit-page)))
+          (pdf-view-next-page)
+          (when (/= cur-page (pdf-view-current-page))
+            (image-bob)
+            (image-bol 1))
+          (set-window-hscroll (selected-window) hscroll)))
     (image-scroll-up arg)))
 
 (defun pdf-view-scroll-down-or-previous-page (&optional arg)
@@ -667,16 +667,16 @@ to previous page only on typing DEL (ARG is nil)."
   (interactive "P")
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
-	    (cur-page (pdf-view-current-page)))
-	(when (or (= (window-vscroll) (image-scroll-down arg))
-		  ;; Workaround rounding/off-by-one issues.
-		  (memq pdf-view-display-size
-			'(fit-height fit-page)))
-	  (pdf-view-previous-page)
-	  (when (/= cur-page (pdf-view-current-page))
-	    (image-eob)
-	    (image-bol 1))
-	  (set-window-hscroll (selected-window) hscroll)))
+            (cur-page (pdf-view-current-page)))
+        (when (or (= (window-vscroll) (image-scroll-down arg))
+                  ;; Workaround rounding/off-by-one issues.
+                  (memq pdf-view-display-size
+                        '(fit-height fit-page)))
+          (pdf-view-previous-page)
+          (when (/= cur-page (pdf-view-current-page))
+            (image-eob)
+            (image-bol 1))
+          (set-window-hscroll (selected-window) hscroll)))
     (image-scroll-down arg)))
 
 (defun pdf-view-next-line-or-next-page (&optional arg)
@@ -687,13 +687,13 @@ at the bottom edge of the page moves to the next page."
   (interactive "p")
   (if pdf-view-continuous
       (let ((hscroll (window-hscroll))
-	    (cur-page (pdf-view-current-page)))
-	(when (= (window-vscroll) (image-next-line arg))
-	  (pdf-view-next-page)
-	  (when (/= cur-page (pdf-view-current-page))
-	    (image-bob)
-	    (image-bol 1))
-	  (set-window-hscroll (selected-window) hscroll)))
+            (cur-page (pdf-view-current-page)))
+        (when (= (window-vscroll) (image-next-line arg))
+          (pdf-view-next-page)
+          (when (/= cur-page (pdf-view-current-page))
+            (image-bob)
+            (image-bol 1))
+          (set-window-hscroll (selected-window) hscroll)))
     (image-next-line 1)))
 
 (defun pdf-view-previous-line-or-previous-page (&optional arg)
@@ -704,13 +704,13 @@ at the top edge of the page moves to the previous page."
   (interactive "p")
   (if pdf-view-continuous
       (let ((hscroll (window-hscroll))
-	    (cur-page (pdf-view-current-page)))
-	(when (= (window-vscroll) (image-previous-line arg))
-	  (pdf-view-previous-page)
-	  (when (/= cur-page (pdf-view-current-page))
-	    (image-eob)
-	    (image-bol 1))
-	  (set-window-hscroll (selected-window) hscroll)))
+            (cur-page (pdf-view-current-page)))
+        (when (= (window-vscroll) (image-previous-line arg))
+          (pdf-view-previous-page)
+          (when (/= cur-page (pdf-view-current-page))
+            (image-eob)
+            (image-bol 1))
+          (set-window-hscroll (selected-window) hscroll)))
     (image-previous-line arg)))
 
 (defun pdf-view-goto-label (label)
@@ -720,7 +720,7 @@ Usually, the label of a document's page is the same as its
 displayed page number."
   (interactive
    (list (let ((labels (pdf-info-pagelabels)))
-	   (completing-read "Goto label: " labels nil t))))
+           (completing-read "Goto label: " labels nil t))))
   (let ((index (cl-position label (pdf-info-pagelabels) :test 'equal)))
     (unless index
       (error "No such label: %s" label))
@@ -738,11 +738,11 @@ displayed page number."
 X, Y, WIDTH and HEIGHT should be relative coordinates, i.e. in
 \[0;1\].  To reset the slice use `pdf-view-reset-slice'."
   (unless (equal (pdf-view-current-slice window)
-		 (list x y width height))
+                 (list x y width height))
     (setf (pdf-view-current-slice window)
-	  (mapcar (lambda (v)
-		    (max 0 (min 1 v)))
-		  (list x y width height)))
+          (mapcar (lambda (v)
+                    (max 0 (min 1 v)))
+                  (list x y width height)))
     (pdf-view-redisplay window)))
 
 (defun pdf-view-set-slice-using-mouse ()
@@ -753,22 +753,22 @@ dragging it to its bottom-right corner.  See also
 `pdf-view-set-slice' and `pdf-view-reset-slice'."
   (interactive)
   (let ((size (pdf-view-image-size))
-	x y w h done)
+        x y w h done)
     (while (not done)
       (let ((e (read-event
-		(concat "Press mouse-1 at the top-left corner and "
-			"drag it to the bottom-right corner!"))))
-	(when (eq (car e) 'drag-mouse-1)
-	  (setq x (car (posn-object-x-y (event-start e))))
-	  (setq y (cdr (posn-object-x-y (event-start e))))
-	  (setq w (- (car (posn-object-x-y (event-end e))) x))
-	  (setq h (- (cdr (posn-object-x-y (event-end e))) y))
-	  (setq done t))))
+                (concat "Press mouse-1 at the top-left corner and "
+                        "drag it to the bottom-right corner!"))))
+        (when (eq (car e) 'drag-mouse-1)
+          (setq x (car (posn-object-x-y (event-start e))))
+          (setq y (cdr (posn-object-x-y (event-start e))))
+          (setq w (- (car (posn-object-x-y (event-end e))) x))
+          (setq h (- (cdr (posn-object-x-y (event-end e))) y))
+          (setq done t))))
     (apply 'pdf-view-set-slice
-	   (pdf-util-scale
-	    (list x y w h)
-	    (cons (/ 1.0 (float (car size)))
-		  (/ 1.0 (float (cdr size))))))))
+           (pdf-util-scale
+            (list x y w h)
+            (cons (/ 1.0 (float (car size)))
+                  (/ 1.0 (float (cdr size))))))))
 
 (defun pdf-view-set-slice-from-bounding-box (&optional window)
   ;; TODO: add WINDOW to docstring.
@@ -781,17 +781,17 @@ much more accurate than could be done manually using
 See also `pdf-view-bounding-box-margin'."
   (interactive)
   (let* ((bb (pdf-cache-boundingbox (pdf-view-current-page window)))
-	 (margin (max 0 (or pdf-view-bounding-box-margin 0)))
-	 (slice (list (- (nth 0 bb)
-			 (/ margin 2.0))
-		      (- (nth 1 bb)
-			 (/ margin 2.0))
-		      (+ (- (nth 2 bb) (nth 0 bb))
-			 margin)
-		      (+ (- (nth 3 bb) (nth 1 bb))
-			 margin))))
+         (margin (max 0 (or pdf-view-bounding-box-margin 0)))
+         (slice (list (- (nth 0 bb)
+                         (/ margin 2.0))
+                      (- (nth 1 bb)
+                         (/ margin 2.0))
+                      (+ (- (nth 2 bb) (nth 0 bb))
+                         margin)
+                      (+ (- (nth 3 bb) (nth 1 bb))
+                         margin))))
     (apply 'pdf-view-set-slice
-	   (append slice (and window (list window))))))
+           (append slice (and window (list window))))))
 
 (defun pdf-view-reset-slice (&optional window)
   ;; TODO: add WINDOW to doctring.
@@ -815,12 +815,12 @@ See also `pdf-view-set-slice-from-bounding-box'."
    (pdf-view-auto-slice-minor-mode
     (dolist (win (get-buffer-window-list nil nil t))
       (when (pdf-util-pdf-window-p win)
-	(pdf-view-set-slice-from-bounding-box win)))
+        (pdf-view-set-slice-from-bounding-box win)))
     (add-hook 'pdf-view-change-page-hook
-	      'pdf-view-set-slice-from-bounding-box nil t))
+              'pdf-view-set-slice-from-bounding-box nil t))
    (t
     (remove-hook 'pdf-view-change-page-hook
-		 'pdf-view-set-slice-from-bounding-box t))))
+                 'pdf-view-set-slice-from-bounding-box t))))
 
 
 ;; * ================================================================== *
@@ -840,19 +840,19 @@ Signal an error, if neither `imagemagick' nor `png' is available.
 
 See also `pdf-view-use-imagemagick'."
   (cond ((and pdf-view-use-imagemagick
-	      (fboundp 'imagemagick-types))
-	 'imagemagick)
-	((image-type-available-p 'png)
-	 'png)
-	((fboundp 'imagemagick-types)
-	 'imagemagick)
-	(t
-	 (error "PNG image supported not compiled into Emacs"))))
+              (fboundp 'imagemagick-types))
+         'imagemagick)
+        ((image-type-available-p 'png)
+         'png)
+        ((fboundp 'imagemagick-types)
+         'imagemagick)
+        (t
+         (error "PNG image supported not compiled into Emacs"))))
 
 (defun pdf-view-use-scaling-p ()
   "Return t if scaling should be used."
   (and (eq 'imagemagick
-	   (pdf-view-image-type))
+           (pdf-view-image-type))
        pdf-view-use-scaling))
 
 (defmacro pdf-view-create-image (data &rest props)
@@ -860,7 +860,7 @@ See also `pdf-view-use-imagemagick'."
   "Like `create-image', but with set DATA-P and TYPE arguments."
   (declare (indent 1) (debug t))
   `(create-image ,data (pdf-view-image-type) t ,@props
-		 :relief (or pdf-view-image-relief 0)))
+                 :relief (or pdf-view-image-relief 0)))
 
 (defun pdf-view-create-page (page &optional window)
   "Create an image of PAGE for display on WINDOW."
@@ -885,8 +885,8 @@ If DISPLAYED-P is non-nil, return the size of the displayed
 image.  These values may be different, if slicing is used."
   (if displayed-p
       (with-selected-window (or window (selected-window))
-	(image-display-size
-	 (image-get-display-property) t))
+        (image-display-size
+         (image-get-display-property) t))
     (image-size (pdf-view-current-image window) t)))
 
 (defun pdf-view-image-offset (&optional window)
@@ -914,36 +914,36 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
   (let ((ol (pdf-view-current-overlay window)))
     (when (window-live-p (overlay-get ol 'window))
       (let* ((size (image-size image t))
-	     (slice (if (not inhibit-slice-p)
-			(pdf-view-current-slice window)))
-	     (displayed-width (floor
-			       (if slice
-				   (* (nth 2 slice)
-				      (car (image-size image)))
-				 (car (image-size image))))))
-	(setf (pdf-view-current-image window) image)
-	(move-overlay ol (point-min) (point-max))
-	;; In case the window is wider than the image, center the image
-	;; horizontally.
-	(overlay-put ol 'before-string
-		     (when (> (window-width window)
-			      displayed-width)
-		       (propertize " " 'display
-				   `(space :align-to
-					   ,(/ (- (window-width window)
-						  displayed-width) 2)))))
-	(overlay-put ol 'display
-		     (if slice
-			 (list (cons 'slice
-				     (pdf-util-scale slice size 'round))
-			       image)
-		       image))
-	(let* ((win (overlay-get ol 'window))
-	       (hscroll (image-mode-window-get 'hscroll win))
-	       (vscroll (image-mode-window-get 'vscroll win)))
-	  ;; Reset scroll settings, in case they were changed.
-	  (if hscroll (set-window-hscroll win hscroll))
-	  (if vscroll (set-window-vscroll win vscroll)))))))
+             (slice (if (not inhibit-slice-p)
+                        (pdf-view-current-slice window)))
+             (displayed-width (floor
+                               (if slice
+                                   (* (nth 2 slice)
+                                      (car (image-size image)))
+                                 (car (image-size image))))))
+        (setf (pdf-view-current-image window) image)
+        (move-overlay ol (point-min) (point-max))
+        ;; In case the window is wider than the image, center the image
+        ;; horizontally.
+        (overlay-put ol 'before-string
+                     (when (> (window-width window)
+                              displayed-width)
+                       (propertize " " 'display
+                                   `(space :align-to
+                                           ,(/ (- (window-width window)
+                                                  displayed-width) 2)))))
+        (overlay-put ol 'display
+                     (if slice
+                         (list (cons 'slice
+                                     (pdf-util-scale slice size 'round))
+                               image)
+                       image))
+        (let* ((win (overlay-get ol 'window))
+               (hscroll (image-mode-window-get 'hscroll win))
+               (vscroll (image-mode-window-get 'vscroll win)))
+          ;; Reset scroll settings, in case they were changed.
+          (if hscroll (set-window-hscroll win hscroll))
+          (if vscroll (set-window-vscroll win vscroll)))))))
 
 (defun pdf-view-redisplay (&optional window)
   "Redisplay page in WINDOW.
@@ -951,13 +951,13 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
 If WINDOW is t, redisplay pages in all windows."
   (unless pdf-view-inhibit-redisplay
     (if (not (eq t window))
-	(pdf-view-display-page
-	 (pdf-view-current-page window)
-	 window)
+        (pdf-view-display-page
+         (pdf-view-current-page window)
+         window)
       (dolist (win (get-buffer-window-list nil nil t))
-	(pdf-view-display-page
-	 (pdf-view-current-page win)
-	 win)))
+        (pdf-view-display-page
+         (pdf-view-current-page win)
+         win)))
     (force-mode-line-update)))
 
 (defun pdf-view-redisplay-pages (&rest pages)
@@ -965,38 +965,38 @@ If WINDOW is t, redisplay pages in all windows."
   (pdf-util-assert-pdf-buffer)
   (dolist (window (get-buffer-window-list nil nil t))
     (when (memq (pdf-view-current-page window)
-		pages)
+                pages)
       (pdf-view-redisplay window))))
 
 (defun pdf-view-maybe-redisplay-resized-windows ()
   "Redisplay some windows needing redisplay."
   (unless (or (numberp pdf-view-display-size)
-	      (pdf-view-active-region-p)
-	      (> (minibuffer-depth) 0))
+              (pdf-view-active-region-p)
+              (> (minibuffer-depth) 0))
     (dolist (window (get-buffer-window-list nil nil t))
       (let ((stored (pdf-view-current-window-size window))
-	    (size (cons (window-width window)
-			(window-height window))))
-	(unless (equal size stored)
-	  (setf (pdf-view-current-window-size window) size)
-	  (unless (or (null stored)
-		      (and (eq pdf-view-display-size 'fit-width)
-			   (eq (car size) (car stored)))
-		      (and (eq pdf-view-display-size 'fit-height)
-			   (eq (cdr size) (cdr stored))))
-	    (pdf-view-redisplay window)))))))
+            (size (cons (window-width window)
+                        (window-height window))))
+        (unless (equal size stored)
+          (setf (pdf-view-current-window-size window) size)
+          (unless (or (null stored)
+                      (and (eq pdf-view-display-size 'fit-width)
+                           (eq (car size) (car stored)))
+                      (and (eq pdf-view-display-size 'fit-height)
+                           (eq (cdr size) (cdr stored))))
+            (pdf-view-redisplay window)))))))
 
 (defun pdf-view-new-window-function (winprops)
   ;; TODO: write documentation!
   ;; (message "New window %s for buf %s" (car winprops) (current-buffer))
   (cl-assert (or (eq t (car winprops))
-		 (eq (window-buffer (car winprops)) (current-buffer))))
+                 (eq (window-buffer (car winprops)) (current-buffer))))
   (let ((ol (image-mode-window-get 'overlay winprops)))
     (if ol
-	(progn
-	  (setq ol (copy-overlay ol))
-	  ;; `ol' might actually be dead.
-	  (move-overlay ol (point-min) (point-max)))
+        (progn
+          (setq ol (copy-overlay ol))
+          ;; `ol' might actually be dead.
+          (move-overlay ol (point-min) (point-max)))
       (setq ol (make-overlay (point-min) (point-max) nil t))
       (overlay-put ol 'pdf-view t))
     (overlay-put ol 'window (car winprops))
@@ -1009,45 +1009,45 @@ If WINDOW is t, redisplay pages in all windows."
     ;; Clean up some overlays.
     (dolist (ov (overlays-in (point-min) (point-max)))
       (when (and (windowp (overlay-get ov 'window))
-		 (not (window-live-p (overlay-get ov 'window))))
-	(delete-overlay ov)))
+                 (not (window-live-p (overlay-get ov 'window))))
+        (delete-overlay ov)))
     (when (and (windowp (car winprops))
-	       (null (image-mode-window-get 'image winprops)))
+               (null (image-mode-window-get 'image winprops)))
       ;; We're not displaying an image yet, so let's do so.  This
       ;; happens when the buffer is displayed for the first time.
       (with-selected-window (car winprops)
-	(pdf-view-goto-page
-	 (or (image-mode-window-get 'page t) 1))))))
+        (pdf-view-goto-page
+         (or (image-mode-window-get 'page t) 1))))))
 
 (defun pdf-view-desired-image-size (&optional page window)
   ;; TODO: write documentation!
   (let* ((pagesize (pdf-cache-pagesize
-		    (or page (pdf-view-current-page window))))
-	 (slice (pdf-view-current-slice window))
-	 (width-scale (/ (/ (float (pdf-util-window-pixel-width window))
-			    (or (nth 2 slice) 1.0))
-			 (float (car pagesize))))
-	 (height (- (nth 3 (window-inside-pixel-edges window))
-		    (nth 1 (window-inside-pixel-edges window))
-		    1))
-	 (height-scale (/ (/ (float height)
-			     (or (nth 3 slice) 1.0))
-			  (float (cdr pagesize))))
-	 (scale width-scale))
+                    (or page (pdf-view-current-page window))))
+         (slice (pdf-view-current-slice window))
+         (width-scale (/ (/ (float (pdf-util-window-pixel-width window))
+                            (or (nth 2 slice) 1.0))
+                         (float (car pagesize))))
+         (height (- (nth 3 (window-inside-pixel-edges window))
+                    (nth 1 (window-inside-pixel-edges window))
+                    1))
+         (height-scale (/ (/ (float height)
+                             (or (nth 3 slice) 1.0))
+                          (float (cdr pagesize))))
+         (scale width-scale))
     (if (numberp pdf-view-display-size)
-	(setq scale (float pdf-view-display-size))
+        (setq scale (float pdf-view-display-size))
       (cl-case pdf-view-display-size
-	(fit-page
-	 (setq scale (min height-scale width-scale)))
-	(fit-height
-	 (setq scale height-scale))
-	(t
-	 (setq scale width-scale))))
+        (fit-page
+         (setq scale (min height-scale width-scale)))
+        (fit-height
+         (setq scale height-scale))
+        (t
+         (setq scale width-scale))))
     (let ((width (floor (* (car pagesize) scale)))
-	  (height (floor (* (cdr pagesize) scale))))
+          (height (floor (* (cdr pagesize) scale))))
       (when (> width (max 1 (or pdf-view-max-image-width width)))
-	(setq width pdf-view-max-image-width
-	      height (* height (/ (float pdf-view-max-image-width) width))))
+        (setq width pdf-view-max-image-width
+              height (* height (/ (float pdf-view-max-image-width) width))))
       (cons (max 1 width) (max 1 height)))))
 
 (defun pdf-view-text-regions-hotspots-function (page size)
@@ -1055,14 +1055,14 @@ If WINDOW is t, redisplay pages in all windows."
 
 This will display a text cursor, when hovering over them."
   (local-set-key [pdf-view-text-region t]
-		 'pdf-util-image-map-mouse-event-proxy)
+                 'pdf-util-image-map-mouse-event-proxy)
   (mapcar (lambda (region)
-	    (let ((e (pdf-util-scale region size 'round)))
-	      `((rect . ((,(nth 0 e) . ,(nth 1 e))
-			 . (,(nth 2 e) . ,(nth 3 e))))
-		pdf-view-text-region
-		(pointer text))))
-	  (pdf-cache-textregions page)))
+            (let ((e (pdf-util-scale region size 'round)))
+              `((rect . ((,(nth 0 e) . ,(nth 1 e))
+                         . (,(nth 2 e) . ,(nth 3 e))))
+                pdf-view-text-region
+                (pointer text))))
+          (pdf-cache-textregions page)))
 
 (define-minor-mode pdf-view-dark-minor-mode
   "Mode for PDF documents with dark background.
@@ -1082,7 +1082,7 @@ This tells the various modes to use their face's dark colors."
   nil " Prn" nil
   (pdf-util-assert-pdf-buffer)
   (let ((enable (lambda ()
-		  (pdf-info-setoptions :render/printed t))))
+                  (pdf-info-setoptions :render/printed t))))
     (cond
      (pdf-view-printer-minor-mode
       (add-hook 'after-save-hook enable nil t)
@@ -1104,10 +1104,10 @@ The colors are determined by the variable
   (pdf-util-assert-pdf-buffer)
   ;; FIXME: Maybe these options should be passed stateless to pdf-info-renderpage ?
   (let ((enable (lambda ()
-		  (pdf-info-setoptions
-		   :render/foreground (or (car pdf-view-midnight-colors) "black")
-		   :render/background (or (cdr pdf-view-midnight-colors) "white")
-		   :render/usecolors t))))
+                  (pdf-info-setoptions
+                   :render/foreground (or (car pdf-view-midnight-colors) "black")
+                   :render/background (or (cdr pdf-view-midnight-colors) "white")
+                   :render/usecolors t))))
     (cond
      (pdf-view-midnight-minor-mode
       (add-hook 'after-save-hook enable nil t)
@@ -1125,10 +1125,10 @@ The colors are determined by the variable
   ;; right answer.
   (and (fontp (char-displayable-p ?⎙))
        (setcdr (assq 'pdf-view-printer-minor-mode minor-mode-alist)
-	       (list " ⎙" )))
+               (list " ⎙" )))
   (and (fontp (char-displayable-p ?🌙))
        (setcdr (assq 'pdf-view-midnight-minor-mode minor-mode-alist)
-	       (list  " 🌙" ))))
+               (list  " 🌙" ))))
 
 
 ;; * ================================================================== *
@@ -1145,18 +1145,18 @@ list of hotspots applicable to the the :map image-property.
 LAYER determines the order: Functions in a higher LAYER will
 supercede hotspots in lower ones."
   (push (cons (or layer 0) fn)
-	pdf-view--hotspot-functions))
+        pdf-view--hotspot-functions))
 
 (defun pdf-view-remove-hotspot-function (fn)
   "Unregister FN as a hotspot function in the current buffer."
   (setq pdf-view--hotspot-functions
-	(cl-remove fn pdf-view--hotspot-functions
-		   :key 'cdr)))
+        (cl-remove fn pdf-view--hotspot-functions
+                   :key 'cdr)))
 
 (defun pdf-view-sorted-hotspot-functions ()
   ;; TODO: write documentation!
   (mapcar 'cdr (cl-sort (copy-sequence pdf-view--hotspot-functions)
-			'> :key 'car)))
+                        '> :key 'car)))
 
 (defun pdf-view-apply-hotspot-functions (window page image-size)
   ;; TODO: write documentation!
@@ -1164,9 +1164,9 @@ supercede hotspots in lower ones."
     (save-selected-window
       (when window (select-window window))
       (apply 'nconc
-	     (mapcar (lambda (fn)
-		       (funcall fn page image-size))
-		     (pdf-view-sorted-hotspot-functions))))))
+             (mapcar (lambda (fn)
+                       (funcall fn page image-size))
+                     (pdf-view-sorted-hotspot-functions))))))
 
 
 ;; * ================================================================== *
@@ -1198,7 +1198,7 @@ Deactivate the region if DEACTIVATE-P is non-nil."
     (pdf-view-redisplay t)))
 
 (defun pdf-view-mouse-set-region (event &optional allow-extend-p
-					rectangle-p)
+                                        rectangle-p)
   "Select a region of text using the mouse with mouse event EVENT.
 
 Allow for stacking of regions, if ALLOW-EXTEND-P is non-nil.
@@ -1209,80 +1209,80 @@ Stores the region in `pdf-view-active-region'."
   (interactive "@e")
   (setq pdf-view--have-rectangle-region rectangle-p)
   (unless (and (eventp event)
-	       (mouse-event-p event))
+               (mouse-event-p event))
     (signal 'wrong-type-argument (list 'mouse-event-p event)))
   (unless (and allow-extend-p
-	       (or (null (get this-command 'pdf-view-region-window))
-		   (equal (get this-command 'pdf-view-region-window)
-			  (selected-window))))
+               (or (null (get this-command 'pdf-view-region-window))
+                   (equal (get this-command 'pdf-view-region-window)
+                          (selected-window))))
     (pdf-view-deactivate-region))
   (put this-command 'pdf-view-region-window
        (selected-window))
   (let* ((window (selected-window))
-	 (pos (event-start event))
-	 (begin-inside-image-p t)
-	 (begin (if (posn-image pos)
-		    (posn-object-x-y pos)
-		  (setq begin-inside-image-p nil)
-		  (posn-x-y pos)))
-	 (abs-begin (posn-x-y pos))
-	 pdf-view-continuous
-	 region)
+         (pos (event-start event))
+         (begin-inside-image-p t)
+         (begin (if (posn-image pos)
+                    (posn-object-x-y pos)
+                  (setq begin-inside-image-p nil)
+                  (posn-x-y pos)))
+         (abs-begin (posn-x-y pos))
+         pdf-view-continuous
+         region)
     (when (pdf-util-track-mouse-dragging (event 0.15)
-	    (let* ((pos (event-start event))
-		   (end (posn-object-x-y pos))
-		   (end-inside-image-p
-		    (and (eq window (posn-window pos))
-			 (posn-image pos))))
-	      (when (or end-inside-image-p
-			begin-inside-image-p)
-		(cond
-		 ((and end-inside-image-p
-		       (not begin-inside-image-p))
-		  ;; Started selection ouside the image, setup begin.
-		  (let* ((xy (posn-x-y pos))
-			 (dxy (cons (- (car xy) (car begin))
-				    (- (cdr xy) (cdr begin))))
-			 (size (pdf-view-image-size t)))
-		    (setq begin (cons (max 0 (min (car size)
-						  (- (car end) (car dxy))))
-				      (max 0 (min (cdr size)
-						  (- (cdr end) (cdr dxy)))))
-			  ;; Store absolute position for later.
-			  abs-begin (cons (- (car xy)
-					     (- (car end)
-						(car begin)))
-					  (- (cdr xy)
-					     (- (cdr end)
-						(cdr begin))))
-			  begin-inside-image-p t)))
-		 ((and begin-inside-image-p
-		       (not end-inside-image-p))
-		  ;; Moved outside the image, setup end.
-		  (let* ((xy (posn-x-y pos))
-			 (dxy (cons (- (car xy) (car abs-begin))
-				    (- (cdr xy) (cdr abs-begin))))
-			 (size (pdf-view-image-size t)))
-		    (setq end (cons (max 0 (min (car size)
-						(+ (car begin) (car dxy))))
-				    (max 0 (min (cdr size)
-						(+ (cdr begin) (cdr dxy)))))))))
-		(let ((iregion (if rectangle-p
-				   (list (min (car begin) (car end))
-					 (min (cdr begin) (cdr end))
-					 (max (car begin) (car end))
-					 (max (cdr begin) (cdr end)))
-				 (list (car begin) (cdr begin)
-				       (car end) (cdr end)))))
-		  (setq region
-			(pdf-util-scale-pixel-to-relative iregion))
-		  (pdf-view-display-region
-		   (cons region pdf-view-active-region)
-		   rectangle-p)
-		  (pdf-util-scroll-to-edges iregion)))))
+            (let* ((pos (event-start event))
+                   (end (posn-object-x-y pos))
+                   (end-inside-image-p
+                    (and (eq window (posn-window pos))
+                         (posn-image pos))))
+              (when (or end-inside-image-p
+                        begin-inside-image-p)
+                (cond
+                 ((and end-inside-image-p
+                       (not begin-inside-image-p))
+                  ;; Started selection ouside the image, setup begin.
+                  (let* ((xy (posn-x-y pos))
+                         (dxy (cons (- (car xy) (car begin))
+                                    (- (cdr xy) (cdr begin))))
+                         (size (pdf-view-image-size t)))
+                    (setq begin (cons (max 0 (min (car size)
+                                                  (- (car end) (car dxy))))
+                                      (max 0 (min (cdr size)
+                                                  (- (cdr end) (cdr dxy)))))
+                          ;; Store absolute position for later.
+                          abs-begin (cons (- (car xy)
+                                             (- (car end)
+                                                (car begin)))
+                                          (- (cdr xy)
+                                             (- (cdr end)
+                                                (cdr begin))))
+                          begin-inside-image-p t)))
+                 ((and begin-inside-image-p
+                       (not end-inside-image-p))
+                  ;; Moved outside the image, setup end.
+                  (let* ((xy (posn-x-y pos))
+                         (dxy (cons (- (car xy) (car abs-begin))
+                                    (- (cdr xy) (cdr abs-begin))))
+                         (size (pdf-view-image-size t)))
+                    (setq end (cons (max 0 (min (car size)
+                                                (+ (car begin) (car dxy))))
+                                    (max 0 (min (cdr size)
+                                                (+ (cdr begin) (cdr dxy)))))))))
+                (let ((iregion (if rectangle-p
+                                   (list (min (car begin) (car end))
+                                         (min (cdr begin) (cdr end))
+                                         (max (car begin) (car end))
+                                         (max (cdr begin) (cdr end)))
+                                 (list (car begin) (cdr begin)
+                                       (car end) (cdr end)))))
+                  (setq region
+                        (pdf-util-scale-pixel-to-relative iregion))
+                  (pdf-view-display-region
+                   (cons region pdf-view-active-region)
+                   rectangle-p)
+                  (pdf-util-scroll-to-edges iregion)))))
       (setq pdf-view-active-region
-	    (append pdf-view-active-region
-		    (list region)))
+            (append pdf-view-active-region
+                    (list region)))
       (pdf-view--push-mark))))
 
 (defun pdf-view-mouse-extend-region (event)
@@ -1307,10 +1307,10 @@ This is more useful for commands like
     (pdf-view-assert-active-region)
     (setq region pdf-view-active-region))
   (let ((colors (pdf-util-face-colors
-		 (if rectangle-p 'pdf-view-rectangle 'pdf-view-region)
-		 (bound-and-true-p pdf-view-dark-minor-mode)))
-	(page (pdf-view-current-page))
-	(width (car (pdf-view-image-size))))
+                 (if rectangle-p 'pdf-view-rectangle 'pdf-view-region)
+                 (bound-and-true-p pdf-view-dark-minor-mode)))
+        (page (pdf-view-current-page))
+        (width (car (pdf-view-image-size))))
     (pdf-view-display-image
      (pdf-view-create-image
          (if rectangle-p
@@ -1334,7 +1334,7 @@ This is more useful for commands like
   (interactive)
   (pdf-view-deactivate-region)
   (setq pdf-view-active-region
-	(list (list 0 0 1 1)))
+        (list (list 0 0 1 1)))
   (pdf-view--push-mark)
   (pdf-view-display-region))
 
@@ -1346,7 +1346,7 @@ This is more useful for commands like
    pdf-view-active-region))
 
 (defun pdf-view-extract-region-image (regions &optional page size
-					      output-buffer no-display-p)
+                                              output-buffer no-display-p)
   ;; TODO: what is "resp."? Avoid contractions.
   "Create a PNG image of REGIONS.
 
@@ -1364,8 +1364,8 @@ the `convert' programm is used."
 
   (interactive
    (list (if (pdf-view-active-region-p)
-	     (pdf-view-active-region t)
-	   '((0 0 1 1)))))
+             (pdf-view-active-region t)
+           '((0 0 1 1)))))
   (unless page
     (setq page (pdf-view-current-page)))
   (unless size
@@ -1373,16 +1373,16 @@ the `convert' programm is used."
   (unless output-buffer
     (setq output-buffer (get-buffer-create "*PDF image*")))
   (let* ((images (mapcar (lambda (edges)
-			   (let ((file (make-temp-file "pdf-view"))
-				 (coding-system-for-write 'binary))
-			     (write-region
-			      (pdf-info-renderpage
-			       page (car size)
-			       :crop-to edges)
-			      nil file nil 'no-message)
-			     file))
-			 regions))
-	 result)
+                           (let ((file (make-temp-file "pdf-view"))
+                                 (coding-system-for-write 'binary))
+                             (write-region
+                              (pdf-info-renderpage
+                               page (car size)
+                               :crop-to edges)
+                              nil file nil 'no-message)
+                             file))
+                         regions))
+         result)
     (unwind-protect
         (progn
           (if (= (length images) 1)
@@ -1411,8 +1411,8 @@ the `convert' programm is used."
             (unless no-display-p
               (pop-to-buffer (current-buffer)))))
       (dolist (f (cons result images))
-	(when (file-exists-p f)
-	  (delete-file f))))))
+        (when (file-exists-p f)
+          (delete-file f))))))
 
 ;; * ================================================================== *
 ;; * Bookmark + Register Integration
@@ -1424,23 +1424,23 @@ the `convert' programm is used."
 
 The optional, boolean args exclude certain attributes."
   (let ((displayed-p (eq (current-buffer)
-			 (window-buffer))))
+                         (window-buffer))))
     (cons (buffer-name)
-	  (append (bookmark-make-record-default nil t 1)
-		  `(,(unless no-page
-		       (cons 'page (pdf-view-current-page)))
-		    ,(unless no-slice
-		       (cons 'slice (and displayed-p
-					 (pdf-view-current-slice))))
-		    ,(unless no-size
-		       (cons 'size pdf-view-display-size))
-		    ,(unless no-origin
-		       (cons 'origin
-			     (and displayed-p
-				  (let ((edges (pdf-util-image-displayed-edges nil t)))
-				    (pdf-util-scale-pixel-to-relative
-				     (cons (car edges) (cadr edges)) nil t)))))
-		    (handler . pdf-view-bookmark-jump-handler))))))
+          (append (bookmark-make-record-default nil t 1)
+                  `(,(unless no-page
+                       (cons 'page (pdf-view-current-page)))
+                    ,(unless no-slice
+                       (cons 'slice (and displayed-p
+                                         (pdf-view-current-slice))))
+                    ,(unless no-size
+                       (cons 'size pdf-view-display-size))
+                    ,(unless no-origin
+                       (cons 'origin
+                             (and displayed-p
+                                  (let ((edges (pdf-util-image-displayed-edges nil t)))
+                                    (pdf-util-scale-pixel-to-relative
+                                     (cons (car edges) (cadr edges)) nil t)))))
+                    (handler . pdf-view-bookmark-jump-handler))))))
 
 ;;;###autoload
 (defun pdf-view-bookmark-jump-handler (bmk)
@@ -1448,36 +1448,36 @@ The optional, boolean args exclude certain attributes."
 
 See also `pdf-view-bookmark-make-record'."
   (let ((page (bookmark-prop-get bmk 'page))
-	(slice (bookmark-prop-get bmk 'slice))
-	(size (bookmark-prop-get bmk 'size))
-	(origin (bookmark-prop-get bmk 'origin))
-	(file (bookmark-prop-get bmk 'filename))
-	(show-fn-sym (make-symbol "pdf-view-bookmark-after-jump-hook")))
+        (slice (bookmark-prop-get bmk 'slice))
+        (size (bookmark-prop-get bmk 'size))
+        (origin (bookmark-prop-get bmk 'origin))
+        (file (bookmark-prop-get bmk 'filename))
+        (show-fn-sym (make-symbol "pdf-view-bookmark-after-jump-hook")))
     (fset show-fn-sym
-	  (lambda ()
-	    (remove-hook 'bookmark-after-jump-hook show-fn-sym)
-	    (unless (derived-mode-p 'pdf-view-mode)
-	      (pdf-view-mode))
-	    (with-selected-window
-		(or (get-buffer-window (current-buffer) 0)
-		    (selected-window))
-	      (when size
-		(setq-local pdf-view-display-size size))
-	      (when slice
-		(apply 'pdf-view-set-slice slice))
-	      (when (numberp page)
-		(pdf-view-goto-page page))
-	      (when origin
-		(let ((size (pdf-view-image-size t)))
-		  (image-set-window-hscroll
-		   (round (/ (* (car origin) (car size))
-			     (frame-char-width))))
-		  (image-set-window-vscroll
-		   (round (/ (* (cdr origin) (cdr size))
-			     (frame-char-height)))))))))
+          (lambda ()
+            (remove-hook 'bookmark-after-jump-hook show-fn-sym)
+            (unless (derived-mode-p 'pdf-view-mode)
+              (pdf-view-mode))
+            (with-selected-window
+                (or (get-buffer-window (current-buffer) 0)
+                    (selected-window))
+              (when size
+                (setq-local pdf-view-display-size size))
+              (when slice
+                (apply 'pdf-view-set-slice slice))
+              (when (numberp page)
+                (pdf-view-goto-page page))
+              (when origin
+                (let ((size (pdf-view-image-size t)))
+                  (image-set-window-hscroll
+                   (round (/ (* (car origin) (car size))
+                             (frame-char-width))))
+                  (image-set-window-vscroll
+                   (round (/ (* (cdr origin) (cdr size))
+                             (frame-char-height)))))))))
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
     (set-buffer (or (find-buffer-visiting file)
-		    (find-file-noselect file)))))
+                    (find-file-noselect file)))))
 
 (defun pdf-view-bookmark-jump (bmk)
   "Switch to bookmark BMK.
@@ -1488,8 +1488,8 @@ works only with bookmarks created by
 `pdf-view-bookmark-make-record'."
 
   (let* ((file (bookmark-prop-get bmk 'filename))
-	 (buffer (or (find-buffer-visiting file)
-		     (find-file-noselect file))))
+         (buffer (or (find-buffer-visiting file)
+                     (find-file-noselect file))))
     (switch-to-buffer buffer)
     (let (bookmark-after-jump-hook)
       (pdf-view-bookmark-jump-handler bmk)
@@ -1502,7 +1502,7 @@ works only with bookmarks created by
    :print-func 'pdf-view-registerv-print-func
    :jump-func 'pdf-view-bookmark-jump
    :insert-func (lambda (bmk)
-		  (insert (format "%S" bmk)))))
+                  (insert (format "%S" bmk)))))
 
 (defun pdf-view-registerv-print-func (bmk)
   "Print a textual representation of bookmark BMK.
@@ -1510,17 +1510,17 @@ works only with bookmarks created by
 This function is used as the `:print-func' property with
 `registerv-make'."
   (let* ((file (bookmark-prop-get bmk 'filename))
-	 (buffer (find-buffer-visiting file))
-	 (page (bookmark-prop-get bmk 'page))
-	 (origin (bookmark-prop-get bmk 'origin)))
+         (buffer (find-buffer-visiting file))
+         (page (bookmark-prop-get bmk 'page))
+         (origin (bookmark-prop-get bmk 'origin)))
     (princ (format "PDF position: %s, page %d, %d%%"
-		   (if buffer
-		       (buffer-name buffer)
-		     file)
-		   (or page 1)
-		   (if origin
-		       (round (* 100 (cdr origin)))
-		     0)))))
+                   (if buffer
+                       (buffer-name buffer)
+                     file)
+                   (or page 1)
+                   (if origin
+                       (round (* 100 (cdr origin)))
+                     0)))))
 
 (defmacro pdf-view-with-register-alist (&rest body)
   "Setup the proper binding for `register-alist' in BODY.
@@ -1530,10 +1530,10 @@ This macro may not work as desired when it is nested.  See also
   (declare (debug t) (indent 0))
   (let ((dedicated-p (make-symbol "dedicated-p")))
     `(let* ((,dedicated-p pdf-view-use-dedicated-register)
-	    (register-alist
-	     (if ,dedicated-p
-		 pdf-view-register-alist
-	       register-alist)))
+            (register-alist
+             (if ,dedicated-p
+                 pdf-view-register-alist
+               register-alist)))
        (unwind-protect
            (progn ,@body)
          (when ,dedicated-p
@@ -1545,7 +1545,7 @@ This macro may not work as desired when it is nested.  See also
 See also `point-to-register'."
   (interactive
    (list (pdf-view-with-register-alist
-	   (register-read-with-preview "Position to register: "))))
+           (register-read-with-preview "Position to register: "))))
   (pdf-view-with-register-alist
     (set-register register (pdf-view-registerv-make))))
 
@@ -1560,15 +1560,15 @@ Optional parameter DELETE is defined as in `jump-to-register'."
       (register-read-with-preview "Jump to register: ")
       current-prefix-arg
       (and (or pdf-view-use-dedicated-register
-	       (local-variable-p 'register-alist))
-	   (characterp last-command-event)
-	   last-command-event))))
+               (local-variable-p 'register-alist))
+           (characterp last-command-event)
+           last-command-event))))
   (pdf-view-with-register-alist
     (let ((return-pos (and return-register
-			   (pdf-view-registerv-make))))
+                           (pdf-view-registerv-make))))
       (jump-to-register register delete)
       (when return-register
-	(set-register return-register return-pos)))))
+        (set-register return-register return-pos)))))
 
 (provide 'pdf-view)
 
