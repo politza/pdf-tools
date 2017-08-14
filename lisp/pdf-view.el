@@ -533,18 +533,35 @@ For example, (pdf-view-shrink 1.25) decreases size by 20%."
 ;; * Moving by pages and scrolling
 ;; * ================================================================== *
 
-(defun pdf-view-goto-page (page &optional window)
+(defun pdf-view-goto-page (page &optional window interactive-p)
   "Go to PAGE in PDF.
 
 If optional parameter WINDOW, go to PAGE in all `pdf-view'
-windows."
+windows.
+
+If INTERACTIVE-P is non-nil, throw a `user-error'
+instead of an `error' on crossing document boundaries."
   (interactive
    (list (if current-prefix-arg
              (prefix-numeric-value current-prefix-arg)
-           (read-number "Page: "))))
+           (read-number "Page: "))
+         nil :interactive))
   (unless (and (>= page 1)
                (<= page (pdf-cache-number-of-pages)))
-    (error "No such page: %d" page))
+    (cl-labels ((error* (fmt &rest args)
+                        (apply (if interactive-p #'user-error #'error)
+                               fmt args)))
+      (cond
+       ;; Give a more meaningful error in these common cases.
+       ((and (= (pdf-view-current-page window) 1)
+             (= page 0))
+        (error* "First page"))
+       ((and (= (pdf-view-current-page window)
+                (pdf-cache-number-of-pages))
+             (= page (1+ (pdf-cache-number-of-pages))))
+        (error* "Last page"))
+       (t
+        (error* "No such page: %d" page)))))
   (unless window
     (setq window
           (if (pdf-util-pdf-window-p)
@@ -568,20 +585,25 @@ windows."
         (run-hooks 'pdf-view-after-change-page-hook))))
   nil)
 
-(defun pdf-view-next-page (&optional n)
+(defun pdf-view-next-page (&optional n interactive-p)
   "View the next page in the PDF.
 
-Optional parameter N moves N pages forward."
-  (interactive "p")
-  (pdf-view-goto-page (+ (pdf-view-current-page)
-                         (or n 1))))
+Optional parameter N moves N pages forward.
 
-(defun pdf-view-previous-page (&optional n)
+For the INTERACTIVE-P argument see `pdf-view-goto-page'."
+  (interactive "p\np")
+  (pdf-view-goto-page (+ (pdf-view-current-page)
+                         (or n 1))
+                      nil interactive-p))
+
+(defun pdf-view-previous-page (&optional n interactive-p)
   "View the previous page in the PDF.
 
-Optional parameter N moves N pages backward."
-  (interactive "p")
-  (pdf-view-next-page (- (or n 1))))
+Optional parameter N moves N pages backward.
+
+For the INTERACTIVE-P argument see `pdf-view-goto-page'."
+  (interactive "p\np")
+  (pdf-view-next-page (- (or n 1)) interactive-p))
 
 (defun pdf-view-next-page-command (&optional n)
   "View the next page in the PDF.
@@ -593,14 +615,9 @@ indicate to the user if they are on the last page and more."
   (declare (interactive-only pdf-view-next-page))
   (interactive "p")
   (unless n (setq n 1))
-  (when (> (+ (pdf-view-current-page) n)
-           (pdf-cache-number-of-pages))
-    (user-error "Last page"))
-  (when (< (+ (pdf-view-current-page) n) 1)
-    (user-error "First page"))
   (let ((pdf-view-inhibit-redisplay t))
     (pdf-view-goto-page
-     (+ (pdf-view-current-page) n)))
+     (+ (pdf-view-current-page) n) nil :interactive))
   (force-mode-line-update)
   (sit-for 0)
   (when pdf-view--next-page-timer
@@ -637,13 +654,15 @@ This command is a wrapper for `pdf-view-previous-page'."
   (interactive)
   (pdf-view-goto-page (pdf-cache-number-of-pages)))
 
-(defun pdf-view-scroll-up-or-next-page (&optional arg)
+(defun pdf-view-scroll-up-or-next-page (&optional arg interactive-p)
   "Scroll page up ARG lines if possible, else go to the next page.
 
 When `pdf-view-continuous' is non-nil, scrolling upward at the
 bottom edge of the page moves to the next page.  Otherwise, go to
-next page only on typing SPC (ARG is nil)."
-  (interactive "P")
+next page only on typing SPC (ARG is nil).
+
+For the INTERACTIVE-P argument see `pdf-view-goto-page'."
+  (interactive "P\np")
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
             (cur-page (pdf-view-current-page)))
@@ -651,20 +670,20 @@ next page only on typing SPC (ARG is nil)."
                   ;; Workaround rounding/off-by-one issues.
                   (memq pdf-view-display-size
                         '(fit-height fit-page)))
-          (pdf-view-next-page)
+          (pdf-view-next-page nil interactive-p)
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
             (image-bol 1))
           (set-window-hscroll (selected-window) hscroll)))
     (image-scroll-up arg)))
 
-(defun pdf-view-scroll-down-or-previous-page (&optional arg)
+(defun pdf-view-scroll-down-or-previous-page (&optional arg interactive-p)
   "Scroll page down ARG lines if possible, else go to the previous page.
 
 When `pdf-view-continuous' is non-nil, scrolling downward at the
 top edge of the page moves to the previous page.  Otherwise, go
 to previous page only on typing DEL (ARG is nil)."
-  (interactive "P")
+  (interactive "P\np")
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
             (cur-page (pdf-view-current-page)))
@@ -672,41 +691,45 @@ to previous page only on typing DEL (ARG is nil)."
                   ;; Workaround rounding/off-by-one issues.
                   (memq pdf-view-display-size
                         '(fit-height fit-page)))
-          (pdf-view-previous-page)
+          (pdf-view-previous-page nil interactive-p)
           (when (/= cur-page (pdf-view-current-page))
             (image-eob)
             (image-bol 1))
           (set-window-hscroll (selected-window) hscroll)))
     (image-scroll-down arg)))
 
-(defun pdf-view-next-line-or-next-page (&optional arg)
+(defun pdf-view-next-line-or-next-page (&optional arg interactive-p)
   "Scroll upward by ARG lines if possible, else go to the next page.
 
 When `pdf-view-continuous' is non-nil, scrolling a line upward
-at the bottom edge of the page moves to the next page."
-  (interactive "p")
+at the bottom edge of the page moves to the next page.
+
+For the INTERACTIVE-P argument see `pdf-view-goto-page'."
+  (interactive "p\np")
   (if pdf-view-continuous
       (let ((hscroll (window-hscroll))
             (cur-page (pdf-view-current-page)))
         (when (= (window-vscroll) (image-next-line arg))
-          (pdf-view-next-page)
+          (pdf-view-next-page nil interactive-p)
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
             (image-bol 1))
           (set-window-hscroll (selected-window) hscroll)))
     (image-next-line 1)))
 
-(defun pdf-view-previous-line-or-previous-page (&optional arg)
+(defun pdf-view-previous-line-or-previous-page (&optional arg interactive-p)
   "Scroll downward by ARG lines if possible, else go to the previous page.
 
 When `pdf-view-continuous' is non-nil, scrolling a line downward
-at the top edge of the page moves to the previous page."
-  (interactive "p")
+at the top edge of the page moves to the previous page.
+
+For the INTERACTIVE-P argument see `pdf-view-goto-page'."
+  (interactive "p\np")
   (if pdf-view-continuous
       (let ((hscroll (window-hscroll))
             (cur-page (pdf-view-current-page)))
         (when (= (window-vscroll) (image-previous-line arg))
-          (pdf-view-previous-page)
+          (pdf-view-previous-page nil interactive-p)
           (when (/= cur-page (pdf-view-current-page))
             (image-eob)
             (image-bol 1))
