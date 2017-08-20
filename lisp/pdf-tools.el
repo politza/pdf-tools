@@ -294,7 +294,9 @@ CALLBACK may be a function, which will be locally put on
                       build-directory
                       (if install-server-deps "install-server-deps " " "))
             install-server-deps)
-        (let* ((arch (upcase (nth 2 (split-string system-configuration "-"))))
+        (let* ((arch (if (equal "X86_64"
+				(upcase (car (split-string system-configuration "-"))))
+			 "MINGW64" "MINGW32"))
                (msys2-install-directory
                 (file-name-directory (read-file-name "Path to msys2_shell.bat: "))))
           (compile (format "%susr/bin/bash.exe --login -c 'MSYSTEM=%s source /etc/profile; LANG=C make V=0 -kC \"%s\" melpa-build'"
