@@ -479,14 +479,14 @@ coordinates, sorted top to bottom, then left to right."
       ;; the user adds and removes characters in the search string
       ;; (or when using nonincremental word isearch)
       (let ((lax (not (or isearch-nonincremental
-			  (null (car isearch-cmds))
-			  (eq (length isearch-string)
-			      (length (isearch--state-string
+                          (null (car isearch-cmds))
+                          (eq (length isearch-string)
+                              (length (isearch--state-string
                                        (car isearch-cmds))))))))
         (pdf-info-search-regexp
-	 (pdf-isearch-word-search-regexp
-	  string lax pdf-isearch-hyphenation-character)
-	 pages 'invalid-regexp))))
+         (pdf-isearch-word-search-regexp
+          string lax pdf-isearch-hyphenation-character)
+         pages 'invalid-regexp))))
    (isearch-regexp
     (lambda (string &optional pages)
       (pdf-info-search-regexp string pages 'invalid-regexp)))

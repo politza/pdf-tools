@@ -404,7 +404,7 @@ Then quit the outline window."
   (save-excursion
     (outline-back-to-heading)
     (if (not (outline-invisible-p (line-end-position)))
-	(hide-subtree)
+        (hide-subtree)
       (show-subtree))))
 
 (defun pdf-outline-move-to-page (page)
@@ -560,16 +560,16 @@ not call `imenu-sort-function'."
   (let ((menulist (copy-sequence menulist))
         keep-at-top)
     (if (memq imenu--rescan-item menulist)
-	(setq keep-at-top (list imenu--rescan-item)
-	      menulist (delq imenu--rescan-item menulist)))
+        (setq keep-at-top (list imenu--rescan-item)
+              menulist (delq imenu--rescan-item menulist)))
     (if (> (length menulist) imenu-max-items)
-	(setq menulist
-	      (mapcar
-	       (lambda (menu)
-		 (cons (format "From: %s" (caar menu)) menu))
-	       (imenu--split menulist imenu-max-items))))
+        (setq menulist
+              (mapcar
+               (lambda (menu)
+                 (cons (format "From: %s" (caar menu)) menu))
+               (imenu--split menulist imenu-max-items))))
     (cons title
-	  (nconc (nreverse keep-at-top) menulist))))
+          (nconc (nreverse keep-at-top) menulist))))
 
 ;; bugfix for imenu in Emacs 24.3 and below.
 (when (condition-case nil

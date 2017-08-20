@@ -270,12 +270,12 @@ It is called with one argument, the PDF file."
    (list (pdf-view-buffer-file-name) t))
   (cl-check-type filename (and string file-readable))
   (let ((programm (pdf-misc-print-programm interactive-p))
-	(args (append pdf-misc-print-programm-args (list filename))))
+        (args (append pdf-misc-print-programm-args (list filename))))
     (unless programm
       (error "No print program available"))
     (apply #'start-process "printing" nil programm args)
     (message "Print job started: %s %s"
-	     programm (mapconcat #'identity args " "))))
+             programm (mapconcat #'identity args " "))))
 
 
 (provide 'pdf-misc)

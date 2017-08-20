@@ -705,9 +705,9 @@ string."
     (pdf-util-tooltip-in-window
      (propertize
       " " 'display (propertize
-		    "\u2192" ;;right arrow
-		    'display '(height 2)
-		    'face `(:foreground
+                    "\u2192" ;;right arrow
+                    'display '(height 2)
+                    'face `(:foreground
                             "orange red"
                             :background
                             ,(if (bound-and-true-p pdf-view-midnight-minor-mode)

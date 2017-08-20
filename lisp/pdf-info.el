@@ -63,15 +63,15 @@
 
 (defcustom pdf-info-epdfinfo-program
   (let ((executable (if (eq system-type 'windows-nt)
-			"epdfinfo.exe"
-		      "epdfinfo")))
+                        "epdfinfo.exe"
+                      "epdfinfo")))
     (or (executable-find executable)
-	(expand-file-name
-	 executable
-	 (let ((directory (file-name-directory (or load-file-name default-directory))))
-	   (cl-find-if 'file-exists-p
-		       `(,(expand-file-name "../server" directory)
-			 ,directory))))))
+        (expand-file-name
+         executable
+         (let ((directory (file-name-directory (or load-file-name default-directory))))
+           (cl-find-if 'file-exists-p
+                       `(,(expand-file-name "../server" directory)
+                         ,directory))))))
   "Filename of the epdfinfo executable."
   :group 'pdf-info
   :type '(file :must-match t))
