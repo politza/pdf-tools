@@ -2988,7 +2988,7 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
 
   pn = synctex_node_page (node);
   page = poppler_document_get_page(doc->pdf, pn - 1);
-  perror_if_not (page, "Destination not found");
+  perror_if_not (page, "Page not found");
   x1 =  synctex_node_box_visible_h (node);
   y1 =  synctex_node_box_visible_v (node)
         - synctex_node_box_visible_height (node);
@@ -3038,7 +3038,7 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
  did you run latex with `--synctex=1' ?");
 
   page = poppler_document_get_page(doc->pdf, pn - 1);
-  perror_if_not (page, "Destination not found");
+  perror_if_not (page, "Page not found");
   poppler_page_get_size (page, &width, &height);
   x = x * width;
   y = y * height;
