@@ -28,10 +28,17 @@ PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
 PKG_CHECK_EXISTS([poppler-glib >= 0.26], [HAVE_POPPLER_ANNOT_MARKUP=yes])
 PKG_CHECK_MODULES([zlib], [zlib])
 
-# Check for private poppler header.
 SAVED_CPPFLAGS=$CPPFLAGS
 CPPFLAGS=$poppler_CFLAGS
 AC_LANG_PUSH([C++])
+# Check if we can use the -std=c++11 option.
+m4_include([m4/ax_check_compile_flag.m4])
+AX_CHECK_COMPILE_FLAG([-std=c++11], [HAVE_STD_CXX11=yes])
+
+if test "$HAVE_STD_CXX11" = yes; then
+  CXXFLAGS="-std=c++11 $CXXFLAGS"
+fi
+# Check for private poppler header.
 AC_CHECK_HEADERS([Annot.h PDFDocEncoding.h], [],
     AC_MSG_ERROR([cannot find necessary  poppler-private header (see README.org)]))
 AC_LANG_POP([C++])
