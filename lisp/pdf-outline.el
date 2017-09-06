@@ -592,3 +592,7 @@ not call `imenu-sort-function'."
 (provide 'pdf-outline)
 
 ;;; pdf-outline.el ends here
+
+;; Local Variables:
+;; byte-compile-warnings: (not obsolete)
+;; End:

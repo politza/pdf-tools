@@ -825,3 +825,7 @@ MATCH-BG LAZY-FG LAZY-BG\)."
 (provide 'pdf-isearch)
 
 ;;; pdf-isearch.el ends here
+
+;; Local Variables:
+;; byte-compile-warnings: (not obsolete)
+;; End:
