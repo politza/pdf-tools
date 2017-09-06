@@ -28,6 +28,11 @@ PKG_CHECK_EXISTS([poppler-glib >= 0.22], [HAVE_POPPLER_FIND_OPTS=yes])
 PKG_CHECK_EXISTS([poppler-glib >= 0.26], [HAVE_POPPLER_ANNOT_MARKUP=yes])
 PKG_CHECK_MODULES([zlib], [zlib])
 
+# glib won't work properly on msys2 without it.
+if test "$MSYSTEM" = MINGW32 -o "$MSYSTEM" = MINGW64; then
+   CFLAGS="-D__USE_MINGW_ANSI_STDIO=1 $CFLAGS"
+fi				      
+
 SAVED_CPPFLAGS=$CPPFLAGS
 CPPFLAGS=$poppler_CFLAGS
 AC_LANG_PUSH([C++])
