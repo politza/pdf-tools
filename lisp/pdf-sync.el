@@ -676,16 +676,19 @@ Needs to have `pdf-sync-backward-debug-minor-mode' enabled."
       (with-selected-window (display-buffer
                              buffer pdf-sync-forward-display-action)
         (pdf-util-assert-pdf-window)
-        (pdf-view-goto-page page)
-        (let ((top (* y1 (cdr (pdf-view-image-size)))))
-          (pdf-util-tooltip-arrow (round top))))
+        (when page
+	  (pdf-view-goto-page page)
+	  (when y1
+	    (let ((top (* y1 (cdr (pdf-view-image-size)))))
+	      (pdf-util-tooltip-arrow (round top))))))
       (with-current-buffer buffer
         (run-hooks 'pdf-sync-forward-hook)))))
 
 (defun pdf-sync-forward-correlate (&optional line column)
   "Find the PDF location corresponding to LINE, COLUMN.
 
-Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
+Returns a list \(PDF PAGE X1 Y1 X2 Y2\), where PAGE, X1, Y1, X2
+and Y2 may be nil, if the destination could not be found."
   (unless (fboundp 'TeX-master-file)
     (error "This function works only with AUCTeX"))
   (unless line (setq line (line-number-at-pos)))
@@ -696,11 +699,15 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
          (sfilename (pdf-sync-synctex-file-name
                      (buffer-file-name) pdf)))
     (cons pdf
-	  (let-alist (pdf-info-synctex-forward-search
-		      (or sfilename
-			  (buffer-file-name))
-		      line column pdf)
-	    (cons .page .edges)))))
+	  (condition-case error
+	      (let-alist (pdf-info-synctex-forward-search
+			  (or sfilename
+			      (buffer-file-name))
+			  line column pdf)
+		(cons .page .edges))
+	    (error
+	     (message "%s" (error-message-string error))
+	     (list nil nil nil nil nil))))))
 
 
 
