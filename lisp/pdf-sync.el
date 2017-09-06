@@ -695,24 +695,12 @@ Returns a list \(PDF PAGE X1 Y1 X2 Y2\)."
                (with-no-warnings (TeX-master-file "pdf"))))
          (sfilename (pdf-sync-synctex-file-name
                      (buffer-file-name) pdf)))
-    (condition-case err
-        (cons pdf
-              (let-alist (pdf-info-synctex-forward-search
-                          (or sfilename
-                              (buffer-file-name))
-                          line column pdf)
-                (cons .page .edges)))
-      (error
-       (if (null sfilename)
-           (signal (car err) (cdr err))
-         ;; It would be embarrassing, if the unmodified buffer-file-name
-         ;; would actually work for some reason.
-         (condition-case nil
-             (cons pdf
-                   (let-alist (pdf-info-synctex-forward-search
-                               (buffer-file-name) line column pdf)
-                     (cons .page .edges)))
-           (error (signal (car err) (cdr err)))))))))
+    (cons pdf
+	  (let-alist (pdf-info-synctex-forward-search
+		      (or sfilename
+			  (buffer-file-name))
+		      line column pdf)
+	    (cons .page .edges)))))
 
 
 
