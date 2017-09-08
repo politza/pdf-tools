@@ -175,6 +175,15 @@ loaded."
   :group 'pdf-view
   :type 'boolean)
 
+(defcustom pdf-view-incompatible-modes
+  '(linum-mode linum-relative-mode helm-linum-relative-mode
+	       nlinum-mode nlinum-hl-mode nlinum-relative-mode yalinum-mode)
+  "A list of modes incompatible with `pdf-view-mode'.
+
+Issue a warning, if one of them is active in a PDF buffer."
+  :group 'pdf-view
+  :type '(repeat symbol))
+
 
 ;; * ================================================================== *
 ;; * Internal variables and macros
@@ -379,8 +388,27 @@ PNG images in Emacs buffers."
   ;; Decryption needs to be done before any other function calls into
   ;; pdf-info.el .
   (pdf-view-decrypt-document)
+  ;; Issue a warning in the future about incompatible modes.
+  (run-with-timer 1 nil #'pdf-view-check-incompatible-modes
+		  (current-buffer))
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1)))
+
+(defun pdf-view-check-incompatible-modes (&optional buffer)
+  "Check BUFFER for incompatible modes, maybe issue a warning."
+  (with-current-buffer (or buffer (current-buffer))
+    (let ((modes
+	   (cl-remove-if-not
+	    (lambda (mode) (and (symbolp mode)
+				(boundp mode)
+				(symbol-value mode)))
+	    pdf-view-incompatible-modes)))
+      (when modes
+	(display-warning
+	 'pdf-view
+	 (format "These modes are incompatible with `pdf-view-mode',
+	please deactivate them (or customize pdf-view-incompatible-modes): %s"
+		 (mapconcat #'symbol-name modes ",")))))))
 
 (defun pdf-view-decrypt-document ()
   "Read a password, if the document is encrypted and open it."
