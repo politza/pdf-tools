@@ -22,3 +22,4 @@ config.h.in~
 callgrind.out.*
 config.guess
 config.sub
+TAGS
