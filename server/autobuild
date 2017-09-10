@@ -97,7 +97,7 @@ os_arch() {
 # CentOS
 os_centos() {
     if ! [ -e "/etc/centos-release" ]; then
-	return 1;
+	return 1
     fi
     PKGCMD=yum
     if yum help install-n >/dev/null 2>&1; then
@@ -194,6 +194,7 @@ os_macos() {
 
 # NixOS
 os_nixos() {
+    # Already in the nix-shell.
     if [ -n "$AUTOBUILD_NIX_SHELL" ]; then
 	return 0
     fi
@@ -224,7 +225,6 @@ os_arch || \
 	exit 1
     }
 
-
 if [ -n "$PKGCMD" ];then
     assert_program "$PKGCMD"
     echo "---------------------------"
@@ -243,6 +243,7 @@ if ! [ -f ./configure ]; then
     autoreconf -i
 fi
 
+# Build the program.
 echo "./configure -q && make -s"
 if ./configure -q && make -s; then
     echo "==========================="
