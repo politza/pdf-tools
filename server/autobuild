@@ -237,6 +237,16 @@ fi
 echo "---------------------------"
 echo " Configuring and compiling "
 echo "---------------------------"
+
+# Try to be in the correct directory.
+if which dirname >/dev/null 2>&1; then
+    cd "$(dirname "$0")" || {
+	echo "Failed to cd to the src directory" 2>&1
+	exit 1
+    }
+fi
+
+# Create the configure script.
 if ! [ -f ./configure ]; then
     assert_program autoreconf
     echo "autoreconf -i"
