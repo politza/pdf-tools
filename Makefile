@@ -104,3 +104,6 @@ melpa-build: server/epdfinfo
 		echo "Required: gcc g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
 		false; \
 	fi
+
+autobuild: 
+	cd server && ./autobuild
