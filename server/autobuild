@@ -106,7 +106,7 @@ os_centos() {
 	PKGARGS=install
     fi
     PACKAGES="libpng-devel zlib-devel poppler-glib-devel poppler-devel pkgconfig autoconf automake gcc gcc-c++ make"
-    return 1
+    return 0
 }
 
 # FreeBSD
