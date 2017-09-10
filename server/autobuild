@@ -210,11 +210,9 @@ os_nixos() {
     if ! which nix-shell >/dev/null 2>&1; then
         return 1
     fi
-    if [ -z "$AUTOBUILD_NIX_SHELL" ]; then
-        command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
-        exec nix-shell --pure --command "$command" \
-             -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler
-    fi
+    command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
+    exec nix-shell --pure --command "$command" \
+         -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler
 }
 
 ## +-----------------------------------------------------------+
