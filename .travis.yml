@@ -39,8 +39,10 @@ install:
                 --enable-xpdf-headers
                 && make -j4 && sudo make install
   - popd
-  - curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python
+  - curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python || true
+  - sed -i 's/"https:/"http:/' ~/.cask/*.el
   - export PATH=/home/travis/.cask/bin:$PATH
+  - cask upgrade-cask || true
   - export LD_LIBRARY_PATH=/usr/local/lib
 
 script:
