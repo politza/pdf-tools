@@ -2,7 +2,7 @@
 
 ##
 ## Installs package dependencies and builds the application.
-## 
+##
 
 # Don't exit if some command fails.
 set +e
@@ -17,24 +17,33 @@ PKGARGS=
 PACKAGES=
 # Whether package installation requires root permissions.
 INSTALL_AS_ROOT=true
+# Whether to actually do anything.
+DRY_RUN=
+
 
 ## +-----------------------------------------------------------+
 ## * Utility Functions
 ## +-----------------------------------------------------------+
 
+usage()
+{
+    echo "usage:$(basename "$0") [--help|--dry-run]"
+    exit "$1"
+}
+
 # Search for command $1 in PATH. Print its absolute filename.
 which()
 {
     if [ -z "$1" ]; then
-	return 1
+        return 1
     fi
     IFS=:
     for dir in $PATH; do
-	if [ -x "$dir/$1" ]; then
-	    echo "$dir/$1"
-	    unset IFS
-	    return 0
-	fi
+        if [ -x "$dir/$1" ]; then
+            echo "$dir/$1"
+            unset IFS
+            return 0
+        fi
     done
     unset IFS
     return 1
@@ -43,18 +52,18 @@ which()
 # Exec $@ as root if required.
 exec_privileged() {
     if [ -z "$*" ]; then
-	echo "internal error: package install command is empty" >&2
-	exit 2
+        echo "internal error: package install command is empty" >&2
+        exit 2
     fi
     if [ -w / ] || [ "$INSTALL_AS_ROOT" != "true" ]; then
-	"$@"
+        "$@"
     elif which sudo >/dev/null 2>&1; then
-	sudo "$@"
+        sudo "$@"
     elif which su >/dev/null 2>&1; then
-	su -c "$@"
+        su -c "$@"
     else
-	echo "No such program: sudo or su" >&2
-	exit 1
+        echo "No such program: sudo or su" >&2
+        exit 1
     fi
 }
 
@@ -62,8 +71,8 @@ exec_privileged() {
 assert_program()
 {
     if ! which "$1" >/dev/null 2>&1; then
-	echo "No such program: $1" >&2
-	exit 1
+        echo "No such program: $1" >&2
+        exit 1
     fi
 }
 
@@ -71,7 +80,7 @@ assert_program()
 source_var()
 {
     if ! [ -f "$1" ] || ! [ -r "$1" ]; then
-	return 1
+        return 1
     fi
     # shellcheck source=/dev/null
     . "$1"
@@ -86,7 +95,7 @@ source_var()
 # Archlinux
 os_arch() {
     if ! [ -e "/etc/arch-release" ]; then
-	return 1;
+        return 1;
     fi
     PKGCMD=pacman
     PKGARGS="-S --needed"
@@ -97,13 +106,13 @@ os_arch() {
 # CentOS
 os_centos() {
     if ! [ -e "/etc/centos-release" ]; then
-	return 1
+        return 1
     fi
     PKGCMD=yum
     if yum help install-n >/dev/null 2>&1; then
-	PKGARGS=install-n
+        PKGARGS=install-n
     else
-	PKGARGS=install
+        PKGARGS=install
     fi
     PACKAGES="libpng-devel zlib-devel poppler-glib-devel poppler-devel pkgconfig autoconf automake gcc gcc-c++ make"
     return 0
@@ -112,7 +121,7 @@ os_centos() {
 # FreeBSD
 os_freebsd() {
     if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "FreeBSD" ]; then
-	return 1
+        return 1
     fi
     PKGCMD=pkg
     PKGARGS=install
@@ -123,16 +132,16 @@ os_freebsd() {
 # Fedora
 os_fedora() {
     if ! [ -e "/etc/fedora-release" ]; then
-	return 1
+        return 1
     fi
     PKGCMD=dnf
     PKGARGS=install
     PACKAGES="libpng-devel zlib-devel poppler-glib-devel poppler-devel autoconf automake gcc gcc-c++ make"
     VERSION=$(source_var /etc/os-release VERSION_ID)
     if [ -n "$VERSION" ] && [ "$VERSION" -ge 26 ]; then
-	PACKAGES="$PACKAGES pkgconf"
+        PACKAGES="$PACKAGES pkgconf"
     else
-	PACKAGES="$PACKAGES pkgconfig"
+        PACKAGES="$PACKAGES pkgconfig"
     fi
     return 0
 }
@@ -140,7 +149,7 @@ os_fedora() {
 # Debian/Ubuntu
 os_debian() {
     if ! [ -e "/etc/debian_version" ]; then
-	return 1
+        return 1
     fi
     PACKAGES="libpng-dev libz-dev libpoppler-glib-dev libpoppler-dev libpoppler-private-dev pkg-config autoconf automake gcc g++ make"
     PKGCMD=apt-get
@@ -151,28 +160,28 @@ os_debian() {
 # Msys2
 os_msys2() {
     if [ -z "$MSYSTEM" ] || ! [ -r "/etc/profile" ]; then
-	return 1
+        return 1
     fi
     case $MSYSTEM in
-	MINGW64)
-	    PACKAGES="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib mingw-w64-x86_64-poppler" ;;	
-	MINGW32)
-	    PACKAGES="base-devel mingw-w64-i686-toolchain mingw-w64-i686-libpng mingw-w64-i686-zlib mingw-w64-i686-poppler" ;;
-	MSYS)
-	    assert_program uname
-	    case $(uname -m) in
-		x86_64)
-		    MSYSTEM=MINGW64 ;;
-		*)
-		    MSYSTEM=MINGW32 ;;
-	    esac
-	    export MSYSTEM
-	    # shellcheck source=/dev/null
-	    . /etc/profile
-	    exec "$0" ;;
-	*)
-	    echo "Unrecognized MSYSTEM value: $MSYSTEM" >&2
-	    exit 1 ;;
+        MINGW64)
+            PACKAGES="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib mingw-w64-x86_64-poppler" ;;
+        MINGW32)
+            PACKAGES="base-devel mingw-w64-i686-toolchain mingw-w64-i686-libpng mingw-w64-i686-zlib mingw-w64-i686-poppler" ;;
+        MSYS)
+            assert_program uname
+            case $(uname -m) in
+                x86_64)
+                    MSYSTEM=MINGW64 ;;
+                *)
+                    MSYSTEM=MINGW32 ;;
+            esac
+            export MSYSTEM
+            # shellcheck source=/dev/null
+            . /etc/profile
+            exec "$0" ;;
+        *)
+            echo "Unrecognized MSYSTEM value: $MSYSTEM" >&2
+            exit 1 ;;
     esac
     PKGCMD=pacman
     PKGARGS="-S --needed"
@@ -183,7 +192,7 @@ os_msys2() {
 # MacOS
 os_macos() {
     if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "Darwin" ]; then
-	return 1
+        return 1
     fi
     PKGCMD=brew
     PKGARGS=install
@@ -196,15 +205,15 @@ os_macos() {
 os_nixos() {
     # Already in the nix-shell.
     if [ -n "$AUTOBUILD_NIX_SHELL" ]; then
-	return 0
+        return 0
     fi
     if ! which nix-shell >/dev/null 2>&1; then
-	return 1
+        return 1
     fi
     if [ -z "$AUTOBUILD_NIX_SHELL" ]; then
-	command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
-	exec nix-shell --pure --command "$command" \
-	     -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler
+        command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
+        exec nix-shell --pure --command "$command" \
+             -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler
     fi
 }
 
@@ -212,18 +221,26 @@ os_nixos() {
 ## * Figure out were we are, install deps and build the program
 ## +-----------------------------------------------------------+
 
+for arg; do
+    case $arg in
+        --help) usage 0;;
+        --dry-run) DRY_RUN=true;;
+        *) usage 1;;
+    esac
+done
+
 os_arch || \
-    os_centos || \
-    os_freebsd || \
-    os_fedora || \
-    os_debian || \
-    os_msys2 || \
-    os_macos || \
-    os_nixos || \
-    {
-	echo "Failed to recognize this system" >&2
-	exit 1
-    }
+os_centos || \
+os_freebsd || \
+os_fedora || \
+os_debian || \
+os_msys2 || \
+os_macos || \
+os_nixos || \
+{
+    echo "Failed to recognize this system" >&2
+    exit 1
+}
 
 if [ -n "$PKGCMD" ];then
     assert_program "$PKGCMD"
@@ -231,7 +248,8 @@ if [ -n "$PKGCMD" ];then
     echo "    Installing packages    "
     echo "---------------------------"
     echo "$PKGCMD $PKGARGS $PACKAGES"
-    exec_privileged $PKGCMD $PKGARGS $PACKAGES
+    [ -z "$DRY_RUN" ] && \
+        exec_privileged $PKGCMD $PKGARGS $PACKAGES
 fi
 
 echo "---------------------------"
@@ -241,8 +259,8 @@ echo "---------------------------"
 # Try to be in the correct directory.
 if which dirname >/dev/null 2>&1; then
     cd "$(dirname "$0")" || {
-	echo "Failed to cd to the src directory" 2>&1
-	exit 1
+        echo "Failed to change into the source directory" 2>&1
+        exit 1
     }
 fi
 
@@ -250,19 +268,25 @@ fi
 if ! [ -f ./configure ]; then
     assert_program autoreconf
     echo "autoreconf -i"
-    autoreconf -i
+    [ -z "$DRY_RUN" ] && \
+        autoreconf -i
 fi
 
 # Build the program.
 echo "./configure -q && make -s"
-if ./configure -q && make -s; then
+if [ -n "$DRY_RUN" ] || \
+       {
+           ./configure -q && make -s
+       }; then
     echo "==========================="
     echo "   Build succeeded. :O)    "
     echo "==========================="
+    exit 0
 else
     echo "==========================="
     echo "     Build failed.  ;o(    "
     echo "==========================="
+    exit 1
 fi
 
 # Local Variables:
