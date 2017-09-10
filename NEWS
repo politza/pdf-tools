@@ -1,5 +1,19 @@
 -*- org -*-
 
+* Version 0.80
+** Tablist package
+   The files tablist.el and tablist-filter.el are no longer part of
+   pdf-tools, but continue to live on in the tablist package, on which
+   pdf-tools now depends on.
+** View
+*** Encrypted files
+    When encountering an encrypted file, query for a password and
+    attempt to decrypt it.
+*** Backward sync from isearch
+    In isearch, press M-s s to visit the source of the current match.
+*** Disable unicode in mode-line
+    New variable pdf-view-use-unicode-lighter which allows for
+    disabling the use of unicode in the mode-line.
 * Version 0.70
 ** View
 *** Register integration
