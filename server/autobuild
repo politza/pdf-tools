@@ -178,7 +178,7 @@ os_msys2() {
             export MSYSTEM
             # shellcheck source=/dev/null
             . /etc/profile
-            exec "$0" ;;
+            exec "$0" $DRY_RUN ;;
         *)
             echo "Unrecognized MSYSTEM value: $MSYSTEM" >&2
             exit 1 ;;
@@ -210,6 +210,9 @@ os_nixos() {
     if ! which nix-shell >/dev/null 2>&1; then
         return 1
     fi
+    if [ -n "$DRY_RUN" ]; then
+        return 0
+    fi
     command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
     exec nix-shell --pure --command "$command" \
          -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler
@@ -222,7 +225,7 @@ os_nixos() {
 for arg; do
     case $arg in
         --help) usage 0;;
-        --dry-run) DRY_RUN=true;;
+        --dry-run) DRY_RUN=--dry-run;;
         *) usage 1;;
     esac
 done
