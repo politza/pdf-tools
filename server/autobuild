@@ -60,7 +60,7 @@ exec_privileged() {
     elif which sudo >/dev/null 2>&1; then
         sudo "$@"
     elif which su >/dev/null 2>&1; then
-        su -c "$@"
+        su -c "$*"
     else
         echo "No such program: sudo or su" >&2
         exit 1
