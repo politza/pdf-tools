@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Step over prompts from the package-manager.
+if [ -f /etc/arch-release ]; then
+    yes '' 
+else
+    yes
+fi
+    

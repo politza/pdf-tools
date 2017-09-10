@@ -1,0 +1,6 @@
+# -*- dockerfile -*-
+FROM base/archlinux
+RUN pacman -Syu --noconfirm --noprogressbar && \
+    pacman -S --noconfirm --noprogressbar poppler-glib base-devel
+
+
