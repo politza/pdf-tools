@@ -17,8 +17,8 @@ PKGARGS=
 PACKAGES=
 # Whether package installation requires root permissions.
 INSTALL_AS_ROOT=true
-# Whether to actually do anything.
-DRY_RUN=
+# Only test if the OS is handled by this script.
+OS_TEST=
 
 
 ## +-----------------------------------------------------------+
@@ -27,7 +27,12 @@ DRY_RUN=
 
 usage()
 {
-    echo "usage:$(basename "$0") [--help|--dry-run]"
+    cat <<EOF
+usage:$(basename "$0") [--help|--os-test]
+
+    --os-test    Don't do anything, only check if this OS is handled.
+    --help       Display this message.
+EOF
     exit "$1"
 }
 
@@ -178,7 +183,7 @@ os_msys2() {
             export MSYSTEM
             # shellcheck source=/dev/null
             . /etc/profile
-            exec "$0" $DRY_RUN ;;
+            exec "$0" $OS_TEST ;;
         *)
             echo "Unrecognized MSYSTEM value: $MSYSTEM" >&2
             exit 1 ;;
@@ -210,7 +215,7 @@ os_nixos() {
     if ! which nix-shell >/dev/null 2>&1; then
         return 1
     fi
-    if [ -n "$DRY_RUN" ]; then
+    if [ -n "$OS_TEST" ]; then
         return 0
     fi
     command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
@@ -225,7 +230,7 @@ os_nixos() {
 for arg; do
     case $arg in
         --help) usage 0;;
-        --dry-run) DRY_RUN=--dry-run;;
+        --dry-run) OS_TEST=--os-test;;
         *) usage 1;;
     esac
 done
@@ -243,14 +248,17 @@ os_msys2 || \
     exit 1
 }
 
+if [ -n "$OS_TEST" ]; then
+    exit 0
+fi
+
 if [ -n "$PKGCMD" ];then
     assert_program "$PKGCMD"
     echo "---------------------------"
     echo "    Installing packages    "
     echo "---------------------------"
     echo "$PKGCMD $PKGARGS $PACKAGES"
-    [ -z "$DRY_RUN" ] && \
-        exec_privileged $PKGCMD $PKGARGS $PACKAGES
+    exec_privileged $PKGCMD $PKGARGS $PACKAGES
 fi
 
 echo "---------------------------"
@@ -269,16 +277,12 @@ fi
 if ! [ -f ./configure ]; then
     assert_program autoreconf
     echo "autoreconf -i"
-    [ -z "$DRY_RUN" ] && \
-        autoreconf -i
+    autoreconf -i
 fi
 
 # Build the program.
 echo "./configure -q && make -s"
-if [ -n "$DRY_RUN" ] || \
-       {
-           ./configure -q && make -s
-       }; then
+if ./configure -q && make -s; then
     echo "==========================="
     echo "   Build succeeded. :O)    "
     echo "==========================="
