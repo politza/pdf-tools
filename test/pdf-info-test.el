@@ -1,9 +1,5 @@
 ;; -*- lexical-binding: t -*-
 
-(require 'let-alist)
-(require 'pdf-info)
-(require 'ert)
-
 (ert-deftest pdf-info-open/close ()
   (pdf-test-with-test-pdf
    (should-not (pdf-info-open))

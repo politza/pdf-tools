@@ -1,12 +1,18 @@
+;;; test-helper --- Test helper for pdf-tools
+
+;;; Commentary:
+;; test helper inspired from https://github.com/tonini/overseer.el/blob/master/test/test-helper.el
+
+;;; Code:
 
 (require 'package)
 (require 'ert)
 (require 'cl-lib)
 
-(unless (= 1 (length command-line-args-left))
-  (error "Missing package tar or too many arguments"))
+(unless (getenv "PACKAGE_TAR")
+  (error "Missing package tar. Must be passed by PACKAGE_TAR env variable"))
 
-(defvar pdf-tools-package (expand-file-name (car command-line-args-left)))
+(defvar pdf-tools-package (expand-file-name (getenv "PACKAGE_TAR")))
 
 (unless (and (file-exists-p pdf-tools-package)
              (string-match "\\.tar\\'" pdf-tools-package))
@@ -84,6 +90,14 @@
 (defmacro pdf-test-with-encrypted-pdf (&rest body)
   `(pdf-test-with-pdf "encrypted.pdf" ,@body))
 
-(dolist (file (directory-files "." t "\\.ert\\'"))
-  (load-file file))
-(ert-run-tests-batch-and-exit t)
+;; ---
+(require 'f)
+(require 'undercover)
+(undercover "lisp/*.el")
+(require 'let-alist)
+(require 'pdf-info)
+(require 'ert)
+(require 'pdf-tools)
+
+(provide 'test-helper)
+;;; test-helper.el ends here

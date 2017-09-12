@@ -1,44 +1,43 @@
-language: cpp
-
-env:
-  - EMACS=emacs24
-  - EMACS=emacs-snapshot
-
-compiler:
-  - gcc
-
-install:
-  - if [ "$EMACS" = "emacs24" ]; then
-        sudo add-apt-repository -y ppa:cassou/emacs &&
-        sudo apt-get update -qq &&
-        sudo apt-get install -qq emacs24 emacs24-el;
-    fi
-  - if [ "$EMACS" = "emacs-snapshot" ]; then
-        sudo add-apt-repository -y ppa:ubuntu-elisp/ppa &&
-        sudo apt-get update -qq &&
-        sudo apt-get install -qq emacs-snapshot;
-    fi
-  - sudo apt-get install -qq make automake autoconf libpng-dev libz-dev
-  - sudo apt-get install libcairo2-dev libglib2.0-dev
-  - POPPLER=poppler-0.28.1
-  - wget http://poppler.freedesktop.org/$POPPLER.tar.xz
-  - unxz $POPPLER.tar.xz
-  - tar xf $POPPLER.tar
-  - pushd $POPPLER
-  - ./configure --disable-gtk-doc-html
-                --disable-xpdf-headers
-                --disable-poppler-qt4
-                --disable-poppler-qt5
-                --disable-poppler-cpp
-                --disable-utils
-                --enable-xpdf-headers
-                && make -j4 && sudo make install
-  - popd
-  - curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python || true
-  - sed -i 's/"https:/"http:/' ~/.cask/*.el
-  - export PATH=/home/travis/.cask/bin:$PATH
-  - cask upgrade-cask || true
-  - export LD_LIBRARY_PATH=/usr/local/lib
+language: generic
+sudo: false
 
 script:
+  - emacs --version
   - make test
+
+env:
+  matrix:
+    - EVM_EMACS=emacs-24.3-travis
+    - EVM_EMACS=emacs-24.4-travis
+    - EVM_EMACS=emacs-24.5-travis
+    - EVM_EMACS=emacs-git-snapshot-travis
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: EVM_EMACS=emacs-24.4-travis
+    - env: EVM_EMACS=emacs-24.5-travis
+    - env: EVM_EMACS=emacs-git-snapshot-travis
+
+before_install:
+  - curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh || true
+  - sed -i 's/"https:/"http:/' ~/.cask/*.el
+  - cask upgrade-cask || true
+  - evm install $EVM_EMACS --use --skip
+  - cask
+
+addons:
+  apt:
+    packages:
+    - gcc
+    - g++
+    - make
+    - automake
+    - autoconf
+    - libpng-dev
+    - libz-dev
+    - libpoppler-glib-dev
+    - libpoppler-private-dev
+
+notifications:
+  email: false

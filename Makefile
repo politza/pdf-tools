@@ -29,7 +29,8 @@ bytecompile: .cask/$(emacs_version)
 
 # Run ERT tests
 test: all
-	cask exec $(emacs) --batch -l test/run-tests.el $(pkgfile)
+	PACKAGE_TAR=$(pkgfile) cask exec ert-runner	
+
 check: test
 
 # Run the autobuild script tests in docker
