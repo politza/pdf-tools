@@ -36,7 +36,7 @@ usage:$(basename "$0") [--help|-n|[-i DIR|-I]]
     -n      Don't do anything, but check if this OS is handled and
             then print the default installation directory (see -I).
 
-    -i DIR  Install the program in the given directory
+    -i DIR  Install the program in the given directory.
            
     -I      Install the program into a default directory, i.e. ~/bin in
             most cases.
@@ -66,7 +66,7 @@ which()
     return 1
 }
 
-# Quote $@ for the shell if possible.
+# Quote $@ for the shell.
 quote()
 {
     quoted=
