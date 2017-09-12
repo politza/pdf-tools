@@ -37,6 +37,21 @@ melpa-build: autobuild
 	cp build/epdfinfo .
 install-server-deps: ;
 
+# Create a package like melpa would.
+melpa-package: $(PACKAGE)
+	cp $(PACKAGE) pdf-tools-$(VERSION)-melpa.tar
+	tar -u --transform='s/server/pdf-tools-$(VERSION)\/build\/server/' \
+		-f pdf-tools-$(VERSION)-melpa.tar \
+		$$(git ls-files server)
+	tar -u --transform='s/Makefile/pdf-tools-$(VERSION)\/build\/Makefile/' \
+		-f pdf-tools-$(VERSION)-melpa.tar \
+		Makefile 
+	tar -u --transform='s/README\.org/pdf-tools-$(VERSION)\/README/' \
+		-f pdf-tools-$(VERSION)-melpa.tar \
+		README.org
+	tar --delete pdf-tools-0.80/epdfinfo \
+		-f pdf-tools-$(VERSION)-melpa.tar
+
 # Various clean targets
 clean: server-clean
 	rm -f -- $(PACKAGE)
