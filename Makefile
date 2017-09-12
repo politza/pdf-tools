@@ -1,109 +1,66 @@
-EMACS ?= emacs
+.PHONY: all clean distclean bytecompile test check melpa cask-install
 
-# Handle the mess when inside Emacs.
-unexport INSIDE_EMACS		#cask not like this.
-ifeq ($(EMACS), t)
-EMACS = emacs
-endif
+VERSION=$(shell sed -ne 's/^;\+ *Version: *\([0-9.]\)/\1/p' lisp/pdf-tools.el)
+PACKAGE=pdf-tools-$(VERSION).tar
 
-EMACS_VERSION = $(shell $(EMACS) -Q --batch --eval '(princ emacs-version)')
-EFLAGS = -Q --batch
+all: $(PACKAGE)
 
-# Note: If you change this, also change it in lisp/pdf-tools.el and
-# server/configure.ac .
-PACKAGE_VERSION = 0.80
-PKGFILE_CONTENT = (define-package "pdf-tools" "$(PACKAGE_VERSION)"	\
-		   "Support library for PDF documents."			\
-		   (quote ((emacs "24.3") (let-alist "1.0.4")		\
-			   (tablist "0.70")))				\
-		   :keywords						\
-		   (quote ("files" "multimedia")))
+# Create a elpa package including the server
+$(PACKAGE): .cask server/epdfinfo lisp/*.el
+	cask package .
 
-PACKAGE_NAME = pdf-tools-$(PACKAGE_VERSION)
-PACKAGE_DIR = $(PACKAGE_NAME)
+# Compile the Lisp sources
+bytecompile: .cask
+	cask exec emacs --batch -L lisp -f batch-byte-compile lisp/*.el
 
-.PHONY: all clean distclean package bytecompile test check melpa cask-install
+# Run ERT tests
+test: all
+	cask exec emacs --batch -l test/run-tests.el $(PACKAGE)
+check: test
 
-all: package
+# Run the autobuild script tests in docker
+test-autobuild: server-test
 
-clean:
-	rm -rf -- $(PACKAGE_DIR)
-	rm -f -- $(PACKAGE_NAME).tar
+# Run all tests
+test-all: test test-autobuild
+
+# Init cask
+.cask:
+	cask install
+
+# Run the autobuild script (installing depends and compiling)
+autobuild:
+	cd server && ./autobuild
+
+# Soon to be obsolete targets
+melpa-build: autobuild
+	cp build/epdfinfo .
+install-server-deps: ;
+
+# Various clean targets
+clean: server-clean
+	rm -f -- $(PACKAGE)
 	rm -f -- lisp/*.elc
-	! [ -f server/Makefile ] || $(MAKE) -C server clean
+	rm -f -- pdf-tools-readme.txt
 
-distclean: clean
-	rm -rf .cask
-	! [ -f server/Makefile ] || $(MAKE) -C server distclean
+distclean: clean server-distclean
+	rm -rf -- .cask
 
-package: $(PACKAGE_NAME).tar
-
-$(PACKAGE_NAME).tar: server/epdfinfo lisp/*.el
-	mkdir -p '$(PACKAGE_DIR)'
-	cp lisp/*.el README server/epdfinfo '$(PACKAGE_DIR)'
-	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
-	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
-
-melpa-package:
-	$(MAKE) distclean
-	mkdir -p '$(PACKAGE_DIR)/build'
-	cp lisp/*.el README '$(PACKAGE_DIR)'
-	cp -r Makefile server '$(PACKAGE_DIR)/build'
-	echo '$(PKGFILE_CONTENT)' > '$(PACKAGE_DIR)/pdf-tools-pkg.el'
-	tar cf '$(PACKAGE_NAME).tar' '$(PACKAGE_DIR)'
-
-install-package: package
-	$(EMACS) $(EFLAGS) --eval \
-		"(progn (package-initialize) \
-			(package-install-file \
-				\"$(PACKAGE_NAME).tar\"))"
-
+# Server targets
 server/epdfinfo: server/Makefile
 	$(MAKE) -C server
+
 server/Makefile: server/configure
 	cd server && ./configure -q
+
 server/configure: server/configure.ac
 	cd server && ./autogen.sh
 
-bytecompile: cask-install
-	cask exec $(EMACS) $(EFLAGS) -L $(PWD)/lisp -f batch-byte-compile lisp/*.el
+server-test: server/Makefile
+	$(MAKE) -C server check
 
-test: all cask-install
-	cask exec $(EMACS) $(EFLAGS) -l test/run-tests.el $(PACKAGE_NAME).tar
+server-clean:
+	! [ -f server/Makefile ] || $(MAKE) -C server clean
 
-cask-install: .cask/$(EMACS_VERSION)
-
-.cask/$(EMACS_VERSION):
-	cask install
-
-check: bytecompile test
-
-print-version:
-	@[ -n '$(PACKAGE_VERSION)' ] && echo '$(PACKAGE_VERSION)'
-
-install-server-deps:
-	sudo apt-get install gcc g++ make automake autoconf \
-		libpng-dev libz-dev libpoppler-glib-dev
-	-sudo apt-get install libpoppler-private-dev
-	-sudo apt-get install gtklp
-
-melpa-build: server/epdfinfo
-	-cp -p server/epdfinfo ..
-	@if [ "$(shell uname -o)" = "Msys" ]; then \
-		for f in $(shell ldd server/epdfinfo | awk '/mingw/ {print $$3}'); do \
-			cp $$f ..; \
-		done; \
-	fi
-	$(MAKE) distclean
-	@if [ -x ../epdfinfo ]; then \
-		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
-		echo "Server successfully build. "; \
-		echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"; \
-	else \
-		echo "Server not build, maybe due to missing dependencies (See README)."; \
-		echo "Required: gcc g++ make automake autoconf libpng-dev libz-dev libpoppler-glib-dev libpoppler-private-dev"; \
-		false; \
-	fi
-
-autobuild: 
-	cd server && ./autobuild
+server-distclean:
+	! [ -f server/Makefile ] || $(MAKE) -C server distclean
