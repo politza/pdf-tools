@@ -106,7 +106,8 @@ none) values modified.
 AUCTeX installs a function here which changes the backward search
 location for synthetic `TeX-region' files back to the equivalent
 position in the original tex file."
-  :group 'pdf-sync)
+  :group 'pdf-sync
+  :type '(repeat function))
 
 
 ;;;###autoload

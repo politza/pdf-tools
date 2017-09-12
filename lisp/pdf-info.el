@@ -120,7 +120,9 @@ is set to nil."
   "A hook ran after a document was closed in the server.
 
 The hook is run in the documents buffer, if it exists. Otherwise
-in a `with-temp-buffer' form.")
+in a `with-temp-buffer' form."
+  :group 'pdf-info
+  :type 'hook)
 
 
 

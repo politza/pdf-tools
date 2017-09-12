@@ -939,7 +939,8 @@ Different formats have different properties, with respect to
 Emacs loading time, convert creation time and the file-size.  In
 general, uncompressed formats are faster, but may need a fair
 amount of (temporary) disk space."
-  :group 'pdf-tools)
+  :group 'pdf-tools
+  :type '(cons symbol string))
 
 (defun pdf-util-assert-convert-program ()
   (unless (and pdf-util-convert-program

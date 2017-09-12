@@ -65,7 +65,8 @@ Implement and describe basic org example."
   "Alist of initial properties for new text annotations.
 
 FIXME: Describe. Restrict keys and values."
-  :group 'pdf-annot)
+  :group 'pdf-annot
+  :type '(alist :key-type symbol :value-type sexp))
 
 (defcustom pdf-annot-default-markup-annotation-properties
   `((label . ,user-full-name)
@@ -73,7 +74,8 @@ FIXME: Describe. Restrict keys and values."
   "Alist of initial properties for new markup annotations.
 
 FIXME: Describe. Restrict keys and values."
-  :group 'pdf-annot)
+  :group 'pdf-annot
+  :type '(alist :key-type symbol :value-type sexp))
 
 (defcustom pdf-annot-print-annotation-functions
   '(pdf-annot-print-annotation-latex-maybe)
@@ -118,7 +120,8 @@ order to display text properties;
 
 `tooltip-hide-delay' is set to infinity, in order to not being
 annoyed while reading the annotations."
-  :group 'pdf-annot)
+  :group 'pdf-annot
+  :type 'boolean)
 
 (defcustom pdf-annot-activate-created-annotations nil
   "Whether to activate (i.e. edit) created annotations."
@@ -1434,7 +1437,8 @@ annotation's contents and otherwise `text-mode'. "
      display-buffer-pop-up-window)
     (inhibit-same-window . t))
   "Display action used when displaying the list buffer."
-  :group 'pdf-annot)
+  :group 'pdf-annot
+  :type display-buffer--action-custom-type)
 
 (defvar-local pdf-annot-list-buffer nil)
 
