@@ -12,7 +12,8 @@ emacs_version = $(shell $(emacs) --batch --eval \
 $(info Using Emacs $(emacs_version))
 
 version=$(shell sed -ne 's/^;\+ *Version: *\([0-9.]\)/\1/p' lisp/pdf-tools.el)
-pkgfile=pdf-tools-$(version).tar
+pkgname=pdf-tools-$(version)
+pkgfile=$(pkgname).tar
 
 .PHONY: all clean distclean bytecompile test check melpa cask-install
 
@@ -52,18 +53,18 @@ install-server-deps: ;
 
 # Create a package like melpa would.
 melpa-package: $(pkgfile)
-	cp $(pkgfile) pdf-tools-$(version)-melpa.tar
-	tar -u --transform='s/server/pdf-tools-$(version)\/build\/server/' \
-		-f pdf-tools-$(version)-melpa.tar \
+	cp $(pkgfile) $(pkgname)-melpa.tar
+	tar -u --transform='s/server/$(pkgname)\/build\/server/' \
+		-f $(pkgname)-melpa.tar \
 		$$(git ls-files server)
-	tar -u --transform='s/Makefile/pdf-tools-$(version)\/build\/Makefile/' \
-		-f pdf-tools-$(version)-melpa.tar \
+	tar -u --transform='s/Makefile/$(pkgname)\/build\/Makefile/' \
+		-f $(pkgname)-melpa.tar \
 		Makefile 
-	tar -u --transform='s/README\.org/pdf-tools-$(version)\/README/' \
-		-f pdf-tools-$(version)-melpa.tar \
+	tar -u --transform='s/README\.org/$(pkgname)\/README/' \
+		-f $(pkgname)-melpa.tar \
 		README.org
 	tar --delete pdf-tools-0.80/epdfinfo \
-		-f pdf-tools-$(version)-melpa.tar
+		-f $(pkgname)-melpa.tar
 
 # Various clean targets
 clean: server-clean
