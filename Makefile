@@ -1,7 +1,15 @@
-.PHONY: all clean distclean bytecompile test check melpa cask-install
+
+EMACS ?= emacs
+# Handle the mess when inside Emacs.
+unexport INSIDE_EMACS		#cask not like this.
+ifeq ($(EMACS), t)
+EMACS = emacs
+endif
 
 VERSION=$(shell sed -ne 's/^;\+ *Version: *\([0-9.]\)/\1/p' lisp/pdf-tools.el)
 PACKAGE=pdf-tools-$(VERSION).tar
+
+.PHONY: all clean distclean bytecompile test check melpa cask-install
 
 all: $(PACKAGE)
 
@@ -11,11 +19,11 @@ $(PACKAGE): .cask server/epdfinfo lisp/*.el
 
 # Compile the Lisp sources
 bytecompile: .cask
-	cask exec emacs --batch -L lisp -f batch-byte-compile lisp/*.el
+	cask exec $(EMACS) --batch -L lisp -f batch-byte-compile lisp/*.el
 
 # Run ERT tests
 test: all
-	cask exec emacs --batch -l test/run-tests.el $(PACKAGE)
+	cask exec $(EMACS) --batch -l test/run-tests.el $(PACKAGE)
 check: test
 
 # Run the autobuild script tests in docker
