@@ -6,24 +6,29 @@ ifeq ($(EMACS), t)
 EMACS = emacs
 endif
 
-VERSION=$(shell sed -ne 's/^;\+ *Version: *\([0-9.]\)/\1/p' lisp/pdf-tools.el)
-PACKAGE=pdf-tools-$(VERSION).tar
+emacs = $(EMACS)
+emacs_version = $(shell $(emacs) --batch --eval \
+		'(princ (format "%s.%s" emacs-major-version emacs-minor-version))') 
+$(info Using Emacs $(emacs_version))
+
+version=$(shell sed -ne 's/^;\+ *Version: *\([0-9.]\)/\1/p' lisp/pdf-tools.el)
+pkgfile=pdf-tools-$(version).tar
 
 .PHONY: all clean distclean bytecompile test check melpa cask-install
 
-all: $(PACKAGE)
+all: $(pkgfile)
 
 # Create a elpa package including the server
-$(PACKAGE): .cask server/epdfinfo lisp/*.el
+$(pkgfile): .cask/$(emacs_version) server/epdfinfo lisp/*.el
 	cask package .
 
 # Compile the Lisp sources
-bytecompile: .cask
-	cask exec $(EMACS) --batch -L lisp -f batch-byte-compile lisp/*.el
+bytecompile: .cask/$(emacs_version)
+	cask exec $(emacs) --batch -L lisp -f batch-byte-compile lisp/*.el
 
 # Run ERT tests
 test: all
-	cask exec $(EMACS) --batch -l test/run-tests.el $(PACKAGE)
+	cask exec $(emacs) --batch -l test/run-tests.el $(pkgfile)
 check: test
 
 # Run the autobuild script tests in docker
@@ -33,7 +38,7 @@ test-autobuild: server-test
 test-all: test test-autobuild
 
 # Init cask
-.cask:
+.cask/$(emacs_version):
 	cask install
 
 # Run the autobuild script (installing depends and compiling)
@@ -46,23 +51,23 @@ melpa-build: autobuild
 install-server-deps: ;
 
 # Create a package like melpa would.
-melpa-package: $(PACKAGE)
-	cp $(PACKAGE) pdf-tools-$(VERSION)-melpa.tar
-	tar -u --transform='s/server/pdf-tools-$(VERSION)\/build\/server/' \
-		-f pdf-tools-$(VERSION)-melpa.tar \
+melpa-package: $(pkgfile)
+	cp $(pkgfile) pdf-tools-$(version)-melpa.tar
+	tar -u --transform='s/server/pdf-tools-$(version)\/build\/server/' \
+		-f pdf-tools-$(version)-melpa.tar \
 		$$(git ls-files server)
-	tar -u --transform='s/Makefile/pdf-tools-$(VERSION)\/build\/Makefile/' \
-		-f pdf-tools-$(VERSION)-melpa.tar \
+	tar -u --transform='s/Makefile/pdf-tools-$(version)\/build\/Makefile/' \
+		-f pdf-tools-$(version)-melpa.tar \
 		Makefile 
-	tar -u --transform='s/README\.org/pdf-tools-$(VERSION)\/README/' \
-		-f pdf-tools-$(VERSION)-melpa.tar \
+	tar -u --transform='s/README\.org/pdf-tools-$(version)\/README/' \
+		-f pdf-tools-$(version)-melpa.tar \
 		README.org
 	tar --delete pdf-tools-0.80/epdfinfo \
-		-f pdf-tools-$(VERSION)-melpa.tar
+		-f pdf-tools-$(version)-melpa.tar
 
 # Various clean targets
 clean: server-clean
-	rm -f -- $(PACKAGE)
+	rm -f -- $(pkgfile)
 	rm -f -- lisp/*.elc
 	rm -f -- pdf-tools-readme.txt
 
