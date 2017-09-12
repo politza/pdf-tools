@@ -292,7 +292,9 @@ case $# in
     2)
         case $1 in
             -i)
-                INSTALL_DIR=$2 ;;
+                if [ "$2" != "$PWD" ]; then
+                    INSTALL_DIR=$2
+                fi ;;
             *) usage 1 ;;
         esac ;;
     *) usage 1 ;;
