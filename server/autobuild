@@ -368,6 +368,7 @@ os_gentoo() {
     PKGCMD=emerge
     PKGARGS=--noreplace
     PACKAGES="app-text/poppler
+              dev-util/pkgconfig
               media-libs/libpng
               sys-devel/autoconf
               sys-devel/automake
