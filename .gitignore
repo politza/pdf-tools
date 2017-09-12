@@ -3,4 +3,4 @@ dist/
 .cask/
 pdf-tools-*.tar
 pdf-tools-*/
-
+pdf-tools-readme.txt
