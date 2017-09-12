@@ -76,7 +76,7 @@ distclean: clean server-distclean
 	rm -rf -- .cask
 
 # Server targets
-server/epdfinfo: server/Makefile
+server/epdfinfo: server/Makefile server/*.[ch]
 	$(MAKE) -C server
 
 server/Makefile: server/configure
