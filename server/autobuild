@@ -16,10 +16,13 @@ PKGARGS=
 # Required packages.
 PACKAGES=
 # Whether package installation requires root permissions.
-INSTALL_AS_ROOT=true
+PKG_INSTALL_AS_ROOT=true
 # Only test if the OS is handled by this script.
-OS_TEST=
-
+DRY_RUN=
+# If and where to install the program.
+INSTALL_DIR=
+# Default installation directory.
+INSTALL_DIR_DEFAULT=~/bin
 
 ## +-----------------------------------------------------------+
 ## * Utility Functions
@@ -28,10 +31,19 @@ OS_TEST=
 usage()
 {
     cat <<EOF
-usage:$(basename "$0") [--help|--os-test]
+usage:$(basename "$0") [--help|-n|[-i DIR|-I]]
 
-    --os-test    Don't do anything, only check if this OS is handled.
-    --help       Display this message.
+    -n      Don't do anything, but check if this OS is handled and
+            then print the default installation directory (see -I).
+
+    -i DIR  Install the program in the given directory
+           
+    -I      Install the program into a default directory, i.e. ~/bin in
+            most cases.
+           
+    --help  Display this message.
+
+    Note, that -n, -i and -I are mutually exclusive.
 EOF
     exit "$1"
 }
@@ -45,7 +57,7 @@ which()
     IFS=:
     for dir in $PATH; do
         if [ -x "$dir/$1" ]; then
-            echo "$dir/$1"
+            printf "%s" "$dir/$1"
             unset IFS
             return 0
         fi
@@ -54,20 +66,38 @@ which()
     return 1
 }
 
-# Exec $@ as root if required.
+# Quote $@ for the shell if possible.
+quote()
+{
+    quoted=
+    for arg; do
+        qarg=$(printf "%s" "$arg" | sed -e 's/[|&;<>()$\`"'\'' 	]/\\&/g')
+        if [ -z "$quoted" ]; then
+            quoted=$qarg
+        else
+            quoted="$quoted $qarg"
+        fi
+    done
+    printf "%s" "$quoted"
+}
+
+# Attempt to exec $@ as root.
 exec_privileged() {
-    if [ -z "$*" ]; then
-        echo "internal error: package install command is empty" >&2
+    if [ -z "$1" ]; then
+        echo "internal error: command is empty"
         exit 2
     fi
-    if [ -w / ] || [ "$INSTALL_AS_ROOT" != "true" ]; then
+    if [ -w / ]; then
         "$@"
     elif which sudo >/dev/null 2>&1; then
-        sudo "$@"
+        sudo -- "$@"
+        retval=$?
+        sudo -k
+        return $retval
     elif which su >/dev/null 2>&1; then
-        su -c "$*"
+        su -c "$(quote "$@")"
     else
-        echo "No such program: sudo or su" >&2
+        echo "No such program: sudo or su"
         exit 1
     fi
 }
@@ -76,7 +106,7 @@ exec_privileged() {
 assert_program()
 {
     if ! which "$1" >/dev/null 2>&1; then
-        echo "No such program: $1" >&2
+        echo "No such program: $1"
         exit 1
     fi
 }
@@ -84,13 +114,29 @@ assert_program()
 # Source filename $1 and echo variable $2.
 source_var()
 {
-    if ! [ -f "$1" ] || ! [ -r "$1" ]; then
+    if ! [ -f "$1" ] || ! [ -r "$1" ] || [ -z "$2" ]; then
         return 1
     fi
     # shellcheck source=/dev/null
     . "$1"
-    eval "echo \$$2"
+    eval "printf '%s\n' \$$2"
     return 0
+}
+
+exit_success()
+{
+    echo "==========================="
+    echo "   Build succeeded. :O)    "
+    echo "==========================="
+    exit 0
+}
+
+exit_fail()
+{
+    echo "==========================="
+    echo "     Build failed.  ;o(    "
+    echo "==========================="
+    exit 1
 }
 
 ## +-----------------------------------------------------------+
@@ -173,7 +219,6 @@ os_msys2() {
         MINGW32)
             PACKAGES="base-devel mingw-w64-i686-toolchain mingw-w64-i686-libpng mingw-w64-i686-zlib mingw-w64-i686-poppler" ;;
         MSYS)
-            assert_program uname
             case $(uname -m) in
                 x86_64)
                     MSYSTEM=MINGW64 ;;
@@ -183,14 +228,18 @@ os_msys2() {
             export MSYSTEM
             # shellcheck source=/dev/null
             . /etc/profile
-            exec "$0" $OS_TEST ;;
+            eval "exec $(quote "$0" "$@")" ;;
         *)
-            echo "Unrecognized MSYSTEM value: $MSYSTEM" >&2
+            echo "Unrecognized MSYSTEM value: $MSYSTEM"
             exit 1 ;;
+    esac
+    case $MSYSTEM in
+        MINGW64) INSTALL_DIR_DEFAULT=/mingw64/bin ;;
+        *)       INSTALL_DIR_DEFAULT=/mingw32/bin ;;
     esac
     PKGCMD=pacman
     PKGARGS="-S --needed"
-    INSTALL_AS_ROOT=false
+    PKG_INSTALL_AS_ROOT=false
     return 0
 }
 
@@ -202,7 +251,7 @@ os_macos() {
     PKGCMD=brew
     PKGARGS=install
     PACKAGES="pkg-config poppler automake"
-    INSTALL_AS_ROOT=false
+    PKG_INSTALL_AS_ROOT=false
     return 0
 }
 
@@ -215,10 +264,12 @@ os_nixos() {
     if ! which nix-shell >/dev/null 2>&1; then
         return 1
     fi
-    if [ -n "$OS_TEST" ]; then
+    if [ -n "$DRY_RUN" ]; then
         return 0
     fi
-    command="AUTOBUILD_NIX_SHELL=true; export AUTOBUILD_NIX_SHELL; $0"
+    command="AUTOBUILD_NIX_SHELL=true"
+    command="$command;export AUTOBUILD_NIX_SHELL"
+    command="$command;$(quote "$0" "$@")"
     exec nix-shell --pure --command "$command" \
          -p gcc gnumake automake autoconf pkgconfig libpng zlib poppler
 }
@@ -227,28 +278,41 @@ os_nixos() {
 ## * Figure out were we are, install deps and build the program
 ## +-----------------------------------------------------------+
 
-for arg; do
-    case $arg in
-        --help) usage 0;;
-        --dry-run) OS_TEST=--os-test;;
-        *) usage 1;;
-    esac
-done
+case $# in
+    0) ;;
+    1)
+        case $1 in
+            --help) usage 0;;
+            -n)
+                DRY_RUN=true;;
+            -I)
+                INSTALL_DIR=$INSTALL_DIR_DEFAULT ;;
+            *) usage 1;;
+        esac ;;
+    2)
+        case $1 in
+            -i)
+                INSTALL_DIR=$2 ;;
+            *) usage 1 ;;
+        esac ;;
+    *) usage 1 ;;
+esac
 
-os_nixos || \
-os_macos || \
-os_freebsd || \
-os_arch || \
-os_centos || \
-os_fedora || \
-os_debian || \
-os_msys2 || \
+os_nixos   "$@"	|| \
+os_macos   "$@"	|| \
+os_freebsd "$@" || \
+os_arch    "$@"	|| \
+os_centos  "$@"	|| \
+os_fedora  "$@"	|| \
+os_debian  "$@"	|| \
+os_msys2   "$@"	|| \
 {
-    echo "Failed to recognize this system" >&2
+    echo "Failed to recognize this system"
     exit 1
 }
 
-if [ -n "$OS_TEST" ]; then
+if [ -n "$DRY_RUN" ]; then
+    printf "%s\n" "$INSTALL_DIR_DEFAULT"
     exit 0
 fi
 
@@ -258,7 +322,12 @@ if [ -n "$PKGCMD" ];then
     echo "    Installing packages    "
     echo "---------------------------"
     echo "$PKGCMD $PKGARGS $PACKAGES"
-    exec_privileged $PKGCMD $PKGARGS $PACKAGES
+    if [ "$PKG_INSTALL_AS_ROOT" = true ]; then
+        exec_privileged $PKGCMD $PKGARGS $PACKAGES
+    else
+        $PKGCMD $PKGARGS $PACKAGES
+    fi
+    echo
 fi
 
 echo "---------------------------"
@@ -268,7 +337,7 @@ echo "---------------------------"
 # Try to be in the correct directory.
 if which dirname >/dev/null 2>&1; then
     cd "$(dirname "$0")" || {
-        echo "Failed to change into the source directory" 2>&1
+        echo "Failed to change into the source directory"
         exit 1
     }
 fi
@@ -278,21 +347,30 @@ if ! [ -f ./configure ]; then
     assert_program autoreconf
     echo "autoreconf -i"
     autoreconf -i
+    [ -f ./configure ] || exit_fail
+fi
+           
+# Build the program.
+if [ -n "$INSTALL_DIR" ]; then
+    prefix=--bindir=$INSTALL_DIR
 fi
 
-# Build the program.
-echo "./configure -q && make -s"
-if ./configure -q && make -s; then
-    echo "==========================="
-    echo "   Build succeeded. :O)    "
-    echo "==========================="
-    exit 0
-else
-    echo "==========================="
-    echo "     Build failed.  ;o(    "
-    echo "==========================="
-    exit 1
+echo "./configure -q $prefix && make -s"
+eval "./configure -q $(quote "$prefix") && make -s || exit_fail"
+echo
+if [ -n "$INSTALL_DIR" ]; then
+    echo "---------------------------"
+    echo "       Installing          "
+    echo "---------------------------"
+    echo make -s install
+    if mkdir -p -- "$INSTALL_DIR" && [ -w "$INSTALL_DIR" ]; then
+        make install || exit_fail
+    else
+        exec_privileged make install || exit_fail
+    fi
+    echo
 fi
+exit_success
 
 # Local Variables:
 # compile-command: "shellcheck autobuild"
