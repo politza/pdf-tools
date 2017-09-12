@@ -165,7 +165,16 @@ os_centos() {
     else
         PKGARGS=install
     fi
-    PACKAGES="libpng-devel zlib-devel poppler-glib-devel poppler-devel pkgconfig autoconf automake gcc gcc-c++ make"
+    PACKAGES="autoconf
+              automake
+              gcc
+              gcc-c++
+              libpng-devel
+              make
+              pkgconfig
+              poppler-devel
+              poppler-glib-devel
+              zlib-devel"
     return 0
 }
 
@@ -187,7 +196,15 @@ os_fedora() {
     fi
     PKGCMD=dnf
     PKGARGS=install
-    PACKAGES="libpng-devel zlib-devel poppler-glib-devel poppler-devel autoconf automake gcc gcc-c++ make"
+    PACKAGES="autoconf
+              automake
+              gcc
+              gcc-c++
+              libpng-devel
+              make
+              poppler-devel
+              poppler-glib-devel
+              zlib-devel"
     VERSION=$(source_var /etc/os-release VERSION_ID)
     if [ -n "$VERSION" ] && [ "$VERSION" -ge 26 ]; then
         PACKAGES="$PACKAGES pkgconf"
@@ -202,7 +219,17 @@ os_debian() {
     if ! [ -e "/etc/debian_version" ]; then
         return 1
     fi
-    PACKAGES="libpng-dev libz-dev libpoppler-glib-dev libpoppler-dev libpoppler-private-dev pkg-config autoconf automake gcc g++ make"
+    PACKAGES="autoconf
+              automake
+              g++
+              gcc
+              libpng-dev
+              libpoppler-dev
+              libpoppler-glib-dev
+              libpoppler-private-dev
+              libz-dev
+              make
+              pkg-config"
     PKGCMD=apt-get
     PKGARGS=install
     return 0
@@ -215,9 +242,17 @@ os_msys2() {
     fi
     case $MSYSTEM in
         MINGW64)
-            PACKAGES="base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-libpng mingw-w64-x86_64-zlib mingw-w64-x86_64-poppler" ;;
+            PACKAGES="base-devel
+                      mingw-w64-x86_64-libpng
+                      mingw-w64-x86_64-poppler
+                      mingw-w64-x86_64-toolchain
+                      mingw-w64-x86_64-zlib" ;;
         MINGW32)
-            PACKAGES="base-devel mingw-w64-i686-toolchain mingw-w64-i686-libpng mingw-w64-i686-zlib mingw-w64-i686-poppler" ;;
+            PACKAGES="base-devel
+                      mingw-w64-i686-libpng
+                      mingw-w64-i686-poppler
+                      mingw-w64-i686-toolchain
+                      mingw-w64-i686-zlib" ;;
         MSYS)
             case $(uname -m) in
                 x86_64)
