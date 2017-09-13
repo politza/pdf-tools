@@ -294,18 +294,16 @@ Returns the buffer of the compilation process."
       (error "No suitable shell found"))
     (when msys2-p
       (push "BASH_ENV=/etc/profile" process-environment))
-    (with-temp-buffer
-      (if (eq 0 (call-process-shell-command
-                 (concat autobuild " -n") nil t))
-          (unless target-directory
-            (setq target-directory (buffer-substring
-                                    (point-min) (1- (point-max))))
-            (when msys2-p
-              (setq target-directory
-                    (expand-file-name
-                     (concat "." target-directory)
-                     (pdf-tools-msys2-directory)))))
-        (error "%s" (buffer-string))))
+    (unless target-directory
+      (when (eq 0 (call-process-shell-command
+                   (concat autobuild " -n") nil t))
+        (setq target-directory (buffer-substring
+                                (point-min) (1- (point-max))))
+        (when msys2-p
+          (setq target-directory
+                (expand-file-name
+                 (concat "." target-directory)
+                 (pdf-tools-msys2-directory))))))
     (let ((executable
            (expand-file-name
             (concat "epdfinfo" (and (eq system-type 'windows-nt) ".exe"))

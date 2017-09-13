@@ -23,6 +23,8 @@ DRY_RUN=
 INSTALL_DIR=
 # Default installation directory.
 INSTALL_DIR_DEFAULT=~/bin
+# Whether we can install packages.
+OS_IS_HANDLED=true
 
 ## +-----------------------------------------------------------+
 ## * Utility Functions
@@ -344,13 +346,16 @@ os_fedora  "$@"	|| \
 os_debian  "$@"	|| \
 os_msys2   "$@"	|| \
 {
-    echo "Failed to recognize this system"
-    exit 1
+    OS_IS_HANDLED=false
+    if [ -z "$DRY_RUN" ]; then
+        echo "Failed to recognize this system, trying to continue."
+    fi
 }
 
 if [ -n "$DRY_RUN" ]; then
     printf "%s\n" "$INSTALL_DIR_DEFAULT"
-    exit 0
+    [ "$OS_IS_HANDLED" = true ]
+    exit $?
 fi
 
 if [ -n "$PKGCMD" ];then
