@@ -163,6 +163,10 @@ have_packages_installed()
         which make || return 1
         which gcc || which cc || return 1
         which g++ || which c++ || return 1
+        cc $(pkg-config --cflags poppler) -o /dev/null -E - 2>/dev/null <<EOF
+        #include <PDFDocEncoding.h>
+EOF
+        [ $? -eq 0 ] || return 1
         return 0
     } >/dev/null 2>&1
 }
