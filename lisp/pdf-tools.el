@@ -333,15 +333,23 @@ Returns the buffer of the compilation process."
   ;;  On MS-Windows always install into the default directory
   ;;  (/mingw*/bin).
   (unless (pdf-tools-msys2-directory)
-    (read-directory-name
-     "Installation directory: "
-     (cond
-      ((and (stringp pdf-info-epdfinfo-program)
-            (not (file-in-directory-p
-                  pdf-info-epdfinfo-program
-                  package-user-dir)))
-       (file-name-directory pdf-info-epdfinfo-program))
-      (t (expand-file-name "~/bin"))))))
+    (let ((defaults
+            (cons pdf-tools-directory
+                  (mapcar #'expand-file-name
+                          (cl-remove-if-not
+                           #'file-writable-p
+                           (split-string (or (getenv "PATH") "")
+                                         ":" t)))))
+          (current (and (stringp pdf-info-epdfinfo-program)
+                        (file-name-directory
+                         (expand-file-name pdf-info-epdfinfo-program)))))
+      (when current
+        (push current defaults))
+      (let ((insert-default-directory t))
+        (read-directory-name
+         "Installation directory: "
+         (car defaults) (cl-remove-duplicates
+                         defaults :test #'file-equal-p))))))
 
 
 ;; * ================================================================== *
@@ -374,7 +382,8 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
                   (if executable "succeeded" "failed"))
          (when executable
            (setq pdf-info-epdfinfo-program executable)
-           (unless (file-equal-p pdf-info-epdfinfo-program executable)
+           (unless (or (executable-find (file-name-nondirectory executable)) 
+                       (file-in-directory-p executable pdf-tools-directory))
              (customize-save-variable 'pdf-info-epdfinfo-program
                                       executable))
            (let ((pdf-info-restart-process-p t))
