@@ -193,6 +193,16 @@ server, that it never ran.")
 ;; * Process handling
 ;; * ================================================================== *
 
+(defconst pdf-info-empty-page-data
+  (eval-when-compile
+    (concat
+     "%PDF-1.0\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0"
+     " obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</"
+     "Type/Page/MediaBox[0 0 3 3]>>endobj\nxref\n0 4\n00000000"
+     "0065535 f\n0000000010 00000 n\n0000000053 00000 n\n00000"
+     "00102 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n149\n%EOF"))
+  "PDF data of an empty page.")
+
 (defun pdf-info-process ()
   "Return the process object or nil."
   (and pdf-info--queue
@@ -200,6 +210,13 @@ server, that it never ran.")
        (tq-process pdf-info--queue)))
 
 (defun pdf-info-check-epdfinfo (&optional interactive-p)
+  "Check if the server should be working properpy.
+
+Singal an error if some problem was found.  Message a
+confirmation, if INTERACTIVE-P is non-nil and no problems were
+found.
+
+Returns nil."
   (interactive "p")
   (let ((executable pdf-info-epdfinfo-program))
     (unless (stringp executable)
@@ -207,23 +224,35 @@ server, that it never ran.")
     (unless (file-executable-p executable)
       (error "pdf-info-epdfinfo-program is not executable"))
     (when pdf-info-epdfinfo-error-filename
-      (unless (file-writable-p pdf-info-epdfinfo-error-filename)
-        (error "pdf-info-epdfinfo-error-filename should be nil or a writable filename")))
-    (let ((tempfile (make-temp-file "pdf-info-check-epdfinfo"))
-          (default-directory "~"))
+      (unless (and (stringp pdf-info-epdfinfo-error-filename)
+                   (file-writable-p pdf-info-epdfinfo-error-filename))
+        (error "pdf-info-epdfinfo-error-filename should contain writable filename")))
+    (let* ((default-directory (expand-file-name "~/"))
+           (cmdfile (make-temp-file "commands"))
+           (pdffile (make-temp-file "empty.pdf"))
+           (tempdir (make-temp-file "tmpdir" t))
+           (process-environment (cons (concat "TMPDIR=" tempdir)
+                                      process-environment)))
       (unwind-protect
           (with-temp-buffer
-            (with-temp-file tempfile
-              (insert "quit\n"))
+            (with-temp-file pdffile
+              (set-buffer-multibyte nil)
+              (insert pdf-info-empty-page-data))
+            (with-temp-file cmdfile
+              (insert (format "renderpage:%s:1:100\nquit\n" pdffile)))
             (unless (= 0 (apply #'call-process
-                                executable tempfile (current-buffer)
+                                executable cmdfile (current-buffer)
                                 nil (when pdf-info-epdfinfo-error-filename
                                       (list pdf-info-epdfinfo-error-filename))))
               (error "Error running `%s': %s"
                      pdf-info-epdfinfo-program
                      (buffer-string))))
-        (when (file-exists-p tempfile)
-          (delete-file tempfile)))))
+        (when (file-exists-p cmdfile)
+          (delete-file cmdfile))
+        (when (file-exists-p pdffile)
+          (delete-file pdffile))
+        (when (file-exists-p tempdir)
+          (delete-directory tempdir t)))))
   (when interactive-p
     (message "The epdfinfo program appears to be working."))
   nil)
