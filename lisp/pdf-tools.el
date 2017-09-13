@@ -328,29 +328,6 @@ Returns the buffer of the compilation process."
                   nil t)
         (current-buffer)))))
 
-(defun pdf-tools-read-target-directory ()
-  "Read a directory for the epdfinfo executable."
-  ;;  On MS-Windows always install into the default directory
-  ;;  (/mingw*/bin).
-  (unless (pdf-tools-msys2-directory)
-    (let ((defaults
-            (cons pdf-tools-directory
-                  (mapcar #'expand-file-name
-                          (cl-remove-if-not
-                           #'file-writable-p
-                           (split-string (or (getenv "PATH") "")
-                                         ":" t)))))
-          (current (and (stringp pdf-info-epdfinfo-program)
-                        (file-name-directory
-                         (expand-file-name pdf-info-epdfinfo-program)))))
-      (when current
-        (push current defaults))
-      (let ((insert-default-directory t))
-        (read-directory-name
-         "Installation directory: "
-         (car defaults) (cl-remove-duplicates
-                         defaults :test #'file-equal-p))))))
-
 
 ;; * ================================================================== *
 ;; * Initialization
@@ -360,35 +337,37 @@ Returns the buffer of the compilation process."
 (defun pdf-tools-install (&rest _)
   "Install PDF-Tools in all current and future PDF buffers.
 
-If the `pdf-info-epdfinfo-program' is not running and is not
-executable or does not appear to be working, attempt to rebuild
-it.  If this build succeeded, continue with the activation of the
-package.  Otherwise fail silently, i.e. no error is signaled.
+If the `pdf-info-epdfinfo-program' is not running or does not
+appear to be working, attempt to rebuild it.  If this build
+succeeded, continue with the activation of the package.
+Otherwise fail silently, i.e. no error is signaled.
+
+Note that you can influence the installation directory by setting
+`pdf-info-epdfinfo-program' to an appropriate
+value (e.g. ~/bin/epdfinfo) before calling this function.
 
 See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (declare
    (advertised-calling-convention () "0.90"))
   (interactive)
-  (if (or noninteractive
-          (pdf-info-running-p)
-          (and (stringp pdf-info-epdfinfo-program)
-               (file-executable-p pdf-info-epdfinfo-program)
-               (ignore-errors (pdf-info-check-epdfinfo) :success)))
+  (if (or (pdf-info-running-p)
+          (ignore-errors (pdf-info-check-epdfinfo) :success))
       (pdf-tools-install-noverify)
-    (when (y-or-n-p "Need to build the PDF Tools server, do it now ? ")
-      (pdf-tools-build-server
-       (lambda (executable)
-         (message "Building the PDF Tools server %s"
-                  (if executable "succeeded" "failed"))
-         (when executable
-           (setq pdf-info-epdfinfo-program executable)
-           (unless (or (executable-find (file-name-nondirectory executable)) 
-                       (file-in-directory-p executable pdf-tools-directory))
-             (customize-save-variable 'pdf-info-epdfinfo-program
-                                      executable))
-           (let ((pdf-info-restart-process-p t))
-             (pdf-tools-install-noverify))))
-       (pdf-tools-read-target-directory)))))
+    (let ((install-directory
+           (or (and (stringp pdf-info-epdfinfo-program)
+                    (file-name-directory
+                     pdf-info-epdfinfo-program))
+               pdf-tools-directory)))
+      (when (y-or-n-p "Need to (re)build the epdfinfo program, do it now ?")
+        (pdf-tools-build-server
+         (lambda (executable)
+           (message "Building the PDF Tools server %s"
+                    (if executable "succeeded" "failed"))
+           (when executable
+             (setq pdf-info-epdfinfo-program executable)
+             (let ((pdf-info-restart-process-p t))
+               (pdf-tools-install-noverify))))
+         install-directory)))))
 
 (defun pdf-tools-install-noverify ()
   "Like `pdf-tools-install', but skip checking `pdf-info-epdfinfo-program'."
