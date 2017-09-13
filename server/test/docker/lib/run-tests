@@ -1,0 +1,9 @@
+#!/bin/sh
+
+PATH="$(dirname "$0")":$PATH
+
+set -e
+
+yes-or-enter | ./autobuild -i /bin
+make clean
+yes-or-enter | ./autobuild -i /usr/bin -D
