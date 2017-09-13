@@ -249,6 +249,14 @@ Returns always nil, unless `system-type' equals windows-nt."
                    (read-directory-name
                     "Please enter Msys2 installation directory: " nil nil t))))))))
 
+(defun pdf-tools-msys2-mingw-bin ()
+  "Return the location of /mingw*/bin."
+  (when (pdf-tools-msys2-directory)
+    (let ((arch (intern (car (split-string system-configuration "-" t)))))
+    (expand-file-name
+     (format "./mingw%s/bin" (if (eq arch 'x86_64) "64" "32"))
+     (pdf-tools-msys2-directory)))))
+
 (defun pdf-tools-find-bourne-shell ()
   "Locate a usable sh."
   (or (executable-find "sh")
@@ -344,7 +352,8 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
           (ignore-errors (pdf-info-check-epdfinfo) :success))
       (pdf-tools-install-noverify)
     (let ((install-directory
-           (or (and (stringp pdf-info-epdfinfo-program)
+           (or (pdf-tools-msys2-mingw-bin)
+               (and (stringp pdf-info-epdfinfo-program)
                     (file-name-directory
                      pdf-info-epdfinfo-program))
                pdf-tools-directory)))
