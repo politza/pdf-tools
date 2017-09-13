@@ -21,8 +21,6 @@ PKG_INSTALL_AS_ROOT=true
 DRY_RUN=
 # If and where to install the program.
 INSTALL_DIR=
-# Default installation directory.
-INSTALL_DIR_DEFAULT=~/bin
 # Whether we can install packages.
 OS_IS_HANDLED=true
 
@@ -35,17 +33,12 @@ usage()
     cat <<EOF
 usage:$(basename "$0") [--help|-n|[-i DIR|-I]]
 
-    -n      Don't do anything, but check if this OS is handled and
-            then print the default installation directory (see -I).
+    -n      Don't do anything, but check if this OS is handled.
 
     -i DIR  Install the program in the given directory.
            
-    -I      Install the program into a default directory, i.e. ~/bin in
-            most cases.
-           
     --help  Display this message.
 
-    Note, that -n, -i and -I are mutually exclusive.
 EOF
     exit "$1"
 }
@@ -270,10 +263,6 @@ os_msys2() {
             echo "Unrecognized MSYSTEM value: $MSYSTEM"
             exit 1 ;;
     esac
-    case $MSYSTEM in
-        MINGW64) INSTALL_DIR_DEFAULT=/mingw64/bin ;;
-        *)       INSTALL_DIR_DEFAULT=/mingw32/bin ;;
-    esac
     PKGCMD=pacman
     PKGARGS="-S --needed"
     PKG_INSTALL_AS_ROOT=false
@@ -322,8 +311,6 @@ case $# in
             --help) usage 0;;
             -n)
                 DRY_RUN=true;;
-            -I)
-                INSTALL_DIR=$INSTALL_DIR_DEFAULT ;;
             *) usage 1;;
         esac ;;
     2)
@@ -353,7 +340,6 @@ os_msys2   "$@"	|| \
 }
 
 if [ -n "$DRY_RUN" ]; then
-    printf "%s\n" "$INSTALL_DIR_DEFAULT"
     [ "$OS_IS_HANDLED" = true ]
     exit $?
 fi

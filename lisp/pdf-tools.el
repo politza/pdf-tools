@@ -257,9 +257,9 @@ Returns always nil, unless `system-type' equals windows-nt."
              (when directory
                (expand-file-name "usr/bin/bash.exe" directory))))))
 
-(defun pdf-tools-build-server (&optional callback
-                                         target-directory
-                                         build-directory)
+(defun pdf-tools-build-server (target-directory &optional
+                                                callback
+                                                build-directory)
   "Build the epdfinfo program in the background.
 
 If CALLBACK is non-nil, it should be a function.  It is called
@@ -277,9 +277,9 @@ Returns the buffer of the compilation process."
   (unless callback (setq callback #'ignore))
   (unless build-directory
     (setq build-directory (pdf-tools-locate-build-directory)))
-  (when target-directory
-    (setq target-directory (file-name-as-directory
-                            (expand-file-name target-directory))))
+  (cl-check-type target-directory file-directory)
+  (setq target-directory (file-name-as-directory
+                          (expand-file-name target-directory)))
   (cl-check-type build-directory (and (not null) file-directory))
   (let* ((compilation-auto-jump-to-first-error nil)
          (compilation-scroll-output t)
@@ -294,16 +294,6 @@ Returns the buffer of the compilation process."
       (error "No suitable shell found"))
     (when msys2-p
       (push "BASH_ENV=/etc/profile" process-environment))
-    (unless target-directory
-      (when (eq 0 (call-process-shell-command
-                   (concat autobuild " -n") nil t))
-        (setq target-directory (buffer-substring
-                                (point-min) (1- (point-max))))
-        (when msys2-p
-          (setq target-directory
-                (expand-file-name
-                 (concat "." target-directory)
-                 (pdf-tools-msys2-directory))))))
     (let ((executable
            (expand-file-name
             (concat "epdfinfo" (and (eq system-type 'windows-nt) ".exe"))
@@ -360,14 +350,14 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
                pdf-tools-directory)))
       (when (y-or-n-p "Need to (re)build the epdfinfo program, do it now ?")
         (pdf-tools-build-server
+         install-directory
          (lambda (executable)
            (message "Building the PDF Tools server %s"
                     (if executable "succeeded" "failed"))
            (when executable
              (setq pdf-info-epdfinfo-program executable)
              (let ((pdf-info-restart-process-p t))
-               (pdf-tools-install-noverify))))
-         install-directory)))))
+               (pdf-tools-install-noverify)))))))))
 
 (defun pdf-tools-install-noverify ()
   "Like `pdf-tools-install', but skip checking `pdf-info-epdfinfo-program'."
