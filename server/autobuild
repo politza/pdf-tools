@@ -9,6 +9,8 @@ set +e
 # Disalbe file globbing.
 set -f
 
+# Boolean variables are true if non-empty and false otherwise.
+
 # Command to install packages.
 PKGCMD=
 # Args to pass to $PKGCMD.
@@ -17,6 +19,11 @@ PKGARGS=
 PACKAGES=
 # Whether package installation requires root permissions.
 PKG_INSTALL_AS_ROOT=true
+# Whether to skip package installation altogether.
+PKG_INSTALL_SKIP=
+# Whether to force package installation, even if it does not seem
+# necessary.
+PKG_INSTALL_FORCE=
 # Only test if the OS is handled by this script.
 DRY_RUN=
 # If and where to install the program.
@@ -37,6 +44,10 @@ usage:$(basename "$0") [--help|-n|[-i DIR|-I]]
 
     -i DIR  Install the program in the given directory.
            
+    -d      Force dependency installattion.  
+
+    -D      Skip dependency installattion.  
+
     --help  Display this message.
 
 EOF
@@ -131,7 +142,52 @@ exit_fail()
     echo "==========================="
     echo "     Build failed.  ;o(    "
     echo "==========================="
+    if [ -z "$PKG_INSTALL_FORCE" ]; then
+        echo "Note: maybe try the '-d' option."
+    fi
     exit 1
+}
+
+# Return 0, if all required packages seem to be installed.
+have_packages_installed()
+{
+    {
+        which pkg-config || return 1
+        if ! [ -f configure ];then
+            which autoreconf || return 1
+            which automake || return 1
+        fi
+        for lib in libpng glib-2.0 poppler poppler-glib zlib; do
+            pkg-config --cflags $lib || return 1
+        done
+        which make || return 1
+        which gcc || which cc || return 1
+        which g++ || which c++ || return 1
+        return 0
+    } >/dev/null 2>&1
+}
+
+handle_options()
+{
+    while [ $# -gt 0 ]; do
+        case $1 in
+            --help) usage 0;;
+            -n) DRY_RUN=true;;
+            -d) PKG_INSTALL_FORCE=true ;;
+            -D) PKG_INSTALL_SKIP=true ;;
+            -i)
+                shift
+                [ $# -gt 0 ] || usage 1
+                if [ "${1%%/}" != "${PWD%%/}" ]; then
+                    INSTALL_DIR=$1
+                fi ;;
+            *) usage 1 ;;
+        esac 
+        shift
+    done
+    if [ -n "$PKG_INSTALL_SKIP" ] && [ -n "$PKG_INSTALL_FORCE" ]; then
+        usage 1
+    fi
 }
 
 ## +-----------------------------------------------------------+
@@ -265,7 +321,7 @@ os_msys2() {
     esac
     PKGCMD=pacman
     PKGARGS="-S --needed"
-    PKG_INSTALL_AS_ROOT=false
+    PKG_INSTALL_AS_ROOT=
     return 0
 }
 
@@ -277,7 +333,7 @@ os_macos() {
     PKGCMD=brew
     PKGARGS=install
     PACKAGES="pkg-config poppler automake"
-    PKG_INSTALL_AS_ROOT=false
+    PKG_INSTALL_AS_ROOT=
     return 0
 }
 
@@ -304,25 +360,7 @@ os_nixos() {
 ## * Figure out were we are, install deps and build the program
 ## +-----------------------------------------------------------+
 
-case $# in
-    0) ;;
-    1)
-        case $1 in
-            --help) usage 0;;
-            -n)
-                DRY_RUN=true;;
-            *) usage 1;;
-        esac ;;
-    2)
-        case $1 in
-            -i)
-                if [ "$2" != "$PWD" ]; then
-                    INSTALL_DIR=$2
-                fi ;;
-            *) usage 1 ;;
-        esac ;;
-    *) usage 1 ;;
-esac
+handle_options "$@"
 
 os_nixos   "$@"	|| \
 os_macos   "$@"	|| \
@@ -333,27 +371,33 @@ os_fedora  "$@"	|| \
 os_debian  "$@"	|| \
 os_msys2   "$@"	|| \
 {
-    OS_IS_HANDLED=false
+    OS_IS_HANDLED=
     if [ -z "$DRY_RUN" ]; then
         echo "Failed to recognize this system, trying to continue."
     fi
 }
 
 if [ -n "$DRY_RUN" ]; then
-    [ "$OS_IS_HANDLED" = true ]
+    [ -n "$OS_IS_HANDLED" ]
     exit $?
 fi
 
 if [ -n "$PKGCMD" ];then
-    assert_program "$PKGCMD"
     echo "---------------------------"
     echo "    Installing packages    "
     echo "---------------------------"
-    echo "$PKGCMD $PKGARGS $PACKAGES"
-    if [ "$PKG_INSTALL_AS_ROOT" = true ]; then
-        exec_privileged $PKGCMD $PKGARGS $PACKAGES
+    if [ -n "$PKG_INSTALL_SKIP" ] || {
+           [ -z "$PKG_INSTALL_FORCE" ] && have_packages_installed
+       }; then
+        echo "Skipping package installation"
     else
-        $PKGCMD $PKGARGS $PACKAGES
+        assert_program "$PKGCMD"
+        echo "$PKGCMD $PKGARGS $PACKAGES"
+        if [ -n "$PKG_INSTALL_AS_ROOT" ]; then
+            exec_privileged $PKGCMD $PKGARGS $PACKAGES
+        else
+            $PKGCMD $PKGARGS $PACKAGES
+        fi
     fi
     echo
 fi
