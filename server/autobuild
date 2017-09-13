@@ -158,7 +158,7 @@ have_packages_installed()
             which automake || return 1
         fi
         for lib in libpng glib-2.0 poppler poppler-glib zlib; do
-            pkg-config --cflags $lib || return 1
+            pkg-config --exists $lib || return 1
         done
         which make || return 1
         which gcc || which cc || return 1
