@@ -219,9 +219,9 @@ server, that it never ran.")
        (tq-process pdf-info--queue)))
 
 (defun pdf-info-check-epdfinfo (&optional interactive-p)
-  "Check if the server should be working properpy.
+  "Check if the server should be working properly.
 
-Singal an error if some problem was found.  Message a
+Signal an error if some problem was found.  Message a
 confirmation, if INTERACTIVE-P is non-nil and no problems were
 found.
 
