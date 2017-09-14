@@ -248,7 +248,8 @@ Returns nil."
               (set-buffer-multibyte nil)
               (insert pdf-info-empty-page-data))
             (with-temp-file cmdfile
-              (insert (format "renderpage:%s:1:100\nquit\n" pdffile)))
+              (insert (format "renderpage:%s:1:100\nquit\n"
+                              (pdf-info-query--escape pdffile))))
             (unless (= 0 (apply #'call-process
                                 executable cmdfile (current-buffer)
                                 nil (when pdf-info-epdfinfo-error-filename
