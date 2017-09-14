@@ -43,10 +43,10 @@ usage:$(basename "$0") [--help|-n|[-i DIR|-I]]
     -n      Don't do anything, but check if this OS is handled.
 
     -i DIR  Install the program in the given directory.
-           
-    -d      Force dependency installattion.  
 
-    -D      Skip dependency installattion.  
+    -d      Force dependency installattion.
+
+    -D      Skip dependency installattion.
 
     --help  Display this message.
 
@@ -186,7 +186,7 @@ handle_options()
                     INSTALL_DIR=$1
                 fi ;;
             *) usage 1 ;;
-        esac 
+        esac
         shift
     done
     if [ -n "$PKG_INSTALL_SKIP" ] && [ -n "$PKG_INSTALL_FORCE" ]; then
@@ -425,7 +425,7 @@ if ! [ -f ./configure ]; then
     autoreconf -i
     [ -f ./configure ] || exit_fail
 fi
-           
+
 # Build the program.
 if [ -n "$INSTALL_DIR" ]; then
     prefix=--bindir=$INSTALL_DIR
