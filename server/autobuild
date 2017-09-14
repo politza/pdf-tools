@@ -390,10 +390,10 @@ if [ -n "$PKGCMD" ];then
     echo "---------------------------"
     echo "    Installing packages    "
     echo "---------------------------"
-    if [ -n "$PKG_INSTALL_SKIP" ] || {
-           [ -z "$PKG_INSTALL_FORCE" ] && have_packages_installed
-       }; then
-        echo "Skipping package installation"
+    if [ -n "$PKG_INSTALL_SKIP" ]; then
+        echo "Skipping package installation (as requested)"
+    elif [ -z "$PKG_INSTALL_FORCE" ] && have_packages_installed; then
+        echo "Skipping package installation (already installed)"
     else
         assert_program "$PKGCMD"
         echo "$PKGCMD $PKGARGS $PACKAGES"
