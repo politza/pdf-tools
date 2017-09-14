@@ -86,7 +86,7 @@
           (expand-file-name executable))))
   "Filename of the epdfinfo executable."
   :group 'pdf-info
-  :type '(file :must-match t))
+  :type 'file)
 
 (defcustom pdf-info-epdfinfo-error-filename nil
   "Filename for error output of the epdfinfo executable.
