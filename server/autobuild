@@ -444,6 +444,14 @@ if [ -n "$INSTALL_DIR" ]; then
     else
         exec_privileged make install || exit_fail
     fi
+    # Copy dynamic libraries on windows.
+    if [ -f epdfinfo.exe ]; then
+	assert_program awk
+	assert_program ldd
+	for dll in $(ldd epdfinfo.exe | awk '/\/mingw/ {print $3}'); do
+	    cp -u "$dll" "$INSTALL_DIR"
+	done
+    fi
     echo
 fi
 exit_success
