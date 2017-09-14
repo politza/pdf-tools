@@ -64,7 +64,7 @@ melpa-package: $(pkgfile)
 	tar -u --transform='s/README\.org/$(pkgname)\/README/' \
 		-f $(pkgname)-melpa.tar \
 		README.org
-	tar --delete $(pkgname)/epdfinfo \
+	-tar --delete $(pkgname)/epdfinfo \
 		-f $(pkgname)-melpa.tar
 
 # Various clean targets
