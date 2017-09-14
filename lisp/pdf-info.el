@@ -73,6 +73,13 @@
                        (file-executable-p (expand-file-name executable directory))
                        (expand-file-name executable directory))))
       (or (executable-find executable)
+          ;; This works if epdfinfo is in the same place as emacs and
+          ;; the editor was started with an absolute path, i.e. it is
+          ;; ment for Windows/Msys2.
+          (and (stringp (car-safe command-line-args))
+               (file-name-directory (car command-line-args))
+               (try-directory
+                (file-name-directory (car command-line-args))))
           (try-directory (expand-file-name "../server"))
           (expand-file-name executable))))
   "Filename of the epdfinfo executable."
