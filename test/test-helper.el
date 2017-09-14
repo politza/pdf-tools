@@ -99,5 +99,4 @@
 (require 'ert)
 (require 'pdf-tools)
 
-(provide 'test-helper)
 ;;; test-helper.el ends here
