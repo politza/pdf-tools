@@ -375,8 +375,7 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
           (ignore-errors (pdf-info-check-epdfinfo) t))
       (pdf-tools-install-noverify)
     (let ((target-directory
-           (or (pdf-tools-msys2-mingw-bin)
-               (and (stringp pdf-info-epdfinfo-program)
+           (or (and (stringp pdf-info-epdfinfo-program)
                     (file-name-directory
                      pdf-info-epdfinfo-program))
                pdf-tools-directory)))
