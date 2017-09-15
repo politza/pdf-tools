@@ -318,8 +318,10 @@ Returns the buffer of the compilation process."
             (format "%s -i %s%s"
                     autobuild
                     (shell-quote-argument target-directory)
-                    (if skip-dependencies-p
-                        " -D" ""))
+                    (cond
+                     (skip-dependencies-p " -D")
+                     (force-dependencies-p " -d")
+                     (t "")))
             t)))
       ;; In most cases user-input is required, so select the window.
       (if (get-buffer-window compilation-buffer)
