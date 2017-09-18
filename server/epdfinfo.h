@@ -25,12 +25,12 @@
 /* Some library functions print warnings to stdout, inhibit it. */
 #define DISCARD_STDOUT(saved_fd)                \
   do {                                          \
-    int fd;                                     \
+    int __fd;                                   \
     fflush(stdout);                             \
     saved_fd = dup(1);                          \
-    fd = open("/dev/null", O_WRONLY);           \
-    dup2(fd, 1);                                \
-    close(fd);                                  \
+    __fd = open("/dev/null", O_WRONLY);         \
+    dup2(__fd, 1);                              \
+    close(__fd);                                \
   } while (0)
 
 #define UNDISCARD_STDOUT(saved_fd)              \
