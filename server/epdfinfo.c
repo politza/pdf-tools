@@ -2977,9 +2977,7 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   PopplerPage *page = NULL;
   double width, height;
   int pn;
-  int fd;
 
-  DISCARD_STDOUT (fd);
   scanner = synctex_scanner_new_with_output_file (doc->filename, NULL, 1);
   perror_if_not (scanner, "Unable to create synctex scanner,\
  did you run latex with `--synctex=1' ?");
@@ -3003,7 +3001,6 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   x2 /= width;
   y2 /= height;
 
-  UNDISCARD_STDOUT (fd);
   OK_BEGIN ();
   printf("%d:%f:%f:%f:%f\n", pn, x1, y1, x2, y2);
   OK_END ();
@@ -3035,9 +3032,7 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   synctex_node_t node;
   double width, height;
   int line, column;
-  int fd;
 
-  DISCARD_STDOUT (fd);
   scanner = synctex_scanner_new_with_output_file (doc->filename, NULL, 1);
   perror_if_not (scanner, "Unable to create synctex scanner,\
  did you run latex with `--synctex=1' ?");
@@ -3053,7 +3048,6 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
       || ! (filename =
             synctex_scanner_get_name (scanner, synctex_node_tag (node))))
     {
-      UNDISCARD_STDOUT (fd);
       printf_error_response ("Destination not found");
       goto error;
     }
@@ -3061,7 +3055,6 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   line = synctex_node_line (node);
   column = synctex_node_column (node);
 
-  UNDISCARD_STDOUT (fd);
   OK_BEGIN ();
   print_response_string (filename, COLON);
   printf("%d:%d\n", line, column);

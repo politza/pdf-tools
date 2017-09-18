@@ -94,6 +94,8 @@ Thu Jun 19 09:39:21 UTC 2008
 #include "synctex_parser.h"
 #include "synctex_parser_utils.h"
 
+#define printf(fmt, args...) (fprintf (stderr, (fmt), ## args))
+
 /*  These are the possible extensions of the synctex file */
 const char * synctex_suffix = ".synctex";
 const char * synctex_suffix_gz = ".gz";
