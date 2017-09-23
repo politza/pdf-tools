@@ -163,6 +163,10 @@ PDF buffers."
   '("\\.[pP][dD][fF]\\'" . pdf-view-mode)
   "The entry to use for `auto-mode-alist'.")
 
+(defconst pdf-tools-magic-mode-alist-entry
+  '("%PDF" . pdf-view-mode)
+  "The entry to use for `magic-mode-alist'.")
+
 (defun pdf-tools-customize ()
   "Customize Pdf Tools."
   (interactive)
@@ -402,6 +406,7 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
 (defun pdf-tools-install-noverify ()
   "Like `pdf-tools-install', but skip checking `pdf-info-epdfinfo-program'."
   (add-to-list 'auto-mode-alist pdf-tools-auto-mode-alist-entry)
+  (add-to-list 'magic-mode-alist pdf-tools-magic-mode-alist-entry)
   ;; FIXME: Generalize this sometime.
   (when (memq 'pdf-occur-global-minor-mode
               pdf-tools-enabled-modes)
@@ -423,6 +428,8 @@ See `pdf-view-mode' and `pdf-tools-enabled-modes'."
   (pdf-info-quit)
   (setq-default auto-mode-alist
     (remove pdf-tools-auto-mode-alist-entry auto-mode-alist))
+  (setq-default magic-mode-alist
+    (remove pdf-tools-magic-mode-alist-entry magic-mode-alist))
   (pdf-occur-global-minor-mode -1)
   (pdf-virtual-global-minor-mode -1)
   (remove-hook 'pdf-view-mode-hook 'pdf-tools-enable-minor-modes)
