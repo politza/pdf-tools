@@ -102,7 +102,7 @@
 
 (defgroup pdf-tools nil
   "Support library for PDF documents."
-  :group 'doc-view)
+  :group 'data)
 
 (defgroup pdf-tools-faces nil
   "Faces determining the colors used in the pdf-tools package.
