@@ -11,6 +11,10 @@ libsynctex_a_SOURCES = synctex_parser.c synctex_parser_utils.c synctex_parser.h	
 			synctex_parser_local.h synctex_parser_utils.h
 libsynctex_a_CFLAGS = -w $(zlib_CFLAGS)
 
+if HAVE_W32
+epdfinfo_LDADD += -lshlwapi
+endif
+
 SYNCTEX_UPSTREAM = svn://tug.org/texlive/tags/texlive-2017.1/Build/source/texk/web2c/synctexdir
 SYNCTEX_FILES = synctex_parser.c		\
 		synctex_parser.h		\
