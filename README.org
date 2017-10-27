@@ -346,7 +346,7 @@
 | Fit Height / Fit Width / Fit Page        | ~H~ / ~W~ / ~P~ |
 | Trim margins (set slice to bounding box) | ~s b~           |
 | Reset margins                            | ~s r~           |
-| Toggle auto-trim mode                    | ~t~             |
+| Toggle auto-trim margins mode            | ~s a~           |
 | Reset Zoom                               | 0               |
 
 | Annotations                   |                                                 |

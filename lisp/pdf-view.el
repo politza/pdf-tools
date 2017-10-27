@@ -286,6 +286,7 @@ regarding display of the region in the later function.")
     (define-key map (kbd "s m")       'pdf-view-set-slice-using-mouse)
     (define-key map (kbd "s b")       'pdf-view-set-slice-from-bounding-box)
     (define-key map (kbd "s r")       'pdf-view-reset-slice)
+    (define-key map (kbd "s a")	      'pdf-view-auto-slice-minor-mode) 
     ;; Reconvert
     (define-key map (kbd "C-c C-c")   'doc-view-mode)
     (define-key map (kbd "g")         'revert-buffer)
@@ -849,6 +850,8 @@ See also `pdf-view-set-slice-from-bounding-box'."
    (t
     (remove-hook 'pdf-view-change-page-hook
                  'pdf-view-set-slice-from-bounding-box t))))
+
+
 
 
 ;; * ================================================================== *
