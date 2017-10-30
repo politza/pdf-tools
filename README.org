@@ -11,13 +11,13 @@
 
 ** About this package
    PDF Tools is, among other things, a replacement of DocView for PDF
-   files.  The key difference is, that pages are not pre-rendered by
+   files.  The key difference is that pages are not pre-rendered by
    e.g. ghostscript and stored in the file-system, but rather created
    on-demand and stored in memory.
 
    This rendering is performed by a special library named, for
    whatever reason, poppler, running inside a server program.  This
-   program is called ~epdfinfo~ and its job is it to successively
+   program is called ~epdfinfo~ and its job is to successively
    read requests from Emacs and produce the proper results, i.e. the
    PNG image of a PDF page.
 
@@ -51,7 +51,7 @@
    + SyncTeX :: Jump from a position on a page directly to the TeX
                 source and vice versa.
    + Virtual ::
-    Use a collection of documents as if it where one, big single PDF.
+    Use a collection of documents as if it were one, big single PDF.
 
    + Misc ::
      - Display PDF's metadata.
@@ -105,7 +105,7 @@
     |-------------------------------------------+------------------|
 
     In case you decide to install libpoppler from source, make sure
-    to run it's configure script with the ~--enable-xpdf-headers~
+    to run its configure script with the ~--enable-xpdf-headers~
     option.
 
     Finally there is one feature (following links of a PDF document by
@@ -131,7 +131,7 @@
 
      After that, compilation should proceed as normal.
 **** Compiling on FreeBSD
-     Although not officially suppported, it has been reported that
+     Although not officially supported, it has been reported that
      pdf-tools work well on FreeBSD.  Install the dependencies with
 #+BEGIN_SRC sh
   $ pkg install autotools gmake poppler-glib
