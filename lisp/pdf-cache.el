@@ -349,6 +349,8 @@ See also `pdf-info-renderpage-highlight' and
    (pdf-cache-prefetch-minor-mode
     (pdf-util-assert-pdf-buffer)
     (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
+    ;; FIXME: Disable the time when the buffer is killed or it's
+    ;; major-mode changes.
     (setq pdf-cache--prefetch-timer
           (run-with-idle-timer (or pdf-cache-prefetch-delay 1)
               t 'pdf-cache--prefetch-start (current-buffer))))
