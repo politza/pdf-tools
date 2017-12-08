@@ -356,7 +356,7 @@ os_nixos() {
     command="AUTOBUILD_NIX_SHELL=true"
     command="$command;export AUTOBUILD_NIX_SHELL"
     command="$command;$(quote "$0" "$@")"
-    exec nix-shell --pure --command "$command" \
+    exec nix-shell --pure --run "$command" \
          -p clang gnumake automake autoconf pkgconfig libpng zlib poppler
 }
 
