@@ -366,7 +366,7 @@ Do not signal an error in case the build failed, if NO-ERROR-P is
 non-nil.
 
 Attempt to install system packages (even if it is deemed
-unnecessary), if SKIP-DEPENDENCIES-P is non-nil.
+unnecessary), if FORCE-DEPENDENCIES-P is non-nil.
 
 Note that SKIP-DEPENDENCIES-P and FORCE-DEPENDENCIES-P are
 mutually exclusive.
