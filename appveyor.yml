@@ -16,7 +16,7 @@ install:
 
 build_script:
   - 'pushd %APPVEYOR_BUILD_FOLDER%'
-  - 'make -f %APPVEYOR_BUILD_FOLDER%\Makefile'
+  - 'make autobuild -f %APPVEYOR_BUILD_FOLDER%\Makefile'
 
 after_build:
   - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\pack.bat'
