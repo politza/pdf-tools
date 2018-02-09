@@ -244,6 +244,28 @@ os_freebsd() {
     return 0
 }
 
+# OpenBSD
+os_openbsd() {
+    if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "OpenBSD" ]; then
+        return 1
+    fi
+    PKGCMD=pkg_add
+    PKGARGS="-uU"
+    PACKAGES="autoconf-2.69p2 automake-1.15.1 poppler poppler-utils png"
+    export AUTOCONF_VERSION=2.69
+    export AUTOMAKE_VERSION=1.15
+    if whereis clang++ ;then
+        export CXX=clang++
+    elif whereis eg++ ;then
+        export CXX=eg++
+    else
+        export CXX=eg++
+        PACKAGES="${PACKAGES} g++"
+    fi
+    export CXXFLAGS="-std=c++11 -I/usr/local/include/poppler -I/usr/local/include"
+    return 0
+}
+
 # Fedora
 os_fedora() {
     if ! [ -e "/etc/fedora-release" ]; then
