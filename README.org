@@ -247,7 +247,7 @@
       libraries are always preferred in emacs:
 
  #+BEGIN_SRC emacs-lisp
- (setenv "PATH" (concat "C:\\msys2\\mingw64\\bin;" (getenv "PATH")))
+ (setenv "PATH" (concat "C:\\msys64\\mingw64\\bin;" (getenv "PATH")))
           #+END_SRC
 
 *** ELisp Prerequisites
