@@ -156,7 +156,7 @@
      emacs. This includes the standard binaries provided by the GNU
      project, those available as MSYS2 packages and numerous third-party
      binaries. It has been tested with emacs 25.1. Instructions are
-     provided under [[Compilation and installation on Windows][#compilation-and-installation-on-windows]], below.
+     provided under [[#compilation-and-installation-on-windows][Compilation and installation on Windows]], below.
      PDF Tools will successfully compile using Cygwin, but it will not be 
      able to open PDFs properly due to the way binaries compiled with Cygwin
      handle file paths.
