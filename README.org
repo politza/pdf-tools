@@ -156,20 +156,10 @@
      emacs. This includes the standard binaries provided by the GNU
      project, those available as MSYS2 packages and numerous third-party
      binaries. It has been tested with emacs 25.1. Instructions are
-     provided under [[Compilation and installation on Windows]], below.
-**** Compiling on Cygwin
-     On [[https://www.cygwin.com/][Cygwin]] the following dependencies are needed.
-
-     - libpoppler-devel (*Lib* category)
-     - libpoppler-glib-devel (*Lib* category)
-     - libpng-devel (*Devel* category)
-     - make (*Devel* category)
-     - gcc-core (*Devel* category)
-     - gcc-g++ (*Devel* category)
-     - autoconf (*Devel* category)
-     - automake (*Devel* category)
-     - perl (*Perl* category)
-     - emacs-w32 (*Editors* category)
+     provided under [[Compilation and installation on Windows][#compilation-and-installation-on-windows]], below.
+     PDF Tools will successfully compile using Cygwin, but it will not be 
+     able to open PDFs properly due to the way binaries compiled with Cygwin
+     handle file paths.
 
 *** Compilation
     :PROPERTIES:
@@ -198,7 +188,15 @@
 
       First, install [[http://www.msys2.org/][install MSYS2]] and update
       the package database and core packages using the instructions
-      provided. Then, to compile PDF tools itself:
+      provided. 
+	  
+      If you have installed Cygwin, you must remove all entries of your 
+      "cygwin64\bin" directory from your Windows path environment variable.
+      This is necessery to prevent Emacs from using Cygwin's shell while 
+      installing PDF Tools. You can add your "cygwin64\bin" directory back
+      to your path after PDF Tools has been successfully installed. 
+	  
+	  Now compile PDF tools itself:
 
       1. Open msys2 shell
 
@@ -249,7 +247,7 @@
       libraries are always preferred in emacs:
 
  #+BEGIN_SRC emacs-lisp
- (setenv "PATH" (concat "C:\\msys64\\mingw64\\bin;" (getenv "PATH")))
+ (setenv "PATH" (concat "C:\\msys2\\mingw64\\bin;" (getenv "PATH")))
           #+END_SRC
 
 *** ELisp Prerequisites
