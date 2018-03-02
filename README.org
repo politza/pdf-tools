@@ -156,20 +156,10 @@
      emacs. This includes the standard binaries provided by the GNU
      project, those available as MSYS2 packages and numerous third-party
      binaries. It has been tested with emacs 25.1. Instructions are
-     provided under [[Compilation and installation on Windows]], below.
-**** Compiling on Cygwin
-     On [[https://www.cygwin.com/][Cygwin]] the following dependencies are needed.
-
-     - libpoppler-devel (*Lib* category)
-     - libpoppler-glib-devel (*Lib* category)
-     - libpng-devel (*Devel* category)
-     - make (*Devel* category)
-     - gcc-core (*Devel* category)
-     - gcc-g++ (*Devel* category)
-     - autoconf (*Devel* category)
-     - automake (*Devel* category)
-     - perl (*Perl* category)
-     - emacs-w32 (*Editors* category)
+     provided under [[#compilation-and-installation-on-windows][Compilation and installation on Windows]], below.
+     PDF Tools will successfully compile using Cygwin, but it will not be 
+     able to open PDFs properly due to the way binaries compiled with Cygwin
+     handle file paths.
 
 *** Compilation
     :PROPERTIES:
@@ -204,28 +194,28 @@
 
       2. Update and install dependencies, skipping any you already have
          #+BEGIN_SRC sh
-         pacman -Syu
-         pacman -S base-devel
-         pacman -S mingw-w64-x86_64-toolchain
-         pacman -S mingw-w64-x86_64-zlib
-         pacman -S mingw-w64-x86_64-libpng
-         pacman -S mingw-w64-x86_64-poppler
-         pacman -S mingw-w64-x86_64-imagemagick
+         $ pacman -Syu
+         $ pacman -S base-devel
+         $ pacman -S mingw-w64-x86_64-toolchain
+         $ pacman -S mingw-w64-x86_64-zlib
+         $ pacman -S mingw-w64-x86_64-libpng
+         $ pacman -S mingw-w64-x86_64-poppler
+         $ pacman -S mingw-w64-x86_64-imagemagick
          #+END_SRC
 
       3. Install PDF tools in Emacs, but do not try to compile the
          server. Instead, get a separate copy of the source somewhere
          else.
          #+BEGIN_SRC sh
-         git clone https://github.com/politza/pdf-tools
+         $ git clone https://github.com/politza/pdf-tools
          #+END_SRC
 
-      4. Open mingw64 shell
+      4. Open mingw64 shell (*Note:* You must use mingw64.exe and not msys2.exe)
 
       5. Compile pdf-tools
          #+BEGIN_SRC sh
-         cd pdf-tools/build
-         make -s
+         $ cd /path/to/pdf-tools
+         $ make -s
          #+END_SRC
 
       6. This should produce a file ~server/epdfinfo.exe~. Copy this file
@@ -250,7 +240,7 @@
 
  #+BEGIN_SRC emacs-lisp
  (setenv "PATH" (concat "C:\\msys64\\mingw64\\bin;" (getenv "PATH")))
-          #+END_SRC
+ #+END_SRC
 
 *** ELisp Prerequisites
     This package depends on the following Elisp packages, which should
