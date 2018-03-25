@@ -130,9 +130,18 @@
      or likewise within Emacs using `setenv`.
 
      After that, compilation should proceed as normal.
-**** Compiling on FreeBSD
-     Although not officially suppported, it has been reported that
-     pdf-tools work well on FreeBSD.  Install the dependencies with
+**** FreeBSD
+     Although not officially supported, it has been reported that
+     pdf-tools work well on FreeBSD.  Instead of building pdf-tools, you
+     can install one of the OS packages with, e.g.
+#+BEGIN_SRC sh
+  $ pkg install pdf-tools-emacs25
+#+END_SRC
+     To see the current list of pdf-tools packages for FreeBSD visit
+     [[https://repology.org/metapackages/?search=pdf-tools&inrepo=freebsd][the Repology list]].
+
+     To build pdf-tools from either melpa or directly from the source
+     repository, install the dependencies with
 #+BEGIN_SRC sh
   $ pkg install autotools gmake poppler-glib
 #+END_SRC
