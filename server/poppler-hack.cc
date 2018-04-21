@@ -85,7 +85,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
   // Set the rectangle of an annotation.  It was first added in v0.26.
   void xpoppler_annot_set_rectangle (PopplerAnnot *a, PopplerRectangle *rectangle)
   {
-    GooString *state = a->annot->getAppearState ();
+    GooString *state = (GooString *)a->annot->getAppearState ();
     char *ustate = _xpoppler_goo_string_to_utf8 (state);
 
     a->annot->setRect (rectangle->x1, rectangle->y1,
@@ -105,7 +105,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
     g_return_val_if_fail (POPPLER_IS_ANNOT_MARKUP (poppler_annot), NULL);
 
     annot = static_cast<AnnotMarkup *>(POPPLER_ANNOT (poppler_annot)->annot);
-    text = annot->getDate ();
+    text = (GooString *)annot->getDate ();
 
     return text ? _xpoppler_goo_string_to_utf8 (text) : NULL;
   }
