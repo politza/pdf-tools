@@ -409,13 +409,13 @@ handle_options "$@"
 os_nixos   "$@" || \
 os_macos   "$@" || \
 os_freebsd "$@" || \
-os_arch    "$@"	|| \
-os_centos  "$@"	|| \
-os_openbsd "$@"	|| \
-os_fedora  "$@"	|| \
-os_debian  "$@"	|| \
-os_gentoo  "$@"	|| \
-os_msys2   "$@"	|| \
+os_arch    "$@" || \
+os_centos  "$@" || \
+os_openbsd "$@" || \
+os_fedora  "$@" || \
+os_debian  "$@" || \
+os_gentoo  "$@" || \
+os_msys2   "$@" || \
 {
     OS_IS_HANDLED=
     if [ -z "$DRY_RUN" ]; then
