@@ -263,11 +263,11 @@ Returns always nil, unless `system-type' equals windows-nt."
 
 (defun pdf-tools-find-bourne-shell ()
   "Locate a usable sh."
-  (or (executable-find "sh")
-      (and (eq system-type 'windows-nt)
+  (or (and (eq system-type 'windows-nt)
            (let* ((directory (pdf-tools-msys2-directory)))
              (when directory
-               (expand-file-name "usr/bin/bash.exe" directory))))))
+               (expand-file-name "usr/bin/bash.exe" directory))))
+      (executable-find "sh")))
 
 (defun pdf-tools-build-server (target-directory
                                &optional

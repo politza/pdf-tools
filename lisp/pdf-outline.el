@@ -166,10 +166,10 @@ additionally quit the Outline.
 rebound to their respective last character.
 
 \\{pdf-outline-buffer-mode-map}"
-  (setq outline-regexp "\\( *\\)."
-        outline-level
-        (lambda nil (1+ (/ (length (match-string 1))
-                           pdf-outline-buffer-indent))))
+  (setq-local outline-regexp "\\( *\\).")
+  (setq-local outline-level
+              (lambda nil (1+ (/ (length (match-string 1))
+                                 pdf-outline-buffer-indent))))
 
   (toggle-truncate-lines 1)
   (setq buffer-read-only t)
