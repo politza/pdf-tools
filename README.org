@@ -117,9 +117,9 @@
 **** Compiling on OS X
      Although OS X is not officially supported, it has been reported
      to have been successfully compiled.  You will need to install
-     poppler which you can get with homebrew via
+     poppler and cask, which you can get with homebrew via
 #+BEGIN_SRC sh
-  $ brew install poppler automake
+  $ brew install poppler automake cask
 #+END_SRC
 
      You will also have to help ~pkg-config~ find some libraries by
