@@ -1,0 +1,26 @@
+version: 1.0.{build}
+
+environment:
+  matrix:
+  - COMPILER: msys2
+    PLATFORM: x64
+    MSYS2_ARCH: x86_64
+    MSYS2_DIR: msys64
+    MSYSTEM: MINGW64
+    BIT: 64
+
+install:
+  # running under CI
+  - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\install.bat'
+  - 'echo End intall at: & time /t'
+
+build_script:
+  - 'pushd %APPVEYOR_BUILD_FOLDER%'
+  - 'make autobuild -f %APPVEYOR_BUILD_FOLDER%\Makefile'
+
+after_build:
+  - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\pack.bat'
+
+artifacts:
+  - path: '*.zip'
+  - path: '*.tar'
