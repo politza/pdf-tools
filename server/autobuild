@@ -406,8 +406,8 @@ os_gentoo() {
 
 handle_options "$@"
 
-os_nixos   "$@" || \
 os_macos   "$@" || \
+os_nixos   "$@" || \
 os_freebsd "$@" || \
 os_arch    "$@" || \
 os_centos  "$@" || \
