@@ -51,7 +51,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
     double y2;
   };
 
-  char *_xpoppler_goo_string_to_utf8(GooString *s)
+  char *_xpoppler_goo_string_to_utf8(const GooString *s)
   {
     char *result;
 
@@ -100,7 +100,7 @@ GType poppler_annot_markup_get_type (void) G_GNUC_CONST;
   gchar *xpoppler_annot_markup_get_created (PopplerAnnotMarkup *poppler_annot)
   {
     AnnotMarkup *annot;
-    GooString *text;
+    const GooString *text;
 
     g_return_val_if_fail (POPPLER_IS_ANNOT_MARKUP (poppler_annot), NULL);
 
