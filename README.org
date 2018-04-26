@@ -202,7 +202,7 @@
       1. Open msys2 shell
 
       2. Update and install dependencies, skipping any you already have
-#+BEGIN_SRC sh
+         #+BEGIN_SRC sh
          $ pacman -Syu
          $ pacman -S base-devel
          $ pacman -S mingw-w64-x86_64-toolchain
@@ -210,35 +210,35 @@
          $ pacman -S mingw-w64-x86_64-libpng
          $ pacman -S mingw-w64-x86_64-poppler
          $ pacman -S mingw-w64-x86_64-imagemagick
-#+END_SRC
+         #+END_SRC
 
       3. Install PDF tools in Emacs, but do not try to compile the
          server. Instead, get a separate copy of the source somewhere
          else.
-#+BEGIN_SRC sh
+         #+BEGIN_SRC sh
          $ git clone https://github.com/politza/pdf-tools
-#+END_SRC
+         #+END_SRC
 
       4. Open mingw64 shell (*Note:* You must use mingw64.exe and not msys2.exe)
 
       5. Compile pdf-tools
-#+BEGIN_SRC sh
+         #+BEGIN_SRC sh
          $ cd /path/to/pdf-tools
          $ make -s
-#+END_SRC
+         #+END_SRC
 
       6. This should produce a file ~server/epdfinfo.exe~. Copy this file
          into the ~pdf-tools/~ installation directory in your Emacs.
 
       7. Start Emacs and activate the package.
-#+BEGIN_SRC
+         #+BEGIN_SRC
          M-x pdf-tools-install RET
-#+END_SRC
+         #+END_SRC
 
       8. Test.
-#+BEGIN_SRC
+         #+BEGIN_SRC
          M-x pdf-info-check-epdfinfo RET
-#+END_SRC
+         #+END_SRC
 
       If this is successful, ~(pdf-tools-install)~ can be added to Emacs'
       config. Note that libraries from other GNU utilities, such as Git
