@@ -27,6 +27,7 @@
 (require 'pdf-cache)
 (require 'pdf-isearch)
 (require 'let-alist)
+(require 'org)
 
 ;;; Code:
 
@@ -81,7 +82,7 @@ reading links."
                                             (>= x 0))))))
 
 (defcustom pdf-links-browse-uri-function
-  'org-open-link-from-string
+  'pdf-links-browse-uri-default
   "The function for handling uri links.
 
 This function should accept one argument, the URI to follow, and
@@ -361,8 +362,15 @@ See `pdf-links-action-perform' for the interface."
         m))
      matches)))
 
+(defun pdf-links-browse-uri-default (uri)
+  "Open the string URI using Org.
+
+Wraps the URI in \[\[ ... \]\] and calls `org-open-link-from-string'
+on the resulting string."
+  (cl-check-type uri string)
+  (message "Opening `%s' with Org" uri)
+  (org-open-link-from-string (format "[[%s]]" uri)))
+
 (provide 'pdf-links)
-
-
 
 ;;; pdf-links.el ends here
