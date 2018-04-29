@@ -3,7 +3,6 @@
 #+EMAIL:     politza@fh-trier.de
 
 [[https://travis-ci.org/politza/pdf-tools.svg?branch%3Dmaster][https://travis-ci.org/politza/pdf-tools.svg?branch=master]]
-[[https://coveralls.io/repos/politza/pdf-tools/badge.svg?branch=master&service=github][https://coveralls.io/github/politza/pdf-tools?branch=master]]
 [[http://stable.melpa.org/#/pdf-tools][http://stable.melpa.org/packages/pdf-tools-badge.svg]]
 [[http://melpa.org/#/pdf-tools][http://melpa.org/packages/pdf-tools-badge.svg]]
 
