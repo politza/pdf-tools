@@ -208,6 +208,7 @@
                                       md)))
              (fmt (format "%%%ds:%%s\n" pad))
              window)
+        (help-mode)
         (erase-buffer)
         (setq header-line-format (buffer-name buffer)
               buffer-read-only t)
