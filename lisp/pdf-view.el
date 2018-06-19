@@ -1504,9 +1504,8 @@ See also `pdf-view-bookmark-make-record'."
                    (round (/ (* (cdr origin) (cdr size))
                              (frame-char-height)))))))))
     (add-hook 'bookmark-after-jump-hook show-fn-sym)
-    (switch-to-buffer
-     (or (find-buffer-visiting file)
-	 (find-file-noselect file)))))
+    (switch-to-buffer (or (find-buffer-visiting file)
+			  (find-file-noselect file)))))
 
 (defun pdf-view-bookmark-jump (bmk)
   "Switch to bookmark BMK.
