@@ -333,7 +333,7 @@
 | Jump to Occur Line                         | ~RETURN~              |
 | Pick a Link and Jump                       | ~F~                   |
 | Incremental Search in Links                | ~f~                   |
-| History Back / Forwards                    | ~B~ / ~F~             |
+| History Back / Forwards                    | ~B~ / ~N~             |
 | Display Outline                            | ~o~                   |
 | Jump to Section from Outline               | ~RETURN~              |
 | Jump to Page                               | ~M-g g~               |
