@@ -1502,13 +1502,17 @@ belong to the same page and A1 is displayed above/left of A2."
              "Unknown date")))))
 
 (define-derived-mode pdf-annot-list-mode tablist-mode "Annots"
-  (setq tabulated-list-entries 'pdf-annot-list-entries
-        tabulated-list-format (vector
-                               '("Pg." 3 t :read-only t :right-align t)
-                               `("Type" 10 t :read-only t)
-                               `("Label" 24 t :read-only t)
-                               '("Date" 24 t :read-only t))
-        tabulated-list-padding 2)
+  (let ((page-sorter
+         (lambda (a b)
+           (< (string-to-number (aref (cadr a) 0))
+              (string-to-number (aref (cadr b) 0))))))
+    (setq tabulated-list-entries 'pdf-annot-list-entries
+          tabulated-list-format (vector
+                                 `("Pg." 3 ,page-sorter :read-only t :right-align t)
+                                 `("Type" 10 t :read-only t)
+                                 `("Label" 24 t :read-only t)
+                                 '("Date" 24 t :read-only t))
+          tabulated-list-padding 2))
   (set-keymap-parent pdf-annot-list-mode-map tablist-mode-map)
   (use-local-map pdf-annot-list-mode-map)
   (setq tablist-current-filter
