@@ -32,7 +32,6 @@
 (require 'tablist)
 (require 'cl-lib)
 
-
 
 ;; * ================================================================== *
 ;; * Customizations
@@ -982,10 +981,11 @@ Return the new annotation."
                    (if (eq type 'text)
                        (car edges)
                      (apply #'pdf-util-edges-union
-                            (seq-mapcat
-                             (lambda (e)
-                               (pdf-info-getselection page e))
-                             edges)))
+                            (apply #'append
+                                   (mapcar
+                                    (lambda (e)
+                                      (pdf-info-getselection page e))
+                                    edges))))
                    type
                    nil
                    (if (not (eq type 'text)) edges)))
