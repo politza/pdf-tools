@@ -1,5 +1,13 @@
 -*- org -*-
 
+* Version 0.90
+** Improved handling of default annotation properties
+   A new variable pdf-annot-default-annotation-properties was
+   introduced, subsuming and obsoleting
+   pdf-annot-default-text-annotation-properties and
+   pdf-annot-default-markup-annotation-properties.  The new variable
+   let's the user choose default properties, e.g. a color, for all
+   supported annotations separately.
 * Version 0.80
 ** Tablist package
    The files tablist.el and tablist-filter.el are no longer part of
