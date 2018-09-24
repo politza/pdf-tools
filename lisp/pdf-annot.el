@@ -981,7 +981,11 @@ Return the new annotation."
                    page
                    (if (eq type 'text)
                        (car edges)
-                     '(0 0 0 0))
+                     (apply #'pdf-util-edges-union
+                            (seq-mapcat
+                             (lambda (e)
+                               (pdf-info-getselection page e))
+                             edges)))
                    type
                    nil
                    (if (not (eq type 'text)) edges)))
