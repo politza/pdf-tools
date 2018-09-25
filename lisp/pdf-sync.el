@@ -761,11 +761,15 @@ The first such filename is returned, or nil if none was found."
     (let* ((synctex (pdf-sync-locate-synctex-file pdffile))
            (basename (file-name-nondirectory filename))
            (regexp (format "^ *Input *: *[^:\n]+ *:\\(.*%s\\)$"
-                           (regexp-quote basename))))
+                           (regexp-quote basename)))
+           (jka-compr-verbose nil))
       (when (and synctex
                  (file-readable-p synctex))
-        (with-current-buffer (let ((revert-without-query (list "")))
-                               (find-file-noselect synctex))
+        (with-current-buffer (find-file-noselect synctex :nowarn)
+          (unless (or (verify-visited-file-modtime)
+                      (buffer-modified-p))
+            (revert-buffer :ignore-auto :noconfirm)
+            (goto-char (point-min)))
           ;; Keep point in front of the found filename. It will
           ;; probably be queried for again next time.
           (let ((beg (point))
