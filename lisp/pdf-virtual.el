@@ -257,9 +257,7 @@ case it is nil, i.e. check that the buffer passes
   (declare (doc-string 3) (indent defun)
            (debug (&define name lambda-list
                            [&optional stringp]
-                           def-body))
-           (font-lock defun)
-           (imenu "Document"))
+                           def-body)))
   (unless (stringp documentation)
     (push documentation body)
     (setq documentation nil))
@@ -715,9 +713,7 @@ PAGE should be a page-number."
   (declare (doc-string 3) (indent 2)
            (debug (&define name lambda-list
                            [&optional stringp]
-                           def-body))
-           (font-lock defun)
-           (imenu "Adapter"))
+                           def-body)))
   (unless (stringp doc)
     (push doc body)
     (setq doc nil))
