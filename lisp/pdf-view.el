@@ -370,6 +370,11 @@ PNG images in Emacs buffers."
   ;; Enable transient-mark-mode, so region deactivation when quitting
   ;; will work.
   (setq-local transient-mark-mode t)
+  ;; Disable cua-mode, since it does not work with pdf-view-mode.
+  ;; FIXME: cua-mode is a global minor-mode, but setting cua-mode to
+  ;; nil seems to do the trick.
+  (when (bound-and-true-p cua-mode)
+    (setq-local cua-mode nil))
 
   (add-hook 'window-configuration-change-hook
             'pdf-view-maybe-redisplay-resized-windows nil t)
