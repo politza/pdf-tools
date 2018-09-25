@@ -382,7 +382,8 @@ error."
         (accept-process-output (pdf-info-process) 0.01))
       (when (and (not done)
                  (not (eq (process-status (pdf-info-process))
-                          'run)))
+                          'run))
+                 (not (eq cmd 'quit)))
         (error "The epdfinfo server quit unexpectedly."))
       (cond
        ((null status) response)
