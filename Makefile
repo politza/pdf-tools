@@ -8,7 +8,7 @@ endif
 
 emacs = $(EMACS)
 emacs_version = $(shell $(emacs) --batch --eval \
-		'(princ (format "%s.%s" emacs-major-version emacs-minor-version))') 
+		'(princ (format "%s.%s" emacs-major-version emacs-minor-version))')
 $(info Using Emacs $(emacs_version))
 
 version=$(shell sed -ne 's/^;\+ *Version: *\([0-9.]\)/\1/p' lisp/pdf-tools.el)
@@ -29,7 +29,7 @@ bytecompile: .cask/$(emacs_version)
 
 # Run ERT tests
 test: all
-	PACKAGE_TAR=$(pkgfile) cask exec ert-runner	
+	PACKAGE_TAR=$(pkgfile) cask exec ert-runner
 
 check: test
 
@@ -60,7 +60,7 @@ melpa-package: $(pkgfile)
 		$$(git ls-files server)
 	tar -u --transform='s/Makefile/$(pkgname)\/build\/Makefile/' \
 		-f $(pkgname)-melpa.tar \
-		Makefile 
+		Makefile
 	tar -u --transform='s/README\.org/$(pkgname)\/README/' \
 		-f $(pkgname)-melpa.tar \
 		README.org
@@ -72,6 +72,7 @@ clean: server-clean
 	rm -f -- $(pkgfile)
 	rm -f -- lisp/*.elc
 	rm -f -- pdf-tools-readme.txt
+	rm -f -- pdf-tools-$(version).entry
 
 distclean: clean server-distclean
 	rm -rf -- .cask
