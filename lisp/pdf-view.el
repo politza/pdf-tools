@@ -493,7 +493,9 @@ Optional parameters IGNORE-AUTO and NOCONFIRM are defined as in
 See also `pdf-info-close', which does not return immediately."
   (when (pdf-info-running-p)
     (let ((pdf-info-asynchronous 'ignore))
-      (pdf-info-close))))
+      (with-demoted-errors
+          "Error running pdf-info-close: %S"
+          (pdf-info-close)))))
 
 
 ;; * ================================================================== *
