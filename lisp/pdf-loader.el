@@ -49,7 +49,7 @@ see."
     (if (featurep 'pdf-tools)
         (apply #'pdf-tools-install args)
       (pdf-loader--install
-       (apply #'pdf-loader-load args)))))
+       (apply #'pdf-loader--load args)))))
 
 (defun pdf-loader--load (&rest args)
   (pdf-loader--uninstall)
