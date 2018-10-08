@@ -923,7 +923,10 @@ See also `regexp-quote'."
 ;; * Imagemagick's convert
 ;; * ================================================================== *
 
-(defcustom pdf-util-convert-program (executable-find "convert")
+(defcustom pdf-util-convert-program
+  ;; Avoid using the MS Windows command convert.exe .
+  (unless (memq system-type '(ms-dos windows-nt))
+    (executable-find "convert"))
   "Absolute path to the convert program."
   :group 'pdf-tools
   :type 'executable)
@@ -1070,6 +1073,7 @@ Return the converted PNG image as a string.  See also
                (plist-get (cdr (pdf-view-current-image)) :data)))
           (with-temp-file in-file
             (set-buffer-multibyte nil)
+            (set-buffer-file-coding-system 'binary)
             (insert image-data))
           (pdf-util-munch-file
            (apply 'pdf-util-convert
