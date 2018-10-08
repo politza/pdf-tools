@@ -277,9 +277,14 @@
 #+begin_src elisp
   (pdf-tools-install)
 #+end_src
-  somewhere in your ~.emacs~. Next you probably want to take a look at
-  the various features of what you've just installed.  The following
-  two commands might be of help for doing so.
+  somewhere in your ~.emacs~.  Alternatively, and if you care about
+  start-up time, you may want to use 
+#+begin_src elisp
+  (pdf-loader-install)
+#+end_src
+  instead.  Next you probably want to take a look at the various
+  features of what you've just installed.  The following two commands
+  might be of help for doing so.
 #+begin_src elisp
   M-x pdf-tools-help RET
   M-x pdf-tools-customize RET

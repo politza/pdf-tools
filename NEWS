@@ -8,6 +8,10 @@
    pdf-annot-default-markup-annotation-properties.  The new variable
    let's the user choose default properties, e.g. a color, for all
    supported annotations separately.
+** Provide a faster "boot-loader"
+   The autoloaded function `pdf-loader-install' acts as a replacement
+   for ‘pdf-tools-install’ and makes Emacs load and use PDF Tools as soon
+   as a PDF file is opened, but not sooner.
 * Version 0.80
 ** Tablist package
    The files tablist.el and tablist-filter.el are no longer part of
