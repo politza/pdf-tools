@@ -1523,6 +1523,11 @@ annotation's contents and otherwise `text-mode'. "
 	     (comment (integer :value 56 :tag "Column Width")))
   :group 'pdf-annot)
 
+(defcustom pdf-annot-list-highlight-type t
+  "Whether to highlight \"Type\" column annotation list with annotation color."
+  :group 'pdf-annot
+  :type 'boolean)
+
 (defvar-local pdf-annot-list-buffer nil)
 
 (defvar-local pdf-annot-list-document-buffer nil)
@@ -1573,6 +1578,11 @@ belong to the same page and A1 is displayed above/left of A2."
   (lambda (fmt)
    (let ((entry-type (car fmt))
 	 (entry-width (cdr fmt))
+	 ;; Taken from css-mode.el
+	 (contrasty-color
+	  (lambda (name)
+	    (if (> (color-distance name "black") 292485)
+		"black" "white")))
 	 (prune-newlines
 	  (lambda (str)
 	    (replace-regexp-in-string "\n" " " str t t))))
@@ -1586,7 +1596,15 @@ belong to the same page and A1 is displayed above/left of A2."
 	 (funcall prune-newlines
 		(pdf-annot-print-property a 'contents))
 	 entry-width))
-       (type (pdf-annot-print-property a 'type))))))
+       (type
+	(let ((color (pdf-annot-get a 'color))
+	      (type (pdf-annot-print-property a 'type)))
+	  (if pdf-annot-list-highlight-type
+	      (propertize
+	       type 'face
+	       `(:background ,color
+		 :foreground ,(funcall contrasty-color color)))
+	    type)))))))
 
 (defun pdf-annot-list-create-entry (a)
   "Create a `tabulated-list-entries' entry for annotation A."
