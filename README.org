@@ -158,6 +158,11 @@
   $ sudo dnf install make automake autoconf gcc gcc-c++ ImageMagick libpng-devel zlib-devel poppler-glib-devel
 #+END_SRC
 
+**** Compiling on Alpine Linux
+#+BEGIN_SRC sh
+  $ apk add build-base g++ gcc automake autoconf libpng-dev glib-dev poppler-dev
+#+END_SRC
+
 **** Compiling on Windows
      PDF Tools can be built and used on Windows using the MSYS2
      compiler. This will work with native (not cygwin) Windows builds of
