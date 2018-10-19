@@ -333,7 +333,7 @@
 | Navigation                                 |                       |
 |--------------------------------------------+-----------------------|
 | Scroll Up / Down by page-full              | ~space~ / ~backspace~ |
-| Scroll Up / Down by line                   | ~C-n~ / ~C-b~         |
+| Scroll Up / Down by line                   | ~C-n~ / ~C-p~         |
 | Scroll Right / Left                        | ~C-f~ / ~C-b~         |
 | Top of Page / Bottom of Page               | ~<~ / ~>~             |
 | Next Page / Previous Page                  | ~n~ / ~p~             |
