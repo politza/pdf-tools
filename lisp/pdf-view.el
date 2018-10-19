@@ -350,7 +350,10 @@ PNG images in Emacs buffers."
   ;; Setup other local variables.
   (setq-local mode-line-position
               '(" P" (:eval (number-to-string (pdf-view-current-page)))
-                "/" (:eval (number-to-string (pdf-cache-number-of-pages)))))
+                ;; Avoid errors during redisplay.
+                "/" (:eval (or (ignore-errors
+                                 (number-to-string (pdf-cache-number-of-pages)))
+                               "???"))))
   (setq-local auto-hscroll-mode nil)
   (setq-local pdf-view--server-file-name (pdf-view-buffer-file-name))
   ;; High values of scroll-conservatively seem to trigger
