@@ -58,20 +58,21 @@ see."
     (pdf-tools-install args)))
 
 (defun pdf-loader--install (loader)
-  (setf (alist-get pdf-loader--auto-mode-alist-item
-                   auto-mode-alist nil nil #'equal)
-        loader)
-  (setf (alist-get pdf-loader--magic-mode-alist-item
-                   magic-mode-alist nil nil #'equal)
-        loader))
+  (pdf-loader--uninstall)
+  (push (cons pdf-loader--auto-mode-alist-item loader)
+        auto-mode-alist)
+  (push (cons pdf-loader--magic-mode-alist-item loader)
+        magic-mode-alist))
 
 (defun pdf-loader--uninstall ()
-  (setf (alist-get pdf-loader--auto-mode-alist-item
-                   auto-mode-alist nil :remove #'equal)
-        nil)
-  (setf (alist-get pdf-loader--magic-mode-alist-item
-                   magic-mode-alist nil :remove #'equal)
-        nil))
+  (let ((elt (assoc pdf-loader--auto-mode-alist-item
+                    auto-mode-alist)))
+    (when elt
+      (setq auto-mode-alist (remove elt auto-mode-alist))))
+  (let ((elt (assoc pdf-loader--magic-mode-alist-item
+                    magic-mode-alist)))
+    (when elt
+      (setq magic-mode-alist (remove elt magic-mode-alist)))))
 
 (provide 'pdf-loader)
 ;;; pdf-loader.el ends here
