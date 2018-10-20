@@ -493,10 +493,12 @@ Optional parameters IGNORE-AUTO and NOCONFIRM are defined as in
 (defun pdf-view-close-document ()
   "Return immediately after closing document.
 
-See also `pdf-info-close', which does not return immediately."
+This function always suceeds.  See also `pdf-info-close', which
+does not return immediately."
   (when (pdf-info-running-p)
     (let ((pdf-info-asynchronous 'ignore))
-      (pdf-info-close))))
+      (ignore-errors
+        (pdf-info-close)))))
 
 
 ;; * ================================================================== *
