@@ -331,6 +331,10 @@ PNG images in Emacs buffers."
                              "-"))))
       (write-region nil nil tempfile nil 'no-message)
       (setq-local pdf-view--buffer-file-name tempfile)))
+  ;; Decryption needs to be done before any other function calls into
+  ;; pdf-info.el (e.g. from the mode-line during redisplay during
+  ;; waiting for process output).
+  (pdf-view-decrypt-document)
 
   ;; Setup scroll functions
   (if (boundp 'mwheel-scroll-up-function) ; not --without-x build
@@ -393,9 +397,6 @@ PNG images in Emacs buffers."
             'pdf-view-new-window-function nil t)
   (image-mode-setup-winprops)
 
-  ;; Decryption needs to be done before any other function calls into
-  ;; pdf-info.el .
-  (pdf-view-decrypt-document)
   ;; Issue a warning in the future about incompatible modes.
   (run-with-timer 1 nil #'pdf-view-check-incompatible-modes
 		  (current-buffer))
