@@ -1473,13 +1473,13 @@ annotation's contents and otherwise `text-mode'. "
               (pdf-annot-edit-contents-minor-mode 1)
               (current-buffer))))
     (with-current-buffer pdf-annot-edit-contents--buffer
-      (setq pdf-annot-edit-contents--annotation a)
-      (funcall pdf-annot-edit-contents-setup-function a)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (save-excursion (insert (pdf-annot-get a 'contents)))
-        (set-buffer-modified-p nil)
-        (current-buffer)))))
+        (set-buffer-modified-p nil))
+      (setq pdf-annot-edit-contents--annotation a)
+      (funcall pdf-annot-edit-contents-setup-function a)
+      (current-buffer))))
 
 (defun pdf-annot-edit-contents (a)
   (select-window
