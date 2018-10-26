@@ -398,7 +398,9 @@ PNG images in Emacs buffers."
   (image-mode-setup-winprops)
 
   ;; Issue a warning in the future about incompatible modes.
-  (run-with-timer 1 nil #'pdf-view-check-incompatible-modes
+  (run-with-timer 1 nil (lambda (buffer)
+                          (when (buffer-live-p buffer)
+                            (pdf-view-check-incompatible-modes buffer)))
 		  (current-buffer))
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1)))
