@@ -1523,7 +1523,7 @@ annotation's contents and otherwise `text-mode'. "
 	     (contents (integer :value 56 :tag "Column Width")))
   :group 'pdf-annot)
 
-(defcustom pdf-annot-list-highlight-type t
+(defcustom pdf-annot-list-highlight-type nil
   "Whether to highlight \"Type\" column annotation list with annotation color."
   :group 'pdf-annot
   :type 'boolean)
