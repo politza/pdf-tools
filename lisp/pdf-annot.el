@@ -1520,7 +1520,7 @@ annotation's contents and otherwise `text-mode'. "
 	     (type (integer :value 10 :tag "Column Width" ))
 	     (label (integer :value 24 :tag "Column Width"))
 	     (date (integer :value 24 :tag "Column Width"))
-	     (comment (integer :value 56 :tag "Column Width")))
+	     (contents (integer :value 56 :tag "Column Width")))
   :group 'pdf-annot)
 
 (defcustom pdf-annot-list-highlight-type t
@@ -1591,7 +1591,7 @@ belong to the same page and A1 is displayed above/left of A2."
        (page (pdf-annot-print-property a 'page))
        (label (funcall prune-newlines
 		       (pdf-annot-print-property a 'label)))
-       (comment
+       (contents
 	(truncate-string-to-width
 	 (funcall prune-newlines
 		(pdf-annot-print-property a 'contents))
