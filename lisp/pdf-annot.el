@@ -1514,7 +1514,13 @@ annotation's contents and otherwise `text-mode'. "
     (type . 10)
     (label . 24)
     (date . 24))
-    "Annotation properties visible in the annotation list."
+  "Annotation properties visible in the annotation list.
+
+It should be a list of \(PROPERTIZE. WIDTH\), where PROPERTY is a
+symbol naming one of supported properties to list and WIDTH its
+desired column-width.
+
+Currently supported properties are page, type, label, date and contents."
   :type '(alist :key-type (symbol))
   :options '((page (integer :value 3 :tag "Column Width"))
 	     (type (integer :value 10 :tag "Column Width" ))
