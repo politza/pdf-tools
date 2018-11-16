@@ -17,3 +17,12 @@
           (should (numberp (pdf-info-number-of-pages temp)))))
     (when (file-exists-p temp)
       (delete-file temp))))
+
+(ert-deftest pdf-view-cua-copy-region ()
+  (pdf-test-with-test-pdf
+   (pdf-view-mark-whole-page)
+   (should (string-match-p "PDF Tools\\(?:.\\|\n\\)*in memory"
+			   (let (kill-ring)
+			     (require 'cua-base)
+			     (cua-copy-region)
+			     (car kill-ring))))))
