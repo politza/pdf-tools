@@ -33,6 +33,8 @@
   "The item used in`magic-mode-alist'.")
 
 
+(declare-function pdf-tools-install "pdf-tools.el")
+
 ;;;###autoload
 (defun pdf-loader-install (&optional no-query-p skip-dependencies-p
                                      no-error-p force-dependencies-p)
