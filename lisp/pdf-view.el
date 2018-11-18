@@ -412,10 +412,12 @@ PNG images in Emacs buffers."
 
 (unless (version< emacs-version "24.4")
   (defun cua-copy-region--pdf-view-advice (&rest _)
-    "If current buffer is in `pdf-view' mode, call
+    "If the current buffer is in `pdf-view' mode, call
 `pdf-view-kill-ring-save'."
     (when (eq major-mode 'pdf-view-mode)
-      (pdf-view-kill-ring-save)))
+      (pdf-view-kill-ring-save)
+      t))
+
   (advice-add 'cua-copy-region
 	      :before-until
 	      #'cua-copy-region--pdf-view-advice))
