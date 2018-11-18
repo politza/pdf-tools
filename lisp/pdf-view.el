@@ -32,6 +32,8 @@
 (require 'bookmark)
 (require 'password-cache)
 
+(declare-function cua-copy-region "cua-base")
+
 
 ;; * ================================================================== *
 ;; * Customizations
@@ -377,10 +379,13 @@ PNG images in Emacs buffers."
   ;; Enable transient-mark-mode, so region deactivation when quitting
   ;; will work.
   (setq-local transient-mark-mode t)
-  ;; Disable cua-mode, since it does not work with pdf-view-mode.
+  ;; In Emacs >= 24.4, `cua-copy-region' should have been advised when
+  ;; loading pdf-view.el so as to make it work with
+  ;; pdf-view-mode. Disable cua-mode if that is not the case.
   ;; FIXME: cua-mode is a global minor-mode, but setting cua-mode to
   ;; nil seems to do the trick.
-  (when (bound-and-true-p cua-mode)
+  (when (and (bound-and-true-p cua-mode)
+             (version< emacs-version "24.4"))
     (setq-local cua-mode nil))
 
   (add-hook 'window-configuration-change-hook
@@ -404,6 +409,18 @@ PNG images in Emacs buffers."
 		  (current-buffer))
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1)))
+
+(unless (version< emacs-version "24.4")
+  (defun cua-copy-region--pdf-view-advice (&rest _)
+    "If the current buffer is in `pdf-view' mode, call
+`pdf-view-kill-ring-save'."
+    (when (eq major-mode 'pdf-view-mode)
+      (pdf-view-kill-ring-save)
+      t))
+
+  (advice-add 'cua-copy-region
+	      :before-until
+	      #'cua-copy-region--pdf-view-advice))
 
 (defun pdf-view-check-incompatible-modes (&optional buffer)
   "Check BUFFER for incompatible modes, maybe issue a warning."
