@@ -385,9 +385,7 @@ PNG images in Emacs buffers."
   ;; FIXME: cua-mode is a global minor-mode, but setting cua-mode to
   ;; nil seems to do the trick.
   (when (and (bound-and-true-p cua-mode)
-	     (not (and (fboundp 'advice-member-p)
-		       (advice-member-p #'cua-copy-region--pdf-view-advice
-					'cua-copy-region))))
+             (version< emacs-version "24.4"))
     (setq-local cua-mode nil))
 
   (add-hook 'window-configuration-change-hook
@@ -412,7 +410,7 @@ PNG images in Emacs buffers."
   ;; Setup initial page and start display
   (pdf-view-goto-page (or (pdf-view-current-page) 1)))
 
-(when (fboundp 'advice-add)
+(unless (version< emacs-version "24.4")
   (defun cua-copy-region--pdf-view-advice (&rest _)
     "If current buffer is in `pdf-view' mode, call
 `pdf-view-kill-ring-save'."
