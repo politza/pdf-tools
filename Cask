@@ -5,7 +5,8 @@
 
 (files "lisp/*.el"
        "README"
-       "server/epdfinfo")
+       "server/epdfinfo"
+       "server/epdfinfo.exe")
 
 (development
  (depends-on "let-alist")
