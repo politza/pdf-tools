@@ -406,7 +406,6 @@ os_gentoo() {
 
 handle_options "$@"
 
-os_nixos   "$@" || \
 os_macos   "$@" || \
 os_freebsd "$@" || \
 os_arch    "$@" || \
@@ -416,6 +415,7 @@ os_fedora  "$@" || \
 os_debian  "$@" || \
 os_gentoo  "$@" || \
 os_msys2   "$@" || \
+os_nixos   "$@" || \
 {
     OS_IS_HANDLED=
     if [ -z "$DRY_RUN" ]; then
