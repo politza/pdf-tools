@@ -1,6 +1,10 @@
 -*- org -*-
 
+* Version 1.0
 * Version 0.90
+u** The displayed columns when listing annotations is now customizable
+   See variable pdf-annot-list-format and
+   pdf-annot-list-highlight-type.
 ** Improved handling of default annotation properties
    A new variable pdf-annot-default-annotation-properties was
    introduced, subsuming and obsoleting
@@ -9,9 +13,12 @@
    let's the user choose default properties, e.g. a color, for all
    supported annotations separately.
 ** Provide a faster "boot-loader"
-   The autoloaded function `pdf-loader-install' acts as a replacement
-   for ‘pdf-tools-install’ and makes Emacs load and use PDF Tools as soon
-   as a PDF file is opened, but not sooner.
+   The autoloaded function pdf-loader-install acts as a replacement
+   for pdf-tools-install and makes Emacs load and use PDF Tools as
+   soon as a PDF file is opened, but not sooner.
+** Improved the process of (re)compiling the server
+   This obsoletes the variable pdf-tools-handle-upgrades, which does
+   nothing anymore.   
 * Version 0.80
 ** Tablist package
    The files tablist.el and tablist-filter.el are no longer part of
