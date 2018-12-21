@@ -1286,7 +1286,7 @@ Stores the region in `pdf-view-active-region'."
          (abs-begin (posn-x-y pos))
          pdf-view-continuous
          region)
-    (when (pdf-util-track-mouse-dragging (event 0.15)
+    (when (pdf-util-track-mouse-dragging (event 0.05)
             (let* ((pos (event-start event))
                    (end (posn-object-x-y pos))
                    (end-inside-image-p
