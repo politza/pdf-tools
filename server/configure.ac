@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([epdfinfo], 0.90, [politza@fh-trier.de])
+AC_INIT([epdfinfo], 1.0, [politza@fh-trier.de])
 AM_INIT_AUTOMAKE([-Wall -Wno-override foreign silent-rules])
 AC_CONFIG_SRCDIR([epdfinfo.h])
 AC_CONFIG_HEADERS([config.h])
