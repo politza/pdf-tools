@@ -134,7 +134,7 @@
      pdf-tools work well on FreeBSD.  Instead of building pdf-tools, you
      can install one of the OS packages with, e.g.
 #+BEGIN_SRC sh
-  $ pkg install pdf-tools-emacs25
+  $ pkg install pdf-tools-emacs26
 #+END_SRC
      To see the current list of pdf-tools packages for FreeBSD visit
      [[https://repology.org/metapackages/?search=pdf-tools&inrepo=freebsd][the Repology list]].
