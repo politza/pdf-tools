@@ -570,13 +570,22 @@ create_surface(enum image_type imagetype,
  * @param pdf The PDF document.
  * @param page The page to be rendered.
  * @param width The desired width of the image.
+ * @param make_recording If TRUE, return a cairo_recording_surface_t that can
+ *                       be replayed on any backend specific surface. Otherwise
+ *                       return a surface depending on the type field of
+ *                       options, defaulting to a PNG image_type.
+ * @param do_render_annotations If TRUE, include annotations when rendering
+ *                              page.
+ * @param options The rendering options to use.
  *
  * @return A cairo_t context encapsulating the rendered image, or
  *         NULL, if rendering failed for some reason.
  */
 static cairo_surface_t*
 image_render_page(PopplerDocument *pdf, PopplerPage *page,
-                  int width, gboolean do_render_annotaions,
+                  int width,
+                  gboolean make_recording,
+                  gboolean do_render_annotations,
                   const render_options_t *options)
 {
   cairo_t *cr = NULL;
@@ -594,8 +603,15 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   poppler_page_get_size (page, &pt_width, &pt_height);
   scale = width / pt_width;
 
-  surface = create_surface(imagetype, pt_width, pt_height, scale);
-
+  if(make_recording)
+    {
+      cairo_rectangle_t rect;
+      set_surface_rectangle (imagetype, &rect, pt_width, pt_height, scale);
+      surface = cairo_recording_surface_create
+        (CAIRO_CONTENT_COLOR_ALPHA, &rect);
+    }
+  else
+    surface = create_surface(imagetype, pt_width, pt_height, scale);
   if (cairo_surface_status (surface) != CAIRO_STATUS_SUCCESS)
     {
       fprintf (stderr, "Failed to create cairo surface\n");
@@ -612,7 +628,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
   initialize_context (imagetype, cr, pt_width, pt_height, scale);
   cairo_translate (cr, 0, 0);
   /* Render w/o annotations. */
-  if (! do_render_annotaions || (options && options->printed))
+  if (! do_render_annotations || (options && options->printed))
     poppler_page_render_for_printing_with_options
       (page, cr, POPPLER_PRINT_DOCUMENT);
   else
@@ -623,14 +639,17 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
       goto error;
     }
 
-  /* This makes the colors look right. */
-  cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
-  cairo_set_source_rgb (cr, 1., 1., 1.);
+  if (!make_recording)
+    {
+      /* This makes the colors look right. */
+      cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
+      cairo_set_source_rgb (cr, 1., 1., 1.);
 
-  cairo_paint (cr);
+      cairo_paint (cr);
 
-  if (options && options->usecolors)
-    image_recolor (surface, &options->fg, &options->bg);
+      if (options && options->usecolors)
+        image_recolor (surface, &options->fg, &options->bg);
+    }
 
   cairo_destroy (cr);
 
@@ -3258,7 +3277,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, width, 1,
+  surface = image_render_page (doc->pdf, page, width, 0, 1,
                                &doc->options.render);
   perror_if_not (surface, "Failed to render page %d", pn);
 
@@ -3435,81 +3454,94 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   document_t *doc = args[0].value.doc;
   int pn = args[1].value.natnum;
   PopplerPage *page = poppler_document_get_page(doc->pdf, pn - 1);
+  gboolean bitmap_p = !vector_imagetype_p (doc->options.render.imagetype);
   cairo_surface_t *surface = NULL;
-  int width, height;
   double pt_width, pt_height;
-  unsigned char *data, *data_p;
-  PopplerRectangle bbox;
-  int i, j;
+  cairo_rectangle_t bbox;
 
   perror_if_not (page, "No such page %d", pn);
   poppler_page_get_size (page, &pt_width, &pt_height);
-  surface = image_render_page (doc->pdf, page, (int) pt_width, 1,
-                               &doc->options.render);
+  surface = image_render_page (doc->pdf, page, (int) pt_width,
+                               !bitmap_p, 1, &doc->options.render);
 
   perror_if_not (cairo_surface_status(surface) == CAIRO_STATUS_SUCCESS,
                 "Failed to render page");
 
-  width = cairo_image_surface_get_width (surface);
-  height = cairo_image_surface_get_height (surface);
-  data = cairo_image_surface_get_data (surface);
-
-  /* Determine the bbox by comparing each pixel in the 4 corner
-     stripes with the origin. */
-  for (i = 0; i < width; ++i)
+  if (bitmap_p)
     {
-      data_p = data + 4 * i;
-      for (j = 0; j < height; ++j, data_p += 4 * width)
+      int i, j, width, height;
+      unsigned char *data_p, *data;
+
+      width = cairo_image_surface_get_width (surface);
+      height = cairo_image_surface_get_height (surface);
+      data = cairo_image_surface_get_data (surface);
+
+      /* Determine the bbox by comparing each pixel in the 4 corner
+         stripes with the origin. */
+      for (i = 0; i < width; ++i)
         {
-          if (! ARGB_EQUAL (data, data_p))
+          data_p = data + 4 * i;
+          for (j = 0; j < height; ++j, data_p += 4 * width)
+            {
+              if (! ARGB_EQUAL (data, data_p))
+                break;
+            }
+          if (j < height)
             break;
         }
-      if (j < height)
-        break;
-    }
-  bbox.x1 = i;
+      bbox.x = (double)i / width;
 
-  for (i = width - 1; i > -1; --i)
-    {
-      data_p = data + 4 * i;
-      for (j = 0; j < height; ++j, data_p += 4 * width)
+      for (i = width - 1; i > -1; --i)
         {
-          if (! ARGB_EQUAL (data, data_p))
+          data_p = data + 4 * i;
+          for (j = 0; j < height; ++j, data_p += 4 * width)
+            {
+              if (! ARGB_EQUAL (data, data_p))
+                break;
+            }
+          if (j < height)
             break;
         }
-      if (j < height)
-        break;
-    }
-  bbox.x2 = i + 1;
+      bbox.width = ((double)i + 1.) / width - bbox.x;
 
-  for (i = 0; i < height; ++i)
-    {
-      data_p = data + 4 * i * width;
-      for (j = 0; j < width; ++j, data_p += 4)
+      for (i = 0; i < height; ++i)
         {
-          if (! ARGB_EQUAL (data, data_p))
+          data_p = data + 4 * i * width;
+          for (j = 0; j < width; ++j, data_p += 4)
+            {
+              if (! ARGB_EQUAL (data, data_p))
+                break;
+            }
+          if (j < width)
             break;
         }
-      if (j < width)
-        break;
-    }
-  bbox.y1 = i;
+      bbox.y = (double)i / height;
 
-  for (i = height - 1; i > -1; --i)
-    {
-      data_p = data + 4 * i * width;
-      for (j = 0; j < width; ++j, data_p += 4)
+      for (i = height - 1; i > -1; --i)
         {
-          if (! ARGB_EQUAL (data, data_p))
+          data_p = data + 4 * i * width;
+          for (j = 0; j < width; ++j, data_p += 4)
+            {
+              if (! ARGB_EQUAL (data, data_p))
+                break;
+            }
+          if (j < width)
             break;
         }
-      if (j < width)
-        break;
+      bbox.height = ((double)i + 1.) / height - bbox.y;
     }
-  bbox.y2 = i + 1;
+  else
+    {
+      cairo_recording_surface_ink_extents (surface, &bbox.x, &bbox.y,
+                                           &bbox.width, &bbox.height);
+      bbox.x = bbox.x / pt_width;
+      bbox.y = bbox.y / pt_height;
+      bbox.width = bbox.width / pt_width;
+      bbox.height = bbox.height / pt_height;
+    }
 
   OK_BEGIN ();
-  if (bbox.x1 >= bbox.x2 || bbox.y1 >= bbox.y2)
+  if (0.0 >= bbox.width || 0.0 >= bbox.height)
     {
       /* empty page */
       puts ("0:0:1:1");
@@ -3517,10 +3549,10 @@ cmd_boundingbox (const epdfinfo_t *ctx, const command_arg_t *args)
   else
     {
       printf ("%f:%f:%f:%f\n",
-              bbox.x1 / width,
-              bbox.y1 / height,
-              bbox.x2 / width,
-              bbox.y2 / height);
+              bbox.x,
+              bbox.y,
+              (bbox.x + bbox.width),
+              (bbox.y + bbox.height));
     }
   OK_END ();
 
