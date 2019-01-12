@@ -1465,7 +1465,8 @@ This is more useful for commands like
               `(,(car colors) ,(cdr colors) 0.35 ,@region))
            (pdf-info-renderpage-text-regions
             page width nil nil
-            `(,(car colors) ,(cdr colors) ,@region)))))))
+            `(,(car colors) ,(cdr colors) ,@region)))
+       :width width))))
 
 (defun pdf-view-kill-ring-save ()
   "Copy the region to the `kill-ring'."

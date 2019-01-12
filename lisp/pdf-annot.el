@@ -981,6 +981,7 @@ other annotations."
                (pdf-cache-renderpage-highlight
                 page (car size)
                 `("white" "steel blue" 0.35 ,@edges))
+             :width (car size)
              :map (pdf-view-apply-hotspot-functions
                    window page size))))
         (pdf-util-scroll-to-edges
