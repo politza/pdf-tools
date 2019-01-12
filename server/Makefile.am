@@ -1,9 +1,10 @@
 bin_PROGRAMS = epdfinfo
 epdfinfo_CFLAGS = -Wall $(glib_CFLAGS) $(poppler_glib_CFLAGS) $(poppler_CFLAGS) \
-			$(png_CFLAGS)
+			$(png_CFLAGS) $(cairo_svg_CFLAGS) $(cairo_pdf_CFLAGS)
 epdfinfo_CXXFLAGS = -Wall $(epdfinfo_CFLAGS)
 epdfinfo_LDADD =  $(glib_LIBS) $(poppler_glib_LIBS) $(poppler_LIBS) \
-			$(png_LIBS) libsynctex.a $(zlib_LIBS)
+			$(png_LIBS) libsynctex.a $(zlib_LIBS) $(cairo_svg_LIBS) \
+			$(cairo_pdf_LIBS)
 epdfinfo_SOURCES = epdfinfo.c epdfinfo.h poppler-hack.cc
 
 noinst_LIBRARIES = libsynctex.a

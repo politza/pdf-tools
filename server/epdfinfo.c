@@ -27,10 +27,10 @@
 #include <glib.h>
 #include <poppler.h>
 #include <cairo.h>
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
 #  include <cairo-pdf.h>
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
 #  include <cairo-svg.h>
 #endif
 #include <stdarg.h>
@@ -349,11 +349,11 @@ imagetype_string_to_type(const char *arg)
     return PPM;
   else if(! strcasecmp (arg, "png"))
     return PNG;
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
   else if(! strcasecmp(arg, "pdf"))
     return PDF;
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
   else if(! strcasecmp(arg, "svg"))
     return SVG;
 #endif
@@ -375,11 +375,11 @@ imagetype_to_string(enum image_type type)
     {
     case PPM:
       return "ppm";
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
     case PDF:
       return "pdf";
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
     case SVG:
       return "svg";
 #endif
@@ -509,7 +509,7 @@ image_recolor (cairo_surface_t * surface, const PopplerColor * fg,
     }
 }
 
-#if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
+#if defined(HAVE_RENDER_PDF) || defined(HAVE_RENDER_SVG)
 static void
 vector_image_recolor(cairo_t *cr, const PopplerColor * fg,
                      const PopplerColor * bg)
@@ -569,7 +569,7 @@ vector_surface_show_page(FILE * stream, cairo_surface_t *surface)
   vector_surface_stream = NULL;
   return TRUE;
 }
-#endif /* defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE) */
+#endif /* defined(HAVE_RENDER_PDF) || defined(HAVE_RENDER_SVG) */
 
 /**
  * Initialize a cairo context based on the rendered image type, the PDF's
@@ -588,7 +588,7 @@ initialize_context (enum image_type imagetype, cairo_t *cr,
   switch(imagetype)
     {
     case PNG: case PPM:
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
     case SVG:
 #endif
       cairo_scale (cr, scale, scale);
@@ -619,7 +619,7 @@ set_surface_rectangle(enum image_type imagetype, cairo_rectangle_t *rect,
   rect->y = 0.0;
   switch(imagetype)
     {
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
     case PDF:
       rect->width = width;
       rect->height = height;
@@ -651,12 +651,12 @@ create_surface(enum image_type imagetype,
 
   switch(imagetype)
     {
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
     case PDF:
       return cairo_pdf_surface_create_for_stream
         (vector_surface_write_chunk, NULL, rect.width, rect.height);
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
     case SVG:
       {
         cairo_surface_t *surface = cairo_svg_surface_create_for_stream
@@ -756,7 +756,7 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
 
       if (options && options->usecolors)
         {
-#if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
+#if defined(HAVE_RENDER_PDF) || defined(HAVE_RENDER_SVG)
           if (vector_imagetype_p (imagetype))
             vector_image_recolor (cr, &options->fg, &options->bg);
           else
@@ -877,13 +877,13 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
           fprintf (stderr, "Error writing png data\n");
       }
       break;
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
     case PDF:
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
     case SVG:
 #endif
-#if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
+#if defined(HAVE_RENDER_PDF) || defined(HAVE_RENDER_SVG)
       success = vector_surface_show_page (file, surface);
       break;
 #endif
@@ -1163,17 +1163,17 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
       }
     case ARG_IMAGETYPE:
       cerror_if_not (! strcmp (arg, "png")
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
                      || ! strcmp (arg, "pdf")
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
                      || ! strcmp (arg, "svg")
 #endif
                      , error_msg, "Expected png"
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
                      " or pdf"
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
                      " or svg"
 #endif
                      ":%s", arg);
@@ -2075,12 +2075,12 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
 #else
     "no-markup-annotations",
 #endif
-#ifdef CAIRO_HAS_PDF_SURFACE
+#ifdef HAVE_RENDER_PDF
     "render-pdf",
 #else
     "no-render-pdf",
 #endif
-#ifdef CAIRO_HAS_SVG_SURFACE
+#ifdef HAVE_RENDER_SVG
     "render-svg"
 #else
     "no-render-svg"
