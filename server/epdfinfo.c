@@ -488,6 +488,83 @@ image_recolor (cairo_surface_t * surface, const PopplerColor * fg,
 }
 
 /**
+ * Initialize a cairo context based on the rendered image type, the PDF's
+ * dimension in pts, and the requested scaling into pixels.
+ *
+ * @param imagetype The image type.
+ * @param cr The cairo context to initialize.
+ * @param width The width of the image.
+ * @param height The height of the image.
+ * @param scale The scaling factor from the unit of width and height to pixels.
+ */
+static void
+initialize_context (enum image_type imagetype, cairo_t *cr,
+                    double width, double height, double scale)
+{
+  switch(imagetype)
+    {
+    case PNG: case PPM:
+      cairo_scale (cr, scale, scale);
+      break;
+    default:
+      break;
+    }
+}
+
+/**
+ * Set the fields of a rectangle based on the image type being rendered, the
+ * PDF's dimensions in pts, and the requested scaling into pixels.
+ *
+ * @param imagetype The image type.
+ * @param rect The rectangle whose fields will be set.
+ * @param width The width of the image.
+ * @param height The height of the image.
+ * @param scale The scaling factor from the unit of width and height to pixels.
+ */
+static void
+set_surface_rectangle(enum image_type imagetype, cairo_rectangle_t *rect,
+                      double width, double height, double scale)
+{
+  int px_height = (int)(height * scale + 0.5);
+  int px_width = (int)(width * scale + 0.5);
+
+  rect->x = 0.0;
+  rect->y = 0.0;
+  switch(imagetype)
+    {
+    default:
+      rect->width = px_width;
+      rect->height = px_height;
+    }
+}
+
+/**
+ * Return a surface suitable for writing to a file with a specific image type.
+ *
+ * @param imagetype The image type.
+ * @param width The width of the image.
+ * @param height The height of the image.
+ * @param scale The scaling factor from the unit of width and height to pixels.
+ *
+ * @return The surface.
+ */
+static cairo_surface_t *
+create_surface(enum image_type imagetype,
+               double width, double height, double scale)
+{
+  cairo_rectangle_t rect;
+
+  set_surface_rectangle (imagetype, &rect, width, height, scale);
+
+  switch(imagetype)
+    {
+    default:
+      return cairo_image_surface_create
+        (CAIRO_FORMAT_ARGB32, (int)rect.width, (int)rect.height);
+    }
+}
+
+/**
  * Render a PDF page.
  *
  * @param pdf The PDF document.
@@ -504,8 +581,8 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
 {
   cairo_t *cr = NULL;
   cairo_surface_t *surface = NULL;
+  enum image_type imagetype = options ? options->imagetype : PNG;
   double pt_width, pt_height;
-  int height;
   double scale = 1;
 
   if (! page || ! pdf)
@@ -516,10 +593,8 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
 
   poppler_page_get_size (page, &pt_width, &pt_height);
   scale = width / pt_width;
-  height = (int) ((scale * pt_height) + 0.5);
 
-  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
-                                        width, height);
+  surface = create_surface(imagetype, pt_width, pt_height, scale);
 
   if (cairo_surface_status (surface) != CAIRO_STATUS_SUCCESS)
     {
@@ -534,8 +609,8 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
       goto error;
     }
 
+  initialize_context (imagetype, cr, pt_width, pt_height, scale);
   cairo_translate (cr, 0, 0);
-  cairo_scale (cr, scale, scale);
   /* Render w/o annotations. */
   if (! do_render_annotaions || (options && options->printed))
     poppler_page_render_for_printing_with_options
@@ -3163,6 +3238,7 @@ static void
 cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
 {
   document_t *doc = args[0].value.doc;
+  enum image_type imagetype = doc->options.render.imagetype;
   int pn = args[1].value.natnum;
   int width = args[2].value.natnum;
   int nrest_args = args[3].value.rest.nargs;
@@ -3190,7 +3266,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
     goto theend;
 
   cr = cairo_create (surface);
-  cairo_scale (cr, width / pt_width, width / pt_width);
+  initialize_context (imagetype, cr, pt_width, pt_height, width / pt_width);
 
   while (i < nrest_args)
     {
@@ -3314,13 +3390,16 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
     }
   if (cb.x1 != 0 || cb.y1 != 0 || cb.x2 != 1 || cb.y2 != 1)
     {
-      int height = cairo_image_surface_get_height (surface);
-      cairo_rectangle_int_t r = {(int) (width * cb.x1 + 0.5),
-                                 (int) (height * cb.y1 + 0.5),
-                                 (int) (width * (cb.x2 - cb.x1) + 0.5),
-                                 (int) (height * (cb.y2 - cb.y1) + 0.5)};
+      cairo_rectangle_t sr;
+      set_surface_rectangle (imagetype, &sr,
+                             pt_width, pt_height, width / pt_width);
+
+      cairo_rectangle_int_t r = {(int) (sr.width * cb.x1 + 0.5),
+                                 (int) (sr.height * cb.y1 + 0.5),
+                                 (int) (sr.width * (cb.x2 - cb.x1) + 0.5),
+                                 (int) (sr.height * (cb.y2 - cb.y1) + 0.5)};
       cairo_surface_t *nsurface =
-        cairo_image_surface_create (CAIRO_FORMAT_ARGB32, r.width, r.height);
+        create_surface(imagetype, r.width, r.height, 1.0);
       perror_if_not (cairo_surface_status (surface) == CAIRO_STATUS_SUCCESS,
                      "%s", "Failed to create cairo surface");
       cairo_destroy (cr);
@@ -3334,7 +3413,7 @@ cmd_renderpage (const epdfinfo_t *ctx, const command_arg_t *args)
     }
 
  theend:
-  image_write_print_response (surface, PNG);
+  image_write_print_response (surface, imagetype);
 
  error:
   if (error_msg) g_free (error_msg);
