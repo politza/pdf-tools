@@ -1003,6 +1003,9 @@ A No-op, if BUFFER has not running server instance."
 (defun pdf-info-render-pdf-p ()
   (not (null (memq 'render-pdf (pdf-info-features)))))
 
+(defun pdf-info-render-svg-p ()
+  (not (null (memq 'render-svg (pdf-info-features)))))
+
 (defmacro pdf-info-assert-writable-annotations ()
   `(unless (memq 'writable-annotations (pdf-info-features))
      (error "Writing annotations is not supported by this version of epdfinfo")))

@@ -157,6 +157,9 @@ enum image_type { PNG = 0, PPM
 #ifdef CAIRO_HAS_PDF_SURFACE
                   , PDF
 #endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+                  , SVG
+#endif
 };
 
 typedef struct

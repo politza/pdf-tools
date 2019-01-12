@@ -30,6 +30,9 @@
 #ifdef CAIRO_HAS_PDF_SURFACE
 #  include <cairo-pdf.h>
 #endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+#  include <cairo-svg.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -350,6 +353,10 @@ imagetype_string_to_type(const char *arg)
   else if(! strcasecmp(arg, "pdf"))
     return PDF;
 #endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+  else if(! strcasecmp(arg, "svg"))
+    return SVG;
+#endif
   else
     internal_error ("invalid image type (%s)", arg);
 }
@@ -371,6 +378,10 @@ imagetype_to_string(enum image_type type)
 #ifdef CAIRO_HAS_PDF_SURFACE
     case PDF:
       return "pdf";
+#endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+    case SVG:
+      return "svg";
 #endif
     case PNG:
       return "png";
@@ -498,7 +509,7 @@ image_recolor (cairo_surface_t * surface, const PopplerColor * fg,
     }
 }
 
-#if defined(CAIRO_HAS_PDF_SURFACE)
+#if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
 static FILE * vector_surface_stream = NULL;
 
 static cairo_status_t
@@ -521,7 +532,7 @@ vector_surface_show_page(FILE * stream, cairo_surface_t *surface)
   vector_surface_stream = NULL;
   return TRUE;
 }
-#endif
+#endif /* defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE) */
 
 /**
  * Initialize a cairo context based on the rendered image type, the PDF's
@@ -540,6 +551,9 @@ initialize_context (enum image_type imagetype, cairo_t *cr,
   switch(imagetype)
     {
     case PNG: case PPM:
+#ifdef CAIRO_HAS_SVG_SURFACE
+    case SVG:
+#endif
       cairo_scale (cr, scale, scale);
       break;
     default:
@@ -604,6 +618,15 @@ create_surface(enum image_type imagetype,
     case PDF:
       return cairo_pdf_surface_create_for_stream
         (vector_surface_write_chunk, NULL, rect.width, rect.height);
+#endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+    case SVG:
+      {
+        cairo_surface_t *surface = cairo_svg_surface_create_for_stream
+          (vector_surface_write_chunk, NULL, rect.width, rect.height);
+        cairo_svg_surface_set_document_unit (surface, CAIRO_SVG_UNIT_PX);
+        return surface;
+      }
 #endif
     default:
       return cairo_image_surface_create
@@ -812,6 +835,11 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
       break;
 #ifdef CAIRO_HAS_PDF_SURFACE
     case PDF:
+#endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+    case SVG:
+#endif
+#if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
       success = vector_surface_show_page (file, surface);
       break;
 #endif
@@ -1094,9 +1122,15 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
 #ifdef CAIRO_HAS_PDF_SURFACE
                      || ! strcmp (arg, "pdf")
 #endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+                     || ! strcmp (arg, "svg")
+#endif
                      , error_msg, "Expected png"
 #ifdef CAIRO_HAS_PDF_SURFACE
                      " or pdf"
+#endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+                     " or svg"
 #endif
                      ":%s", arg);
       cmd_arg->value.imagetype = imagetype_string_to_type(arg);
@@ -1998,9 +2032,14 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
     "no-markup-annotations",
 #endif
 #ifdef CAIRO_HAS_PDF_SURFACE
-    "render-pdf"
+    "render-pdf",
 #else
-    "no-render-pdf"
+    "no-render-pdf",
+#endif
+#ifdef CAIRO_HAS_SVG_SURFACE
+    "render-svg"
+#else
+    "no-render-svg"
 #endif
   };
   int i;
