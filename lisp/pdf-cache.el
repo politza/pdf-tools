@@ -168,6 +168,13 @@ Make sure, not to modify it's return value." command)))
 (defmacro pdf-cache--image/data (img) `(nth 2 ,img))
 (defmacro pdf-cache--image/hash (img) `(nth 3 ,img))
 
+(defun pdf-cache--scalable-imagetype-p ()
+  "Return non-nil if a single image for the page can be scaled to any size."
+  ;; FIXME: SVG images rendered directly with librsvg or emacs-mac's WebKit
+  ;; rendering unfortunately do not scale the image depending on its :width
+  ;; setting before rendering into a pixel image.
+  (eq (pdf-cache-imagetype) 'pdf))
+
 (defun pdf-cache--image-match (image page min-width &optional max-width hash)
   "Match IMAGE with specs.
 
@@ -178,12 +185,13 @@ is at least MIN-WIDTH and at most MAX-WIDTH and it's stored
 hash-value is `eql' to HASH."
   (and (= (pdf-cache--image/page image)
           page)
-       (or (null min-width)
-           (>= (pdf-cache--image/width image)
-               min-width))
-       (or (null max-width)
-           (<= (pdf-cache--image/width image)
-               max-width))
+       (or (pdf-cache--scalable-imagetype-p)
+           (and (or (null min-width)
+                    (>= (pdf-cache--image/width image)
+                        min-width))
+                (or (null max-width)
+                    (<= (pdf-cache--image/width image)
+                        max-width))))
        (eql (pdf-cache--image/hash image)
             hash)))
 
