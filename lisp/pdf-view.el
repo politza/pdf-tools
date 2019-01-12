@@ -85,6 +85,22 @@ FIXME: Explain dis-/advantages of imagemagick and png."
   :group 'pdf-view
   :type 'boolean)
 
+(defcustom pdf-view-use-vector-graphics nil
+  "Whether vector graphics should be preferred for rendering.
+
+This variable only has an effect if epdfinfo and Emacs has
+support for rendering vector image types, either SVG or PDF.
+
+If t, use the first image type that is render-able. Trying in the
+order PDF -> SVG -> PNG. If the symbol pdf, don't try to render as
+SVG. If the symbol SVG, don't try to render as PDF. If nil,
+render as PNG. Any other value is also interpreted as nil."
+  :group 'pdf-view
+  :type '(choice (const :tag "Any" t)
+                 (const :tag "SVG" svg)
+                 (const :tag "PDF" pdf)
+                 (const :tag "PNG" nil)))
+
 (defcustom pdf-view-use-scaling nil
   "Whether images should be allowed to be scaled down for rendering.
 
@@ -421,6 +437,31 @@ PNG images in Emacs buffers."
   (advice-add 'cua-copy-region
 	      :before-until
 	      #'cua-copy-region--pdf-view-advice))
+
+(defun pdf-view-render-type ()
+  "Return the `:render/imagetype' document option epdfinfo should use.
+The rendered image type is dependent on the value of
+`pdf-view-use-vector-graphics' and if the requested resolution
+independent image types can be rendered by both epdfinfo and
+Emacs."
+  (or (cdr (pdf-view-vector-image-type))
+      (let ((type (pdf-view-image-type)))
+        (cl-case type
+          ((or imagemagick image-io) 'png)
+          (t type)))))
+
+(defun pdf-view-set-imagetype ()
+  "Set the `:render/imagetype' option for the current PDF.
+See `pdf-view-render-type' for more information on
+`:render/imagetype'. The option is only set if the cached value
+differs from the value returned by `pdf-view-render-type'."
+  (let ((type (pdf-view-render-type)))
+    (unless (eq type (pdf-cache-imagetype))
+      (pdf-cache-clear-images)
+      (pdf-cache-clear-imagetype)
+      (pdf-info-setoptions
+       (pdf-view-buffer-file-name)
+       :render/imagetype type))))
 
 (defun pdf-view-check-incompatible-modes (&optional buffer)
   "Check BUFFER for incompatible modes, maybe issue a warning."
@@ -888,24 +929,70 @@ See also `pdf-view-set-slice-from-bounding-box'."
 (defvar pdf-view-inhibit-redisplay nil)
 (defvar pdf-view-inhibit-hotspots nil)
 
+(defun pdf-view-vector-image-type ()
+  "Return the image type to be used for vector graphics.
+If `pdf-view-use-vector-graphics' is non-nil and your current
+installation of Emacs and epdfinfo can render the requested image
+type, return a cons cell
+
+    (IMAGE-TYPE . RENDER-TYPE)
+
+where IMAGE-TYPE is the image type that is passed to
+`create-image' and RENDER-TYPE is the image type that is passed
+to epdfinfo.
+
+If rendering using vector graphic types is not available, return
+nil."
+  (cond
+   ((and
+     (memq pdf-view-use-vector-graphics '(t pdf))
+     (pdf-info-render-pdf-p)
+     ;; Return the type, but fall through if not available
+     (or (and (fboundp 'image-io-types)
+              (assoc "com.adobe.pdf" (image-io-types))
+              '(image-io . pdf))
+         (and (image-type-available-p 'pdf)
+              '(pdf . pdf)))))
+   ((and
+     (memq pdf-view-use-vector-graphics '(t svg))
+     (pdf-info-render-svg-p)
+     (or (and pdf-view-use-imagemagick
+              (fboundp 'imagemagick-types)
+              (memq 'SVG (imagemagick-types))
+              '(imagemagick . svg))
+         (and (image-type-available-p 'svg)
+              '(svg . svg)))))))
+
 (defun pdf-view-image-type ()
   "Return the image type that should be used.
 
 The return value is either `imagemagick' (if available and wanted
-or if png is not available) or `png'.
+or if png is not available) or `png'. Or, if
+`pdf-view-use-vector-graphics' is non-nil, the first element of
+`pdf-view-vector-image-type' when pages can be rendered using
+vector graphics.
+
+When `pdf-view-vector-image-type' is non-nil and pages cannot be
+rendered using vector graphics, fallback to trying to rendering
+using `imagemagick' or `png'.
 
 Signal an error, if neither `imagemagick' nor `png' is available.
 
 See also `pdf-view-use-imagemagick'."
-  (cond ((and pdf-view-use-imagemagick
-              (fboundp 'imagemagick-types))
-         'imagemagick)
-        ((image-type-available-p 'png)
-         'png)
-        ((fboundp 'imagemagick-types)
-         'imagemagick)
-        (t
-         (error "PNG image supported not compiled into Emacs"))))
+  (let (vector-type)
+    (cond ((and pdf-view-use-vector-graphics
+                (setq vector-type
+                      (pdf-view-vector-image-type)))
+           (car vector-type))
+          ((and pdf-view-use-imagemagick
+                (fboundp 'imagemagick-types))
+           'imagemagick)
+          ((image-type-available-p 'png)
+           'png)
+          ((fboundp 'imagemagick-types)
+           'imagemagick)
+          (t
+           (error "PNG image supported not compiled into Emacs")))))
 
 (defun pdf-view-use-scaling-p ()
   "Return t if scaling should be used."
@@ -922,6 +1009,7 @@ See also `pdf-view-use-imagemagick'."
 
 (defun pdf-view-create-page (page &optional window)
   "Create an image of PAGE for display on WINDOW."
+  (pdf-view-set-imagetype)
   (let* ((size (pdf-view-desired-image-size page window))
          (data (pdf-cache-renderpage
                 page (car size)

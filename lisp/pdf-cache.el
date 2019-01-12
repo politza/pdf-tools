@@ -104,6 +104,9 @@ is nil and VALUE undefined."
            pdf-cache--data)
   nil)
 
+(defun pdf-cache-clear-imagetype ()
+  (pdf-cache--data-clear 'imagetype))
+
 (defun pdf-cache-clear-data-of-pages (&rest pages)
   (when pdf-cache--data
     (dolist (page pages)
