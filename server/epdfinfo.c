@@ -510,6 +510,43 @@ image_recolor (cairo_surface_t * surface, const PopplerColor * fg,
 }
 
 #if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
+static void
+vector_image_recolor(cairo_t *cr, const PopplerColor * fg,
+                     const PopplerColor * bg)
+{
+  const double f = 65535.;
+  /* +1 if the background is lighter than the foreground,
+     -1 if the background is darker than the foreground. */
+  int bg_sign =
+    (0.3 * (bg->red - fg->red) +
+     0.59 * (bg->green - fg->green) +
+     0.11 * (bg->blue - fg->blue)) > 0. ? 1 : -1;
+
+  /* Invert the colors, so that the foreground becomes brighter
+     than the background. */
+  cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE);
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+  cairo_paint (cr);
+
+  /* Multiply by a color to ensure that we end up with the right
+     foreground color when adding in the background. */
+  cairo_set_operator (cr, CAIRO_OPERATOR_MULTIPLY);
+  cairo_set_source_rgb
+    (cr,
+     (-bg_sign * fg->red / f)   + (bg_sign * bg->red / f),
+     (-bg_sign * fg->green / f) + (bg_sign * bg->green / f),
+     (-bg_sign * fg->blue / f)  + (bg_sign * bg->blue / f));
+  cairo_paint (cr);
+
+  /* Add in the background. */
+  if (bg_sign > 0)
+    cairo_set_operator (cr, CAIRO_OPERATOR_DIFFERENCE);
+  else
+    cairo_set_operator (cr, CAIRO_OPERATOR_ADD);
+  cairo_set_source_rgb (cr, bg->red / f, bg->green / f, bg->blue / f);
+  cairo_paint (cr);
+}
+
 static FILE * vector_surface_stream = NULL;
 
 static cairo_status_t
@@ -718,7 +755,14 @@ image_render_page(PopplerDocument *pdf, PopplerPage *page,
       cairo_paint (cr);
 
       if (options && options->usecolors)
-        image_recolor (surface, &options->fg, &options->bg);
+        {
+#if defined(CAIRO_HAS_PDF_SURFACE) || defined(CAIRO_HAS_SVG_SURFACE)
+          if (vector_imagetype_p (imagetype))
+            vector_image_recolor (cr, &options->fg, &options->bg);
+          else
+#endif
+            image_recolor (surface, &options->fg, &options->bg);
+        }
     }
 
   cairo_destroy (cr);
