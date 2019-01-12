@@ -20,6 +20,7 @@
 #include "config.h"
 #include <glib.h>
 #include <poppler.h>
+#include <cairo.h>
 #include <png.h>
 
 /* Some library functions print warnings to stdout, inhibit it. */
@@ -152,7 +153,11 @@
 
 enum suffix_char { NONE, COLON, NEWLINE};
 
-enum image_type { PNG = 0, PPM };
+enum image_type { PNG = 0, PPM
+#ifdef CAIRO_HAS_PDF_SURFACE
+                  , PDF
+#endif
+};
 
 typedef struct
 {

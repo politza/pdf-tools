@@ -27,6 +27,9 @@
 #include <glib.h>
 #include <poppler.h>
 #include <cairo.h>
+#ifdef CAIRO_HAS_PDF_SURFACE
+#  include <cairo-pdf.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -343,6 +346,10 @@ imagetype_string_to_type(const char *arg)
     return PPM;
   else if(! strcasecmp (arg, "png"))
     return PNG;
+#ifdef CAIRO_HAS_PDF_SURFACE
+  else if(! strcasecmp(arg, "pdf"))
+    return PDF;
+#endif
   else
     internal_error ("invalid image type (%s)", arg);
 }
@@ -361,6 +368,10 @@ imagetype_to_string(enum image_type type)
     {
     case PPM:
       return "ppm";
+#ifdef CAIRO_HAS_PDF_SURFACE
+    case PDF:
+      return "pdf";
+#endif
     case PNG:
       return "png";
     default:
@@ -487,6 +498,31 @@ image_recolor (cairo_surface_t * surface, const PopplerColor * fg,
     }
 }
 
+#if defined(CAIRO_HAS_PDF_SURFACE)
+static FILE * vector_surface_stream = NULL;
+
+static cairo_status_t
+vector_surface_write_chunk(void *_closure,
+                           const unsigned char *data, unsigned int length)
+{
+  if(vector_surface_stream)
+    fwrite(data, 1, length, vector_surface_stream);
+  else
+    return CAIRO_STATUS_WRITE_ERROR;
+  return CAIRO_STATUS_SUCCESS;
+}
+
+static gboolean
+vector_surface_show_page(FILE * stream, cairo_surface_t *surface)
+{
+  vector_surface_stream = stream;
+  cairo_surface_show_page(surface);
+  cairo_surface_finish(surface);
+  vector_surface_stream = NULL;
+  return TRUE;
+}
+#endif
+
 /**
  * Initialize a cairo context based on the rendered image type, the PDF's
  * dimension in pts, and the requested scaling into pixels.
@@ -532,6 +568,12 @@ set_surface_rectangle(enum image_type imagetype, cairo_rectangle_t *rect,
   rect->y = 0.0;
   switch(imagetype)
     {
+#ifdef CAIRO_HAS_PDF_SURFACE
+    case PDF:
+      rect->width = width;
+      rect->height = height;
+      break;
+#endif
     default:
       rect->width = px_width;
       rect->height = px_height;
@@ -558,6 +600,11 @@ create_surface(enum image_type imagetype,
 
   switch(imagetype)
     {
+#ifdef CAIRO_HAS_PDF_SURFACE
+    case PDF:
+      return cairo_pdf_surface_create_for_stream
+        (vector_surface_write_chunk, NULL, rect.width, rect.height);
+#endif
     default:
       return cairo_image_surface_create
         (CAIRO_FORMAT_ARGB32, (int)rect.width, (int)rect.height);
@@ -763,6 +810,11 @@ image_write (cairo_surface_t *surface, const char *filename, enum image_type typ
           fprintf (stderr, "Error writing png data\n");
       }
       break;
+#ifdef CAIRO_HAS_PDF_SURFACE
+    case PDF:
+      success = vector_surface_show_page (file, surface);
+      break;
+#endif
     default:
       internal_error ("switch fell through");
     }
@@ -1038,8 +1090,16 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
         break;
       }
     case ARG_IMAGETYPE:
-      cerror_if_not (! strcmp (arg, "png"), error_msg, "Expected png:%s", arg);
-      cmd_arg->value.imagetype = imagetype_string_to_type (arg);
+      cerror_if_not (! strcmp (arg, "png")
+#ifdef CAIRO_HAS_PDF_SURFACE
+                     || ! strcmp (arg, "pdf")
+#endif
+                     , error_msg, "Expected png"
+#ifdef CAIRO_HAS_PDF_SURFACE
+                     " or pdf"
+#endif
+                     ":%s", arg);
+      cmd_arg->value.imagetype = imagetype_string_to_type(arg);
       break;
     case ARG_BOOL:
       cerror_if_not (! strcmp (arg, "0") || ! strcmp (arg, "1"),
@@ -1933,9 +1993,14 @@ cmd_features (const epdfinfo_t *ctx, const command_arg_t *args)
     "no-writable-annotations",
 #endif
 #ifdef HAVE_POPPLER_ANNOT_MARKUP
-    "markup-annotations"
+    "markup-annotations",
 #else
-    "no-markup-annotations"
+    "no-markup-annotations",
+#endif
+#ifdef CAIRO_HAS_PDF_SURFACE
+    "render-pdf"
+#else
+    "no-render-pdf"
 #endif
   };
   int i;
