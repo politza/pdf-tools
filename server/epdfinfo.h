@@ -152,7 +152,7 @@
 
 enum suffix_char { NONE, COLON, NEWLINE};
 
-enum image_type { PPM, PNG };
+enum image_type { PNG = 0, PPM };
 
 typedef struct
 {
@@ -164,6 +164,7 @@ typedef enum
   {
     ARG_INVALID = 0,
     ARG_DOC,
+    ARG_IMAGETYPE,
     ARG_BOOL,
     ARG_STRING,
     ARG_NONEMPTY_STRING,
@@ -188,6 +189,7 @@ typedef struct
   PopplerColor bg, fg;
   gboolean usecolors;
   gboolean printed;
+  enum image_type imagetype;
 } render_options_t;
 
 typedef struct
@@ -215,6 +217,7 @@ typedef struct
   {
     gboolean flag;
     const char *string;
+    enum image_type imagetype;
     long natnum;
     document_t *doc;
     gdouble edge;

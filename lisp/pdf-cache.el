@@ -149,6 +149,7 @@ Make sure, not to modify it's return value." command)))
 (define-pdf-cache-function boundingbox t)
 (define-pdf-cache-function textregions t)
 (define-pdf-cache-function pagesize t)
+(define-pdf-cache-function imagetype)
 
 
 ;; * ================================================================== *

@@ -316,6 +316,59 @@ printf_error_response (const char *fmt, ...)
 }
 
 /**
+ * Return TRUE if type is a vector graphic image type, FALSE otherwise.
+ *
+ * @param type The image type to check.
+ *
+ * @return TRUE if type is a vector image type, FALSE otherwise.
+ */
+static gboolean
+vector_imagetype_p(enum image_type type)
+{
+  return !(type == PNG || type == PPM);
+}
+
+/**
+ * Return the internal image_type corresponding to arg.
+ *
+ * @param arg The image type as a string.
+ *
+ * @return One of the elements of enum image_type. If arg does not correspond
+ *         to a valid image type, PNG is returned.
+ */
+static enum image_type
+imagetype_string_to_type(const char *arg)
+{
+  if(! strcasecmp (arg, "ppm"))
+    return PPM;
+  else if(! strcasecmp (arg, "png"))
+    return PNG;
+  else
+    internal_error ("invalid image type (%s)", arg);
+}
+
+/**
+ * Return the string representation of type.
+ *
+ * @param type The image type.
+ *
+ * @return The image type as a string.
+ */
+static const char *
+imagetype_to_string(enum image_type type)
+{
+  switch(type)
+    {
+    case PPM:
+      return "ppm";
+    case PNG:
+      return "png";
+    default:
+      internal_error ("switch fell through");
+    }
+}
+
+/**
  * Remove one trailing newline character.  Does nothing, if str does
  * not end with a newline.
  *
@@ -890,6 +943,10 @@ command_arg_parse_arg (const epdfinfo_t *ctx, const char *arg,
         cmd_arg->value.doc = doc;
         break;
       }
+    case ARG_IMAGETYPE:
+      cerror_if_not (! strcmp (arg, "png"), error_msg, "Expected png:%s", arg);
+      cmd_arg->value.imagetype = imagetype_string_to_type (arg);
+      break;
     case ARG_BOOL:
       cerror_if_not (! strcmp (arg, "0") || ! strcmp (arg, "1"),
                      error_msg, "Expected 0 or 1:%s", arg);
@@ -1033,6 +1090,9 @@ command_arg_print(const command_arg_t *arg)
     case ARG_DOC:
       print_response_string (arg->value.doc->filename, NONE);
       break;
+    case ARG_IMAGETYPE:
+      printf ("%s", imagetype_to_string (arg->value.imagetype));
+      break;
     case ARG_BOOL:
       printf ("%d", arg->value.flag ? 1 : 0);
       break;
@@ -1086,6 +1146,7 @@ command_arg_type_size(command_arg_type_t type)
     {
     case ARG_INVALID: return 0;
     case ARG_DOC: return sizeof (arg.value.doc);
+    case ARG_IMAGETYPE: return sizeof (arg.value.imagetype);
     case ARG_BOOL: return sizeof (arg.value.flag);
     case ARG_NONEMPTY_STRING:   /* fall */
     case ARG_STRING: return sizeof (arg.value.string);
@@ -2474,6 +2535,30 @@ cmd_pagesize(const epdfinfo_t *ctx, const command_arg_t *args)
   if (page) g_object_unref (page);
 }
 
+/* Name: imagetype
+   Args: filename
+   Returns: type
+   Errors: None
+*/
+
+
+const command_arg_type_t cmd_imagetype_spec[] =
+  {
+   ARG_DOC
+  };
+
+static void
+cmd_imagetype(const epdfinfo_t *ctx, const command_arg_t *args)
+{
+  command_arg_t arg;
+  arg.type = ARG_IMAGETYPE;
+  arg.value.imagetype = args[0].value.doc->options.render.imagetype;
+  OK_BEGIN ();
+  command_arg_print (&arg);
+  puts("");
+  OK_END ();
+}
+
 /* Annotations */
 
 /* Name: getannots
@@ -3440,6 +3525,7 @@ const document_option_t document_options [] =
   {
     DEC_DOPT (":render/usecolors", ARG_BOOL, render.usecolors),
     DEC_DOPT (":render/printed", ARG_BOOL, render.printed),
+    DEC_DOPT (":render/imagetype", ARG_IMAGETYPE, render.imagetype),
     DEC_DOPT (":render/foreground", ARG_COLOR, render.fg),
     DEC_DOPT (":render/background", ARG_COLOR, render.bg),
   };
@@ -3600,6 +3686,7 @@ static const command_t commands [] =
     DEC_CMD (gettext),
     DEC_CMD (getselection),
     DEC_CMD (pagesize),
+    DEC_CMD (imagetype),
     DEC_CMD (boundingbox),
     DEC_CMD (charlayout),
     DEC_CMD (pagelabels),

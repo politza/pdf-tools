@@ -562,6 +562,7 @@ interrupted."
        (column . ,(string-to-number (cadr (cdar response))))))
     (delannot nil)
     ((save) (caar response))
+    (imagetype (intern (caar response)))
     ((renderpage renderpage-text-regions renderpage-highlight)
      (pdf-util-munch-file (caar response)))
     ((setoptions getoptions)
@@ -1689,6 +1690,14 @@ Returns a list \(LEFT TOP RIGHT BOT\)."
    'boundingbox
    (pdf-info--normalize-file-or-buffer file-or-buffer)
    page))
+
+(defun pdf-info-imagetype (&optional file-or-buffer)
+  "Return the image type of the current PDF.
+
+Returns the extension of the image type excluding the dot."
+  (pdf-info-query
+   'imagetype
+   (pdf-info--normalize-file-or-buffer file-or-buffer)))
 
 (defun pdf-info-getoptions (&optional file-or-buffer)
   (pdf-info-query
