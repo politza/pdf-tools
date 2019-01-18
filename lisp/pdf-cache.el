@@ -207,21 +207,16 @@ width MAX-WIDTH and `eql' hash value.
 Remember that image was recently used.
 
 Returns nil, if no matching image was found."
-  (let ((cache (cons nil pdf-cache--image-cache))
+  (let ((cache pdf-cache--image-cache)
         image)
-    ;; Find it in the cache and remove it.  We need to find the
-    ;; element in front of it.
-    (while (and (cdr cache)
+    ;; Find it in the cache.
+    (while (and (setq image (pop cache))
                 (not (pdf-cache--image-match
-                      (car (cdr cache))
-                      page min-width max-width hash)))
-      (setq cache (cdr cache)))
-    (setq image (cadr cache))
-    (when (car cache)
-      (setcdr cache (cddr cache)))
-    ;; Now push it at the front.
+                      image page min-width max-width hash))))
+    ;; Remove it and push it to the front.
     (when image
-      (push image pdf-cache--image-cache)
+      (setq pdf-cache--image-cache
+            (cons image (delq image pdf-cache--image-cache)))
       (pdf-cache--image/data image))))
 
 (defun pdf-cache-put-image (page width data &optional hash)
