@@ -373,6 +373,9 @@ PNG images in Emacs buffers."
   (setq-local revert-buffer-function #'pdf-view-revert-buffer)
   ;; No auto-save at the moment.
   (setq-local buffer-auto-save-file-name nil)
+  ;; Disable image rescaling.
+  (when (boundp 'image-scaling-factor)
+    (setq-local image-scaling-factor 1))
   ;; No undo at the moment.
   (unless buffer-undo-list
     (buffer-disable-undo))
