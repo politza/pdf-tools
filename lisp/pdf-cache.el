@@ -231,8 +231,9 @@ This function always returns nil."
     (add-hook 'pdf-info-close-document-hook 'pdf-cache-clear-images nil t)
     (add-hook 'pdf-annot-modified-functions
               'pdf-cache--clear-images-of-annotations nil t))
-  (push (pdf-cache--make-image page width data hash)
-        pdf-cache--image-cache)
+  (let ((image (pdf-cache--make-image page width data hash)))
+    (setq pdf-cache--image-cache
+          (cons image (delete image pdf-cache--image-cache))))
   ;; Forget old image(s).
   (when (> (length pdf-cache--image-cache)
            pdf-cache-image-limit)
