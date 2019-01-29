@@ -777,50 +777,5 @@ The first such filename is returned, or nil if none was found."
                       beg (point-min))
                 (goto-char beg)))))))))
 
-
-;; * ================================================================== *
-;; * Compatibility
-;; * ================================================================== *
-
-;;;###autoload
-(define-obsolete-variable-alias
-  'pdf-sync-tex-display-pdf-key
-  'pdf-sync-forward-display-pdf-key nil)
-
-;;;###autoload
-(define-obsolete-variable-alias
-  'pdf-sync-goto-tex-hook
-  'pdf-sync-backward-hook nil)
-
-;;;###autoload
-(define-obsolete-variable-alias
-  'pdf-sync-display-pdf-hook
-  'pdf-sync-forward-hook nil)
-
-;;;###autoload
-(define-obsolete-variable-alias
-  'pdf-sync-display-pdf-action
-  'pdf-sync-forward-display-action nil)
-
-(define-obsolete-function-alias
-  'pdf-sync-mouse-goto-tex
-  'pdf-sync-backward-search-mouse)
-
-(define-obsolete-function-alias
-  'pdf-sync-goto-tex
-  'pdf-sync-backward-search)
-
-(define-obsolete-function-alias
-  'pdf-sync-correlate-tex
-  'pdf-sync-backward-correlate)
-
-(define-obsolete-function-alias
-  'pdf-sync-display-pdf
-  'pdf-sync-forward-search)
-
-(define-obsolete-function-alias
-  'pdf-sync-correlate-pdf
-  'pdf-sync-forward-correlate)
-
 (provide 'pdf-sync)
 ;;; pdf-sync.el ends here
