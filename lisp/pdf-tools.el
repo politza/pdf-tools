@@ -206,6 +206,15 @@ PDF buffers."
 
 (defvar pdf-tools-msys2-directory nil)
 
+(defcustom pdf-tools-installer-os nil
+  "Specifies which installer to use.
+
+If nil the installer is chosen automatically. This variable is
+useful if you have multiple installers present on your
+system (e.g. nix on arch linux)"
+  :group 'pdf-tools
+  :type 'string)
+
 (defun pdf-tools-identify-build-directory (directory)
   "Return non-nil, if DIRECTORY appears to contain the epdfinfo source.
 
@@ -319,13 +328,14 @@ Returns the buffer of the compilation process."
             target-directory))
           (compilation-buffer
            (compilation-start
-            (format "%s -i %s%s"
+            (format "%s -i %s%s%s"
                     autobuild
                     (shell-quote-argument target-directory)
                     (cond
                      (skip-dependencies-p " -D")
                      (force-dependencies-p " -d")
-                     (t "")))
+                     (t ""))
+                    (if pdf-tools-installer-os (concat " --os " pdf-tools-installer-os) ""))
             t)))
       ;; In most cases user-input is required, so select the window.
       (if (get-buffer-window compilation-buffer)

@@ -30,6 +30,8 @@ DRY_RUN=
 INSTALL_DIR=
 # Whether we can install packages.
 OS_IS_HANDLED=true
+# Which OSs installer to use
+OS=
 
 ## +-----------------------------------------------------------+
 ## * Utility Functions
@@ -38,17 +40,19 @@ OS_IS_HANDLED=true
 usage()
 {
     cat <<EOF
-usage:$(basename "$0") [--help|-n|[-i DIR|-I]]
+usage:$(basename "$0") [--help|-n|-i DIR|[-d -D]|[--os OS]]
 
-    -n      Don't do anything, but check if this OS is handled.
+    -n       Don't do anything, but check if this OS is handled.
 
-    -i DIR  Install the program in the given directory.
+    -i DIR   Install the program in the given directory.
 
-    -d      Force dependency installattion.
+    -d       Force dependency installattion.
 
-    -D      Skip dependency installattion.
+    -D       Skip dependency installattion.
 
-    --help  Display this message.
+    --os OS  Use the given OS's installer
+
+    --help   Display this message.
 
 EOF
     exit "$1"
@@ -185,6 +189,11 @@ handle_options()
                 if [ "${1%%/}" != "${PWD%%/}" ]; then
                     INSTALL_DIR=$1
                 fi ;;
+            --os)
+                shift
+                [ $# -gt 0 ] || usage 1
+                OS="$1"
+                ;;
             *) usage 1 ;;
         esac
         shift
@@ -409,16 +418,25 @@ os_gentoo() {
 
 handle_options "$@"
 
-os_macos   "$@" || \
-os_freebsd "$@" || \
-os_arch    "$@" || \
-os_centos  "$@" || \
-os_openbsd "$@" || \
-os_fedora  "$@" || \
-os_debian  "$@" || \
-os_gentoo  "$@" || \
-os_msys2   "$@" || \
-os_nixos   "$@" || \
+if [ -n "$OS" ]; then
+    OSES="freebsd arch centos openbsd fedora debain gentoo msys2 nixos"
+    if echo "$OSES" | grep "$OS" > /dev/null 2>&1; then
+        os_$OS "$@"
+    else
+        false
+    fi
+else
+    os_macos   "$@" || \
+    os_freebsd "$@" || \
+    os_arch    "$@" || \
+    os_centos  "$@" || \
+    os_openbsd "$@" || \
+    os_fedora  "$@" || \
+    os_debian  "$@" || \
+    os_gentoo  "$@" || \
+    os_msys2   "$@" || \
+    os_nixos   "$@"
+fi || \
 {
     OS_IS_HANDLED=
     if [ -z "$DRY_RUN" ]; then
