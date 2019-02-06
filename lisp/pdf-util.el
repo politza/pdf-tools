@@ -37,6 +37,8 @@
 (declare-function pdf-view-current-overlay "pdf-view")
 (declare-function pdf-cache-pagesize "pdf-cache")
 
+(declare-function pdf-view-image-type "pdf-view")
+
 
 
 ;; * ================================================================== *
@@ -917,6 +919,35 @@ See also `regexp-quote'."
         (push ?\\ escaped))
       (push ch escaped))
     (apply 'string (nreverse escaped))))
+
+(defun pdf-util-frame-ppi ()
+  "Return the PPI of the current frame."
+  (let* ((props (frame-monitor-attributes))
+         (px (nthcdr 2 (alist-get 'geometry props)))
+         (mm (alist-get 'mm-size props))
+         (dp (sqrt (+ (expt (nth 0 px) 2)
+                      (expt (nth 1 px) 2))))
+         (di (sqrt (+ (expt (/ (nth 0 mm) 25.4) 2)
+                      (expt (/ (nth 1 mm) 25.4) 2)))))
+    (/ dp di)))
+
+(defvar pdf-view-use-scaling)
+
+(defun pdf-util-frame-scale-factor ()
+  "Return the frame scale factor depending on the image type used for display.
+When `pdf-view-use-scaling' is non-nil and imagemagick or
+image-io are used as the image type for display, return the
+backing-scale-factor of the frame if available. If a
+backing-scale-factor attribute isn't available, return 2 if the
+frame's PPI is larger than 180. Otherwise, return 1."
+  (if (and pdf-view-use-scaling
+           (memq (pdf-view-image-type) '(imagemagick image-io))
+           (fboundp 'frame-monitor-attributes))
+      (or (cdr (assq 'backing-scale-factor (frame-monitor-attributes)))
+          (if (>= (pdf-util-frame-ppi) 180)
+              2
+            1))
+    1))
 
 
 ;; * ================================================================== *
