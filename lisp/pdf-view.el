@@ -903,6 +903,8 @@ See also `pdf-view-use-imagemagick'."
   (cond ((and pdf-view-use-imagemagick
               (fboundp 'imagemagick-types))
          'imagemagick)
+        ((image-type-available-p 'image-io)
+         'image-io)
         ((image-type-available-p 'png)
          'png)
         ((fboundp 'imagemagick-types)
@@ -912,8 +914,8 @@ See also `pdf-view-use-imagemagick'."
 
 (defun pdf-view-use-scaling-p ()
   "Return t if scaling should be used."
-  (and (eq 'imagemagick
-           (pdf-view-image-type))
+  (and (memq (pdf-view-image-type)
+             '(imagemagick image-io))
        pdf-view-use-scaling))
 
 (defmacro pdf-view-create-image (data &rest props)
@@ -933,6 +935,9 @@ See also `pdf-view-use-imagemagick'."
                   (* 2 (car size)))))
          (hotspots (pdf-view-apply-hotspot-functions
                     window page size)))
+    (when (and (eq (framep-on-display) 'mac)
+               (= (pdf-util-frame-scale-factor) 2))
+      (put-text-property 0 1 :data-2x data data))
     (pdf-view-create-image data
       :width (car size)
       :map hotspots
