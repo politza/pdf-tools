@@ -919,8 +919,14 @@ See also `pdf-view-use-imagemagick'."
   ;; TODO: add DATA and PROPS to docstring.
   "Like `create-image', but with set DATA-P and TYPE arguments."
   (declare (indent 1) (debug t))
-  `(create-image ,data (pdf-view-image-type) t ,@props
-                 :relief (or pdf-view-image-relief 0)))
+  (let ((image-data (make-symbol "data")))
+    `(let ((,image-data ,data))
+       (apply #'create-image ,image-data (pdf-view-image-type) t ,@props
+              (cl-list*
+               :relief (or pdf-view-image-relief 0)
+               (when (and (eq (framep-on-display) 'mac)
+                          (= (pdf-util-frame-scale-factor) 2))
+                 (list :data-2x ,image-data)))))))
 
 (defun pdf-view-create-page (page &optional window)
   "Create an image of PAGE for display on WINDOW."
@@ -932,9 +938,6 @@ See also `pdf-view-use-imagemagick'."
                   (* 2 (car size)))))
          (hotspots (pdf-view-apply-hotspot-functions
                     window page size)))
-    (when (and (eq (framep-on-display) 'mac)
-               (= (pdf-util-frame-scale-factor) 2))
-      (put-text-property 0 1 :data-2x data data))
     (pdf-view-create-image data
       :width (car size)
       :map hotspots
