@@ -116,6 +116,11 @@ This should be a cons \(FOREGROUND . BACKGROUND\) of colors."
   :type '(cons (color :tag "Foreground")
                (color :tag "Background")))
 
+(defcustom pdf-view-midnight-use-default-face-colors nil
+  "Whether to use colors from default face."
+  :group 'pdf-view
+  :type 'boolean )
+
 (defcustom pdf-view-change-page-hook nil
   "Hook run after changing to another page, but before displaying it.
 
@@ -1164,7 +1169,10 @@ The colors are determined by the variable
   nil " Mid" nil
   (pdf-util-assert-pdf-buffer)
   ;; FIXME: Maybe these options should be passed stateless to pdf-info-renderpage ?
-  (let ((enable (lambda ()
+  (let ((pdf-view-midnight-colors (if pdf-view-midnight-use-default-face-colors
+				      (cons (face-foreground 'default nil) (face-background 'default nil))
+				    pdf-view-midnight-colors))
+	(enable (lambda ()
                   (pdf-info-setoptions
                    :render/foreground (or (car pdf-view-midnight-colors) "black")
                    :render/background (or (cdr pdf-view-midnight-colors) "white")
