@@ -1,8 +1,11 @@
 -*- org -*-
 
 * Version 1.0
+** Added experimental support for high-resolution displays.
+   Set `pdf-view-use-scaling' to a non-nil value in order to enable,
+   if the appropriate image-formats and monitor are available.
 * Version 0.90
-u** The displayed columns when listing annotations is now customizable
+** The displayed columns when listing annotations is now customizable
    See variable pdf-annot-list-format and
    pdf-annot-list-highlight-type.
 ** Improved handling of default annotation properties
