@@ -412,31 +412,45 @@ os_gentoo() {
     return 0
 }
 
+# By Parameter --os
+os_argument() {
+    [ -z "$OS" ] && return 0
+    case $OS in
+        macos)   os_macos   "$@";;   
+        freebsd) os_freebsd "$@";; 
+        arch)    os_arch    "$@";;    
+        centos)  os_centos  "$@";;  
+        openbsd) os_openbsd "$@";; 
+        fedora)  os_fedora  "$@";;  
+        debian)  os_debian  "$@";;  
+        gentoo)  os_gentoo  "$@";;  
+        msys2)   os_msys2   "$@";;   
+        nixos)   os_nixos   "$@";;
+        *)       echo "Invalid --os argument: $OS"
+                 exit 1
+    esac || {
+        echo "Unable to install on this system as $OS"
+        exit 1
+    }
+}
+
 ## +-----------------------------------------------------------+
 ## * Figure out were we are, install deps and build the program
 ## +-----------------------------------------------------------+
 
 handle_options "$@"
 
-if [ -n "$OS" ]; then
-    OSES="freebsd arch centos openbsd fedora debain gentoo msys2 nixos"
-    if echo "$OSES" | grep "$OS" > /dev/null 2>&1; then
-        os_$OS "$@"
-    else
-        false
-    fi
-else
-    os_macos   "$@" || \
-    os_freebsd "$@" || \
-    os_arch    "$@" || \
-    os_centos  "$@" || \
-    os_openbsd "$@" || \
-    os_fedora  "$@" || \
-    os_debian  "$@" || \
-    os_gentoo  "$@" || \
-    os_msys2   "$@" || \
-    os_nixos   "$@"
-fi || \
+os_argument "$@" || \
+os_macos    "$@" || \
+os_freebsd  "$@" || \
+os_arch     "$@" || \
+os_centos   "$@" || \
+os_openbsd  "$@" || \
+os_fedora   "$@" || \
+os_debian   "$@" || \
+os_gentoo   "$@" || \
+os_msys2    "$@" || \
+os_nixos    "$@" || \
 {
     OS_IS_HANDLED=
     if [ -z "$DRY_RUN" ]; then
