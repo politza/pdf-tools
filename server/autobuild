@@ -364,14 +364,18 @@ os_msys2() {
 os_macos() {
     if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "Darwin" ]; then
         return 1
-    fi
-    if ! which brew >/dev/null 2>&1; then
+    elif which brew >/dev/null 2>&1; then
+        PKGCMD=brew
+        PKGARGS=install
+        PACKAGES="pkg-config poppler automake"
+        PKG_INSTALL_AS_ROOT=
+    elif which port >/dev/null 2>&1; then
+        PKGCMD=port
+        PKGARGS=install
+        PACKAGES="pkgconfig poppler automake libpng"
+    else
         return 1
     fi
-    PKGCMD=brew
-    PKGARGS=install
-    PACKAGES="pkg-config poppler automake"
-    PKG_INSTALL_AS_ROOT=
     return 0
 }
 
