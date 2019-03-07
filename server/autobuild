@@ -418,17 +418,17 @@ os_gentoo() {
 
 # By Parameter --os
 os_argument() {
-    [ -z "$OS" ] && return 0
+    [ -z "$OS" ] && return 1
     case $OS in
-        macos)   os_macos   "$@";;   
-        freebsd) os_freebsd "$@";; 
-        arch)    os_arch    "$@";;    
-        centos)  os_centos  "$@";;  
-        openbsd) os_openbsd "$@";; 
-        fedora)  os_fedora  "$@";;  
-        debian)  os_debian  "$@";;  
-        gentoo)  os_gentoo  "$@";;  
-        msys2)   os_msys2   "$@";;   
+        macos)   os_macos   "$@";;
+        freebsd) os_freebsd "$@";;
+        arch)    os_arch    "$@";;
+        centos)  os_centos  "$@";;
+        openbsd) os_openbsd "$@";;
+        fedora)  os_fedora  "$@";;
+        debian)  os_debian  "$@";;
+        gentoo)  os_gentoo  "$@";;
+        msys2)   os_msys2   "$@";;
         nixos)   os_nixos   "$@";;
         *)       echo "Invalid --os argument: $OS"
                  exit 1
