@@ -413,9 +413,7 @@ PNG images in Emacs buffers."
   (run-with-timer 1 nil (lambda (buffer)
                           (when (buffer-live-p buffer)
                             (pdf-view-check-incompatible-modes buffer)))
-		  (current-buffer))
-  ;; Setup initial page and start display
-  (pdf-view-goto-page (or (pdf-view-current-page) 1)))
+		  (current-buffer)))
 
 (unless (version< emacs-version "24.4")
   (defun cua-copy-region--pdf-view-advice (&rest _)
