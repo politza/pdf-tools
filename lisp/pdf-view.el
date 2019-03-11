@@ -71,6 +71,17 @@ of the page moves to the previous page."
   :type 'boolean
   :group 'pdf-view)
 
+(defcustom pdf-view-scroll-slack 0.0
+  "Fractional amount of window height to scroll before advancing to next page.
+
+When scrolling reaches the end of a page, allow scrolling up to
+
+    \(* (window-height) pdf-view-scroll-slack\)
+
+lines after the end of a page before advancing to the next page."
+  :type 'number
+  :group 'pdf-view)
+
 (defcustom pdf-view-bounding-box-margin 0.05
   "Fractional margin used for slicing with the bounding-box."
   :group 'pdf-view
@@ -700,6 +711,31 @@ This command is a wrapper for `pdf-view-previous-page'."
   (interactive)
   (pdf-view-goto-page (pdf-cache-number-of-pages)))
 
+;; Adapted from `image-next-line'
+(defun pdf-view-max-scroll-height ()
+  "Return the maximum height of the current page that can be scrolled."
+  (let* ((image (image-get-display-property))
+         (edges (window-inside-edges))
+         (win-height (- (nth 3 edges) (nth 1 edges)))
+         (img-height (ceiling (cdr (image-display-size image)))))
+    (max 0 (- img-height win-height))))
+
+(defun pdf-view-max-scroll-slack ()
+  "Return the extra scroll height according to `pdf-view-scroll-slack'."
+  (let* ((edges (window-inside-edges))
+         (win-height (- (nth 3 edges) (nth 1 edges))))
+    (if (zerop (pdf-view-max-scroll-height)) 0
+        (min win-height
+             (round (* pdf-view-scroll-slack win-height))))))
+
+(defun pdf-view-keep-scrolling-p (increment slack)
+  "Return non-nil if the page can be scrolled by INCREMENT.
+The page can be scrolled if scrolling by INCREMENT with the
+current amount of SLACK scrolling is less than
+`pdf-view-max-scroll-slack'."
+  (or (< slack 0)
+      (< (+ slack increment) (pdf-view-max-scroll-slack))))
+
 (defun pdf-view-scroll-up-or-next-page (&optional arg)
   "Scroll page up ARG lines if possible, else go to the next page.
 
@@ -708,12 +744,26 @@ bottom edge of the page moves to the next page.  Otherwise, go to
 next page only on typing SPC (ARG is nil)."
   (interactive "P")
   (if (or pdf-view-continuous (null arg))
-      (let ((hscroll (window-hscroll))
-            (cur-page (pdf-view-current-page)))
-        (when (or (= (window-vscroll) (image-scroll-up arg))
-                  ;; Workaround rounding/off-by-one issues.
-                  (memq pdf-view-display-size
-                        '(fit-height fit-page)))
+      (let* ((hscroll (window-hscroll))
+             (cur-page (pdf-view-current-page))
+             (vscroll (window-vscroll))
+             (slack (- vscroll (pdf-view-max-scroll-height))))
+        ;; Set `arg' to what would be set by `image-scroll-up'
+        (setq arg (let* ((edges (window-inside-edges))
+                         (win-height (- (nth 3 edges) (nth 1 edges))))
+                    (cond
+                     ((null arg)
+                      (max 0 (- win-height next-screen-context-lines)))
+                     ((eq arg '-)
+                      (min 0 (- next-screen-context-lines win-height)))
+                     (t (prefix-numeric-value arg)))))
+        ;; Workaround rounding/off-by-one issues.
+        (if (and (not (memq pdf-view-display-size
+                            '(fit-height fit-page)))
+                 (pdf-view-keep-scrolling-p arg slack))
+          (if (< slack 0)
+              (image-scroll-up arg)
+            (set-window-vscroll (selected-window) (+ vscroll arg)))
           (pdf-view-next-page)
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
@@ -749,9 +799,14 @@ When `pdf-view-continuous' is non-nil, scrolling a line upward
 at the bottom edge of the page moves to the next page."
   (interactive "p")
   (if pdf-view-continuous
-      (let ((hscroll (window-hscroll))
-            (cur-page (pdf-view-current-page)))
-        (when (= (window-vscroll) (image-next-line arg))
+      (let* ((hscroll (window-hscroll))
+             (cur-page (pdf-view-current-page))
+             (vscroll (window-vscroll))
+             (slack (- vscroll (pdf-view-max-scroll-height))))
+        (if (pdf-view-keep-scrolling-p arg slack)
+            (if (< slack 0)
+                (image-next-line arg)
+              (set-window-vscroll (selected-window) (+ vscroll arg)))
           (pdf-view-next-page)
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
