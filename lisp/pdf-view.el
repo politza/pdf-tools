@@ -242,6 +242,9 @@ regarding display of the region in the later function.")
   ;;TODO: write documentation!
   `(image-mode-window-get 'window-size ,window))
 
+(defun pdf-view-current-pagelabel (&optional window)
+  (nth (1- (pdf-view-current-page window)) (pdf-info-pagelabels)))
+
 (defun pdf-view-active-region-p nil
   "Return t if there are active regions."
   (not (null pdf-view-active-region)))
