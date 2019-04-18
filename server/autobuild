@@ -369,6 +369,9 @@ os_macos() {
         PKGARGS=install
         PACKAGES="pkg-config poppler automake"
         PKG_INSTALL_AS_ROOT=
+        # homebrew install libffi as keg-only, meaning we need to set
+        # PKG_CONFIG_PATH manually so configure can find it
+        export PKG_CONFIG_PATH="$(brew --prefix libffi)/lib/pkgconfig/"
     elif which port >/dev/null 2>&1; then
         PKGCMD=port
         PKGARGS=install
