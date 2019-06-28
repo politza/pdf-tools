@@ -1657,16 +1657,18 @@ belong to the same page and A1 is displayed above/left of A2."
                           (format "*%s's annots*"
                                   (file-name-sans-extension
                                    (buffer-name))))
-      (unless (derived-mode-p 'pdf-annot-list-mode)
-        (pdf-annot-list-mode))
-      (setq pdf-annot-list-document-buffer buffer)
-      (tabulated-list-print)
-      (setq tablist-context-window-function
-            (lambda (id) (pdf-annot-list-context-function id buffer))
-            tablist-operations-function 'pdf-annot-list-operation-function)
-      (let ((list-buffer (current-buffer)))
-        (with-current-buffer buffer
-          (setq pdf-annot-list-buffer list-buffer)))
+      (delay-mode-hooks
+        (unless (derived-mode-p 'pdf-annot-list-mode)
+          (pdf-annot-list-mode))
+        (setq pdf-annot-list-document-buffer buffer)
+        (tabulated-list-print)
+        (setq tablist-context-window-function
+              (lambda (id) (pdf-annot-list-context-function id buffer))
+              tablist-operations-function 'pdf-annot-list-operation-function)
+        (let ((list-buffer (current-buffer)))
+          (with-current-buffer buffer
+            (setq pdf-annot-list-buffer list-buffer))))
+      (run-mode-hooks)
       (pop-to-buffer
        (current-buffer)
        pdf-annot-list-display-buffer-action)
