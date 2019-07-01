@@ -242,6 +242,9 @@ regarding display of the region in the later function.")
   ;;TODO: write documentation!
   `(image-mode-window-get 'window-size ,window))
 
+(defmacro pdf-view-window-needs-redisplay (&optional window)
+  `(image-mode-window-get 'needs-redisplay ,window))
+
 (defun pdf-view-current-pagelabel (&optional window)
   (nth (1- (pdf-view-current-page window)) (pdf-info-pagelabels)))
 
@@ -399,7 +402,7 @@ PNG images in Emacs buffers."
     (setq-local cua-mode nil))
 
   (add-hook 'window-configuration-change-hook
-            'pdf-view-maybe-redisplay-resized-windows nil t)
+            'pdf-view-redisplay-some-windows nil t)
   (add-hook 'deactivate-mark-hook 'pdf-view-deactivate-region nil t)
   (add-hook 'write-contents-functions
             'pdf-view--write-contents-function nil t)
@@ -979,6 +982,7 @@ It is equal to \(LEFT . TOP\) of the current slice in pixel."
 
 (defun pdf-view-display-page (page &optional window)
   "Display page PAGE in WINDOW."
+  (setf (pdf-view-window-needs-redisplay window) nil)
   (pdf-view-display-image
    (pdf-view-create-page page window)
    window))
@@ -1031,7 +1035,13 @@ If WINDOW is t, redisplay pages in all windows."
       (dolist (win (get-buffer-window-list nil nil t))
         (pdf-view-display-page
          (pdf-view-current-page win)
-         win)))
+         win))
+      (when (consp image-mode-winprops-alist)
+        (dolist (window (mapcar #'car image-mode-winprops-alist))
+          (unless (or (not (window-live-p window))
+                      (eq (current-buffer)
+                          (window-buffer window)))
+            (setf (pdf-view-window-needs-redisplay window) t)))))
     (force-mode-line-update)))
 
 (defun pdf-view-redisplay-pages (&rest pages)
@@ -1059,6 +1069,12 @@ If WINDOW is t, redisplay pages in all windows."
                       (and (eq pdf-view-display-size 'fit-height)
                            (eq (cdr size) (cdr stored))))
             (pdf-view-redisplay window)))))))
+
+(defun pdf-view-redisplay-some-windows ()
+  (pdf-view-maybe-redisplay-resized-windows)
+  (dolist (window (get-buffer-window-list nil nil t))
+    (when (pdf-view-window-needs-redisplay window)
+      (pdf-view-redisplay window))))
 
 (defun pdf-view-new-window-function (winprops)
   ;; TODO: write documentation!
