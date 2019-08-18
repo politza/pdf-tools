@@ -947,7 +947,9 @@ frame's PPI is larger than 180. Otherwise, return 1."
           (if (>= (pdf-util-frame-ppi) 180)
               2
             1))
-    1))
+    (if (and (pdf-view-use-scaling-p) (eq (framep-on-display) 'ns))
+        2
+      1)))
 
 
 ;; * ================================================================== *
