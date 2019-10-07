@@ -549,11 +549,12 @@ killed."
       (let ((temporary-file-directory
              pdf-util--base-directory))
         (setq pdf-util--dedicated-directory
-              (make-temp-file (concat (if buffer-file-name
-                                          (file-name-nondirectory
-                                           buffer-file-name)
-                                        (buffer-name))
-                                      "-")
+              (make-temp-file (convert-standard-filename
+			       (concat (if buffer-file-name
+					   (file-name-nondirectory
+					    buffer-file-name)
+					 (buffer-name))
+				       "-"))
                               t))
         (add-hook 'kill-buffer-hook 'pdf-util-delete-dedicated-directory
                   nil t)))
@@ -573,7 +574,7 @@ killed."
 See `make-temp-file' for the arguments."
   (let ((temporary-file-directory
          (pdf-util-dedicated-directory)))
-    (make-temp-file prefix dir-flag suffix)))
+    (make-temp-file (convert-standard-filename prefix) dir-flag suffix)))
 
 
 ;; * ================================================================== *
