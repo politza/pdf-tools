@@ -716,7 +716,10 @@ next page only on typing SPC (ARG is nil)."
   (if (or pdf-view-continuous (null arg))
       (let ((hscroll (window-hscroll))
             (cur-page (pdf-view-current-page)))
-        (when (or (= (window-vscroll) (image-scroll-up arg))
+        (when (or (= (window-vscroll)
+                     (progn
+                       (image-scroll-up arg)
+                       (window-vscroll)))
                   ;; Workaround rounding/off-by-one issues.
                   (memq pdf-view-display-size
                         '(fit-height fit-page)))
@@ -757,7 +760,10 @@ at the bottom edge of the page moves to the next page."
   (if pdf-view-continuous
       (let ((hscroll (window-hscroll))
             (cur-page (pdf-view-current-page)))
-        (when (= (window-vscroll) (image-next-line arg))
+        (when (= (window-vscroll)
+                 (progn
+                       (image-next-line arg)
+                       (window-vscroll)))
           (pdf-view-next-page)
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
