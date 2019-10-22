@@ -309,6 +309,8 @@ regarding display of the region in the later function.")
     (define-key map [remap kill-region] 'pdf-view-kill-ring-save)
     (define-key map [remap kill-ring-save] 'pdf-view-kill-ring-save)
     (define-key map [remap mark-whole-buffer] 'pdf-view-mark-whole-page)
+    (define-key map [remap shell-command-on-region]
+      'pdf-view-shell-command-on-region-command)
     ;; Other
     (define-key map (kbd "C-c C-d") 'pdf-view-dark-minor-mode)
     (define-key map (kbd "m") 'pdf-view-position-to-register)
@@ -1503,6 +1505,28 @@ the `convert' programm is used."
       (dolist (f (cons result images))
         (when (file-exists-p f)
           (delete-file f))))))
+
+(defun pdf-view-shell-command-on-region-command (command
+                                                 &optional error-buffer
+                                                 display-error-buffer)
+  "Execute string COMMAND in inferior shell with current region as input.
+
+This is a pdf-aware version of `shell-command-on-region', which see."
+  (interactive
+   (progn
+     (unless (pdf-view-active-region-p)
+       (user-error "The region is not active"))
+     (list (read-shell-command "Shell command on region: ")
+           current-prefix-arg
+           shell-command-default-error-buffer)))
+  (pdf-view-assert-active-region)
+  (let ((text (mapconcat #'identity (pdf-view-active-region-text) "\n")))
+    (with-temp-buffer
+      (insert text)
+      (shell-command-on-region
+       (point-min) (point-max)
+       command nil nil error-buffer display-error-buffer))))
+
 
 ;; * ================================================================== *
 ;; * Bookmark + Register Integration
