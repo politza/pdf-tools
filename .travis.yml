@@ -33,6 +33,7 @@ addons:
     - libz-dev
     - libpoppler-glib-dev
     - libpoppler-private-dev
+    - libgnutls
 
 notifications:
   email: false
