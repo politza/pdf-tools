@@ -17,6 +17,8 @@ before_install:
   - sed -i 's/"https:/"http:/' ~/.cask/*.el
   - cask upgrade-cask || true
   - evm install $EVM_EMACS --use --skip
+  - which emacs || true
+  - emacs --version || true
   - cask
 
 addons:
