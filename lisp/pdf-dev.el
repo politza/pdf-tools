@@ -20,7 +20,7 @@
 
 ;;; Commentary:
 ;;
-;; This file is only ment for developers.  The entry point is
+;; This file is only meant for developers.  The entry point is
 ;; pdf-dev-minor-mode, which see.
 
 ;;; Code:

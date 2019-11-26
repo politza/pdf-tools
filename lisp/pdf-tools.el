@@ -290,7 +290,7 @@ Install into TARGET-DIRECTORY, which should be a directory.
 
 If CALLBACK is non-nil, it should be a function.  It is called
 with the compiled executable as the single argument or nil, if
-the build falied.
+the build failed.
 
 Expect sources to be in BUILD-DIRECTORY.  If nil, search for it
 using `pdf-tools-locate-build-directory'.

@@ -180,7 +180,7 @@ else return the scaled singleton."
 (defun pdf-util-scale-to (list-of-edges from to &optional rounding-fn)
   "Scale LIST-OF-EDGES in FROM basis to TO.
 
-FROM and TO should both be a cons \(WIDTH . HEIGTH\).  See also
+FROM and TO should both be a cons \(WIDTH . HEIGHT\).  See also
 `pdf-util-scale'."
 
   (pdf-util-scale list-of-edges
@@ -419,7 +419,7 @@ Returns a list of pixel edges."
     (mapcar 'round (list x0 y0 x1 y1))))
 
 (defun pdf-util-required-hscroll (edges &optional eager-p context-pixel)
-  "Return the amount of scrolling nescessary, to make image EDGES visible.
+  "Return the amount of scrolling necessary, to make image EDGES visible.
 
 Scroll as little as necessary.  Unless EAGER-P is non-nil, in
 which case scroll as much as possible.
@@ -458,7 +458,7 @@ needed."
                         (frame-char-width)))))))))
 
 (defun pdf-util-required-vscroll (edges &optional eager-p context-pixel)
-  "Return the amount of scrolling nescessary, to make image EDGES visible.
+  "Return the amount of scrolling necessary, to make image EDGES visible.
 
 Scroll as little as necessary.  Unless EAGER-P is non-nil, in
 which case scroll as much as possible.
@@ -837,8 +837,8 @@ trailing 2 is ignored.  The other possible values have similar
 effects.  The default is nil, which means to match the whole
 sequences.
 
-Return a cons \(VALUE . ALINGMENT\), where VALUE says how similar
-the sequences are and ALINGMENT is a list of \(E1 . E2\), where
+Return a cons \(VALUE . ALIGNMENT\), where VALUE says how similar
+the sequences are and ALIGNMENT is a list of \(E1 . E2\), where
 E1 is an element from SEQ1 or nil, likewise for E2.  If one of
 them is nil, it means there is gap at this position in the
 respective sequence."
@@ -1000,10 +1000,10 @@ Returns a cons \(WIDTH . HEIGHT\)."
   "Convert image IN-FILE to OUT-FILE according to SPEC.
 
 IN-FILE should be the name of a file containing an image.  Write
-the result to OUT-FILE.  The extension of this filename ususally
+the result to OUT-FILE.  The extension of this filename usually
 determines the resulting image-type.
 
-SPEC is a property list, specifying what the convert programm
+SPEC is a property list, specifying what the convert program
 should do with the image.  All manipulations operate on a
 rectangle, see below.
 
@@ -1032,7 +1032,7 @@ as a single argument.
 
 `:formats' An alist of additional %-escapes.  Every element
 should be a cons \(CHAR . STRING\) or \(CHAR . FUNCTION\).  In
-the first case, all occurences of %-CHAR in the above commands
+the first case, all occurrences of %-CHAR in the above commands
 will be replaced by STRING.  In the second case FUNCTION is
 called with the current rectangle and it should return the
 replacement string.

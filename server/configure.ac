@@ -86,7 +86,7 @@ AC_LANG_PUSH([C])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
         #include <error.h>
         ],[error (0, 0, "");])],
-        [AC_DEFINE([HAVE_ERROR_H],1, [Define to 1 if error.h is useable.])
+        [AC_DEFINE([HAVE_ERROR_H],1, [Define to 1 if error.h is usable.])
         AC_MSG_RESULT([yes])],
         AC_MSG_RESULT([no]))
 AC_LANG_POP([C])

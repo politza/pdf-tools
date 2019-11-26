@@ -12,7 +12,7 @@ environment:
 install:
   # running under CI
   - '%APPVEYOR_BUILD_FOLDER%\ci\appveyor\install.bat'
-  - 'echo End intall at: & time /t'
+  - 'echo End install at: & time /t'
 
 build_script:
   - 'pushd %APPVEYOR_BUILD_FOLDER%'

@@ -507,7 +507,7 @@ operating on a local copy of a remote file."
           (delete-file tempfile))))))
 
 (defun pdf-view-revert-buffer (&optional ignore-auto noconfirm)
-  "Revert buffer while preseving current modes.
+  "Revert buffer while preserving current modes.
 
 Optional parameters IGNORE-AUTO and NOCONFIRM are defined as in
 `revert-buffer'."
@@ -528,7 +528,7 @@ Optional parameters IGNORE-AUTO and NOCONFIRM are defined as in
 (defun pdf-view-close-document ()
   "Return immediately after closing document.
 
-This function always suceeds.  See also `pdf-info-close', which
+This function always succeeds.  See also `pdf-info-close', which
 does not return immediately."
   (when (pdf-info-running-p)
     (let ((pdf-info-asynchronous 'ignore))
@@ -1242,7 +1242,7 @@ image size \(WIDTH . HEIGHT\) as arguments.  It should return a
 list of hotspots applicable to the the :map image-property.
 
 LAYER determines the order: Functions in a higher LAYER will
-supercede hotspots in lower ones."
+supersede hotspots in lower ones."
   (push (cons (or layer 0) fn)
         pdf-view--hotspot-functions))
 
@@ -1338,7 +1338,7 @@ Stores the region in `pdf-view-active-region'."
                 (cond
                  ((and end-inside-image-p
                        (not begin-inside-image-p))
-                  ;; Started selection ouside the image, setup begin.
+                  ;; Started selection outside the image, setup begin.
                   (let* ((xy (posn-x-y pos))
                          (dxy (cons (- (car xy) (car begin))
                                     (- (cdr xy) (cdr begin))))
@@ -1459,7 +1459,7 @@ image*\" and display it, unless NO-DISPLAY-P is non-nil.
 
 In case of multiple regions, the resulting image is constructed
 by joining them horizontally.  For this operation (and this only)
-the `convert' programm is used."
+the `convert' program is used."
 
   (interactive
    (list (if (pdf-view-active-region-p)
