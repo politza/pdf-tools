@@ -4,7 +4,7 @@ The Synchronization TeXnology named SyncTeX is a new feature
 of recent TeX engines designed by Jerome Laurens.
 It allows to synchronize between input and output, which means to
 navigate from the source document to the typeset material and vice versa.
-More informations on http://itexmac2.sourceforge.net/SyncTeX.html
+More information on http://itexmac2.sourceforge.net/SyncTeX.html
 
 This package is mainly for developers, it mainly contains the following files:
 
@@ -16,7 +16,7 @@ synctex_parser_local.h
 synctex_parser.h
 synctex_parser.c
 
-The file you are reading contains more informations about the SyncTeX parser history.
+The file you are reading contains more information about the SyncTeX parser history.
 
 In order to support SyncTeX in a viewer, it is sufficient to include
 in the source the files synctex_parser.h and synctex_parser.c.

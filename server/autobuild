@@ -6,7 +6,7 @@
 
 # Don't exit if some command fails.
 set +e
-# Disalbe file globbing.
+# Disable file globbing.
 set -f
 
 # Boolean variables are true if non-empty and false otherwise.

@@ -3581,7 +3581,7 @@ static const command_t commands [] =
     DEC_CMD2 (search_regexp, "search-regexp"),
     DEC_CMD2 (regexp_flags, "regexp-flags"),
 
-    /* General Informations */
+    /* General Information */
     DEC_CMD (metadata),
     DEC_CMD (outline),
     DEC_CMD2 (number_of_pages, "number-of-pages"),
@@ -3592,7 +3592,7 @@ static const command_t commands [] =
     DEC_CMD (boundingbox),
     DEC_CMD (charlayout),
 
-    /* General Informations */
+    /* General Information */
     DEC_CMD (metadata),
     DEC_CMD (outline),
     DEC_CMD2 (number_of_pages, "number-of-pages"),
