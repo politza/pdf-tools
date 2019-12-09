@@ -2971,8 +2971,8 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   const char *source = args[1].value.string;
   int line = args[2].value.natnum;
   int column = args[3].value.natnum;
-  synctex_scanner_t scanner = NULL;
-  synctex_node_t node;
+  synctex_scanner_p scanner = NULL;
+  synctex_node_p node;
   float x1, y1, x2, y2;
   PopplerPage *page = NULL;
   double width, height;
@@ -2982,8 +2982,8 @@ cmd_synctex_forward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   perror_if_not (scanner, "Unable to create synctex scanner,\
  did you run latex with `--synctex=1' ?");
 
-  perror_if_not (synctex_display_query (scanner, source, line, column)
-                && (node = synctex_next_result (scanner)),
+  perror_if_not (synctex_display_query (scanner, source, line, column, 0)
+                && (node = synctex_scanner_next_result (scanner)),
                 "Destination not found");
 
   pn = synctex_node_page (node);
@@ -3026,10 +3026,10 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   int pn = args[1].value.natnum;
   double x = args[2].value.edge;
   double y = args[3].value.edge;
-  synctex_scanner_t scanner = NULL;
+  synctex_scanner_p scanner = NULL;
   const char *filename;
   PopplerPage *page = NULL;
-  synctex_node_t node;
+  synctex_node_p node;
   double width, height;
   int line, column;
 
@@ -3044,7 +3044,7 @@ cmd_synctex_backward_search (const epdfinfo_t *ctx, const command_arg_t *args)
   y = y * height;
 
   if (! synctex_edit_query (scanner, pn, x, y)
-      || ! (node = synctex_next_result (scanner))
+      || ! (node = synctex_scanner_next_result (scanner))
       || ! (filename =
             synctex_scanner_get_name (scanner, synctex_node_tag (node))))
     {
