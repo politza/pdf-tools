@@ -346,27 +346,33 @@ strchomp (char *str)
 static char*
 mktempfile()
 {
-  char *filename = NULL;
+  char *filename;
+  int fd = -1;
   int tries = 3;
-  while (! filename && tries-- > 0)
+
+  filename = malloc (PATH_MAX);
+  if (!filename) {
+    fprintf (stderr, "Fail to allocate filename buffer\n");
+    return NULL;
+  }
+
+  if (getenv("TMPDIR"))
+    strcpy (filename, getenv("TMPDIR"));
+  else
+    strcpy (filename, P_tmpdir);
+  strcat (filename, "/epdfinfoXXXXXX");
+
+  while (fd == -1 && tries-- > 0)
+    fd = mkstemp (filename);
+
+  if (fd == -1)
     {
-
-      filename =  tempnam(NULL, "epdfinfo");
-      if (filename)
-        {
-          int fd = open(filename, O_CREAT | O_EXCL | O_RDONLY, S_IRWXU);
-          if (fd > 0)
-            close (fd);
-          else
-            {
-              free (filename);
-              filename = NULL;
-            }
-        }
+      free (filename);
+      fprintf (stderr, "Unable to create tempfile\n");
+      return NULL;
     }
-  if (! filename)
-    fprintf (stderr, "Unable to create tempfile");
 
+  close (fd);
   return filename;
 }
 
