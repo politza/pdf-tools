@@ -127,6 +127,7 @@ Some useful keys are:
     `pdf-view-mode' buffers in the search.
 
 \\{pdf-occur-buffer-mode-map}"
+  (setq-local case-fold-search case-fold-search)
   (setq-local next-error-function 'pdf-occur-next-error)
   (setq-local revert-buffer-function
               'pdf-occur-revert-buffer)
