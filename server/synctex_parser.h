@@ -105,7 +105,7 @@ extern "C" {
      *      Use 0 only if you do not want to parse the
      *      content but just check for existence.
      *      Available since version 1.5
-     *   - resturn: a scanner. NULL is returned in case
+     *   - return: a scanner. NULL is returned in case
      *      of an error or non existent file.
      */
     synctex_scanner_p synctex_scanner_new_with_output_file(const char * output, const char * build_directory, int parse);
