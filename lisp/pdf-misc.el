@@ -234,6 +234,8 @@
   "Miscellaneous options for PDF documents."
   :group 'pdf-tools)
 
+(define-obsolete-variable-alias 'pdf-misc-print-programm
+  'pdf-misc-print-program "1.0")
 (defcustom pdf-misc-print-programm nil
   "The program used for printing.
 
@@ -241,6 +243,8 @@ It is called with one argument, the PDF file."
   :group 'pdf-misc
   :type 'file)
 
+(define-obsolete-variable-alias 'pdf-misc-print-programm-args
+  'pdf-misc-print-program-args "1.0")
 (defcustom pdf-misc-print-programm-args nil
   "List of additional arguments passed to `pdf-misc-print-program'."
   :group 'pdf-misc
@@ -254,28 +258,28 @@ It is called with one argument, the PDF file."
                                         'executable-find
                                         '("gtklp" "xpp" "gpr")))))
                buffer-file-name
-               (programm
+               (program
                 (expand-file-name
                  (read-file-name
                   "Print with: " default nil t nil 'file-executable-p))))
-          (when (and programm
-                     (executable-find programm))
+          (when (and program
+                     (executable-find program))
             (when (y-or-n-p "Save choice using customize ?")
               (customize-save-variable
-               'pdf-misc-print-programm programm))
-            (setq pdf-misc-print-programm programm))))))
+               'pdf-misc-print-program program))
+            (setq pdf-misc-print-program program))))))
 
 (defun pdf-misc-print-document (filename &optional interactive-p)
   (interactive
    (list (pdf-view-buffer-file-name) t))
   (cl-check-type filename (and string file-readable))
-  (let ((programm (pdf-misc-print-programm interactive-p))
+  (let ((program (pdf-misc-print-program interactive-p))
         (args (append pdf-misc-print-programm-args (list filename))))
-    (unless programm
+    (unless program
       (error "No print program available"))
-    (apply #'start-process "printing" nil programm args)
+    (apply #'start-process "printing" nil program args)
     (message "Print job started: %s %s"
-             programm (mapconcat #'identity args " "))))
+             program (mapconcat #'identity args " "))))
 
 
 (provide 'pdf-misc)

@@ -65,7 +65,7 @@ extern "C" {
     
     /**
      *  These are the masks for the synctex node types.
-     *  int's are 32 bits at leats.
+     *  int's are 32 bits at least.
      */
     enum {
         synctex_shift_root,
@@ -325,7 +325,7 @@ extern "C" {
      *  Proxies are used to support pdf forms.
      *  The ref primary nodes are replaced by a tree
      *  of proxy nodes which duplicate the tree of primary
-     *  nodes available in the refered form.
+     *  nodes available in the referred form.
      *  Roughly speaking, the primary nodes of the form
      *  know what to display, the proxy nodes know where.
      *  Handles are used in queries. They point to either
@@ -449,7 +449,7 @@ extern "C" {
      */
     void synctex_iterator_free(synctex_iterator_p iterator);
     /**
-     *  Wether the iterator actually points to an object.
+     *  Whether the iterator actually points to an object.
      *  - argument iterator: the object to iterate on...
      */
     synctex_bool_t synctex_iterator_has_next(synctex_iterator_p iterator);

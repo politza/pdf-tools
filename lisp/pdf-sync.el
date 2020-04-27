@@ -430,8 +430,8 @@ point to the correct position."
            (need-suffix-space-p (memq char '(?\s ?\n)))
            ;; Figure out whether we missed a space by matching the
            ;; prefix's suffix with the line's prefix.  Due to the text
-           ;; extraction in poppler, spaces are only inserted
-           ;; inbetween words.  This test may fail, if prefix and line
+           ;; extraction in poppler, spaces are only inserted in
+           ;; between words.  This test may fail, if prefix and line
            ;; do not overlap, which may happen in various cases, but
            ;; we don't care.
            (need-prefix-space-p

@@ -630,7 +630,7 @@ is non-nil."
 (defun pdf-util-hexcolor (color)
   "Return COLOR in hex-format.
 
-Singal an error, if color is invalid."
+Signal an error, if color is invalid."
   (if (string-match "\\`#[[:xdigit:]]\\{6\\}\\'" color)
       color
     (let ((values (color-values color)))
