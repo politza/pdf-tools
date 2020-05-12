@@ -729,7 +729,7 @@ next page only on typing SPC (ARG is nil)."
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
             (image-bol 1))
-          (set-window-hscroll (selected-window) hscroll)))
+          (image-set-window-hscroll hscroll)))
     (image-scroll-up arg)))
 
 (defun pdf-view-scroll-down-or-previous-page (&optional arg)
@@ -751,7 +751,7 @@ to previous page only on typing DEL (ARG is nil)."
           (when (/= cur-page (pdf-view-current-page))
             (image-eob)
             (image-bol 1))
-          (set-window-hscroll (selected-window) hscroll)))
+          (image-set-window-hscroll hscroll)))
     (image-scroll-down arg)))
 
 (defun pdf-view-next-line-or-next-page (&optional arg)
@@ -769,7 +769,7 @@ at the bottom edge of the page moves to the next page."
           (when (/= cur-page (pdf-view-current-page))
             (image-bob)
             (image-bol 1))
-          (set-window-hscroll (selected-window) hscroll)))
+          (image-set-window-hscroll hscroll)))
     (image-next-line 1)))
 
 (defun pdf-view-previous-line-or-previous-page (&optional arg)
@@ -787,7 +787,7 @@ at the top edge of the page moves to the previous page."
           (when (/= cur-page (pdf-view-current-page))
             (image-eob)
             (image-bol 1))
-          (set-window-hscroll (selected-window) hscroll)))
+          (image-set-window-hscroll hscroll)))
     (image-previous-line arg)))
 
 (defun pdf-view-goto-label (label)
