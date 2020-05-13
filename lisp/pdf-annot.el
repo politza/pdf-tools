@@ -982,7 +982,8 @@ other annotations."
                 page (car size)
                 `("white" "steel blue" 0.35 ,@edges))
              :map (pdf-view-apply-hotspot-functions
-                   window page size))))
+                   window page size)
+             :width (car size))))
         (pdf-util-scroll-to-edges
          (pdf-util-scale-relative-to-pixel (car edges)))))))
 
