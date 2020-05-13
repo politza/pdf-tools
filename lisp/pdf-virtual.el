@@ -26,7 +26,7 @@
 ;; order to transparently make this collection appear as one single
 ;; document.
 ;;
-;; The trickiest part is to make theses intermediate functions behave
+;; The trickiest part is to make these intermediate functions behave
 ;; like the pdf-info-* equivalents in both the synchronous and
 ;; asynchronous case.
 
@@ -518,7 +518,7 @@ PAGE should be a page-number."
                             (concat " " f))
                           unreadable "\n"))))
     (if (= (pdf-virtual-document-number-of-pages) 0)
-        (error "Docüment is empty.")
+        (error "Document is empty.")
       (unless pdf-virtual-global-minor-mode
         (pdf-virtual-global-minor-mode 1))
       (funcall fn))))

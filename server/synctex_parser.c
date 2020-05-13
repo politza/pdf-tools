@@ -7592,7 +7592,7 @@ static synctex_nd_s _synctex_point_h_ordered_distance_v2
         int min,med,max,width;
         switch(synctex_node_type(node)) {
                 /*  The distance between a point and a box is special.
-                 *  It is not the euclidian distance, nor something similar.
+                 *  It is not the euclidean distance, nor something similar.
                  *  We have to take into account the particular layout,
                  *  and the box hierarchy.
                  *  Given a box, there are 9 regions delimited by the lines of the edges of the box.
@@ -7733,7 +7733,7 @@ static synctex_nd_s _synctex_point_v_ordered_distance_v2
     int min,max,depth,height;
     switch(synctex_node_type(node)) {
             /*  The distance between a point and a box is special.
-             *  It is not the euclidian distance, nor something similar.
+             *  It is not the euclidean distance, nor something similar.
              *  We have to take into account the particular layout,
              *  and the box hierarchy.
              *  Given a box, there are 9 regions delimited by the lines of the edges of the box.
@@ -7881,7 +7881,7 @@ SYNCTEX_INLINE static synctex_bool_t _synctex_point_in_box_v2(synctex_point_p hi
 
 static int _synctex_distance_to_box_v2(synctex_point_p hit,synctex_box_p box) {
     /*  The distance between a point and a box is special.
-     *  It is not the euclidian distance, nor something similar.
+     *  It is not the euclidean distance, nor something similar.
      *  We have to take into account the particular layout,
      *  and the box hierarchy.
      *  Given a box, there are 9 regions delimited by the lines of the edges of the box.

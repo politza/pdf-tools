@@ -224,7 +224,7 @@ annoyed while reading the annotations."
 A function on this hook should accept one argument: A CLOSURE
 containing inserted, changed and deleted annotations.
 
-It may access theses annotations by calling CLOSURE with one of
+It may access these annotations by calling CLOSURE with one of
 these arguments:
 
 `:inserted' The list of recently added annotations.
