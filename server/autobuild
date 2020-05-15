@@ -328,16 +328,26 @@ os_msys2() {
     fi
     case $MSYSTEM in
         MINGW64)
-            PACKAGES="base-devel
+            PACKAGES="mingw-w64-x86_64-make
+                      mingw-w64-x86_64-pkg-config
+                      mingw-w64-x86_64-automake
+                      mingw-w64-x86_64-autoconf
+                      mingw-w64-x86_64-gcc
+                      mingw-w64-x86_64-g++
                       mingw-w64-x86_64-libpng
                       mingw-w64-x86_64-poppler
-                      mingw-w64-x86_64-toolchain
+                      mingw-w64-x86_64-imagemagick
                       mingw-w64-x86_64-zlib" ;;
         MINGW32)
-            PACKAGES="base-devel
+            PACKAGES="mingw-w64-i686-make
+                      mingw-w64-i686-pkg-config
+                      mingw-w64-i686-automake
+                      mingw-w64-i686-autoconf
+                      mingw-w64-i686-gcc
+                      mingw-w64-i686-g++
                       mingw-w64-i686-libpng
                       mingw-w64-i686-poppler
-                      mingw-w64-i686-toolchain
+                      mingw-w64-i686-imagemagick
                       mingw-w64-i686-zlib" ;;
         MSYS)
             case $(uname -m) in
