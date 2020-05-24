@@ -707,7 +707,7 @@ string."
         (cl-incf dx (/ (- xw (car (pdf-view-image-size t))) 2))))
     (pdf-util-tooltip-in-window
      (propertize
-      " " 'display (propertize
+      "\u2192" 'display (propertize
                     "\u2192" ;;right arrow
                     'display '(height 2)
                     'face `(:foreground
