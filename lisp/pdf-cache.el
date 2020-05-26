@@ -23,6 +23,7 @@
 ;;; Code:
 ;;
 
+(require 'pdf-macs)
 (require 'pdf-info)
 (require 'pdf-util)
 

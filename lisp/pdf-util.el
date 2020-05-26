@@ -25,6 +25,7 @@
 
 ;;; Code:
 
+(require 'pdf-macs)
 (require 'cl-lib)
 (require 'format-spec)
 (require 'faces)
