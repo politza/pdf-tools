@@ -317,7 +317,7 @@ os_debian() {
               make
               pkg-config"
     PKGCMD=apt-get
-    PKGARGS=install
+    PKGARGS="install -y"
     return 0
 }
 
