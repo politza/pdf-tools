@@ -1,36 +1,70 @@
-language: generic
-sudo: false
+# https://github.com/purcell/nix-emacs-ci
+language: nix
 
-script:
-  - emacs --version
-  - make test
+cache:
+  directories:
+  - $HOME/nix.store
 
-env:
-  matrix:
-    - EVM_EMACS=emacs-24.3-travis
-    - EVM_EMACS=emacs-24.4-travis
-    - EVM_EMACS=emacs-24.5-travis
-    - EVM_EMACS=emacs-git-snapshot-travis
+jobs:
+  include:
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-24-3
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-24-4
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-24-5
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-25-1
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-25-2
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-25-3
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-26-1
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-26-2
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-26-3
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-27-1
+    - os: linux
+      dist: bionic
+      env: EMACS_CI=emacs-snapshot
 
 before_install:
-  - curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh || true
-  - sed -i 's/"https:/"http:/' ~/.cask/*.el
-  - cask upgrade-cask || true
-  - evm install $EVM_EMACS --use --skip
+  - sudo mkdir -p /etc/nix
+  - echo "substituters = https://cache.nixos.org/ file://$HOME/nix.store" | sudo tee -a /etc/nix/nix.conf > /dev/null
+  - echo 'require-sigs = false' | sudo tee -a /etc/nix/nix.conf > /dev/null
+
+before_cache:
+  - mkdir -p $HOME/nix.store
+  - nix copy --to file://$HOME/nix.store -f default.nix buildInputs
+
+install:
+  # The default "emacs" executable on the $PATH will now be the version named by $EMACS_CI
+  - bash <(curl https://raw.githubusercontent.com/purcell/nix-emacs-ci/master/travis-install)
+  - travis_retry eval $"curl -fsSL https://raw.githubusercontent.com/cask/cask/master/go | python ; sleep 10"
+  - export PATH=$HOME/.cask/bin:$PATH
+  - travis_retry eval $"cask install ; sleep 10"
+  - nix-env -i libpng poppler
+
+script:
+  - export PATH=$HOME/.cask/bin:$PATH
+  - emacs --version
+  - cask build
   - cask
 
-addons:
-  apt:
-    packages:
-    - gcc
-    - g++
-    - make
-    - automake
-    - autoconf
-    - libpng-dev
-    - libz-dev
-    - libpoppler-glib-dev
-    - libpoppler-private-dev
-
-notifications:
-  email: false
+allow_failures:
+  - os: linux
+    dist: bionic
+    env: EMACS_CI=emacs-snapshot
