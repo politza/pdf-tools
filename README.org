@@ -2,7 +2,9 @@
 #+AUTHOR:    Andreas Politz
 #+EMAIL:     politza@fh-trier.de
 
-[[https://travis-ci.org/politza/pdf-tools.svg?branch%3Dmaster][https://travis-ci.org/politza/pdf-tools.svg?branch=master]]
+#+BEGIN_export markdown
+[![Build Status](https://travis-ci.org/politza/pdf-tools.svg?branch=master)](https://travis-ci.org/politza/pdf-tools)
+#+END_export
 [[http://stable.melpa.org/#/pdf-tools][http://stable.melpa.org/packages/pdf-tools-badge.svg]]
 [[http://melpa.org/#/pdf-tools][http://melpa.org/packages/pdf-tools-badge.svg]]
 
