@@ -678,14 +678,19 @@ string."
             ,@tooltip-frame-parameters)))
     (tooltip-show text)))
 
-(defun pdf-util-tooltip-arrow (image-top &optional timeout)
+(defun pdf-util-tooltip-arrow (image-top &optional timeout image-left)
   (pdf-util-assert-pdf-window)
   (when (floatp image-top)
     (setq image-top
           (round (* image-top (cdr (pdf-view-image-size))))))
+  (when (floatp image-left)
+    (setq image-left
+          (round (* image-left (car (pdf-view-image-size))))))
   (let* (x-gtk-use-system-tooltips ;allow for display property in tooltip
-         (dx (+ (or (car (window-margins)) 0)
-                (car (window-fringes))))
+	 (dx (if image-left
+		 image-left
+	       (+ (or (car (window-margins)) 0)
+		  (car (window-fringes)))))
          (dy image-top)
          (pos (list dx dy dx (+ dy (* 2 (frame-char-height)))))
          (vscroll
