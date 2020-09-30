@@ -33,12 +33,21 @@
 ;; which won't succeed, if pdf-view.el isn't loaded.
 (declare-function pdf-view-image-size "pdf-view")
 (declare-function pdf-view-image-offset "pdf-view")
-(declare-function pdf-view-current-image "pdf-view")
-(declare-function pdf-view-current-overlay "pdf-view")
 (declare-function pdf-cache-pagesize "pdf-cache")
 
 (declare-function pdf-view-image-type "pdf-view")
 
+;; ...similarly for these macros (originally in pdf-view.el). Using
+;; `declare-function' on these causes errors when using pdf-tools under Emacs
+;; 28's new native compilation.
+;; See https://lists.gnu.org/archive/html/bug-gnu-emacs/2020-09/msg02502.html
+(defmacro pdf-view-current-overlay (&optional window)
+  ;;TODO: write documentation!
+  `(image-mode-window-get 'overlay ,window))
+
+(defmacro pdf-view-current-image (&optional window)
+  ;;TODO: write documentation!
+  `(image-mode-window-get 'image ,window))
 
 
 ;; * ================================================================== *

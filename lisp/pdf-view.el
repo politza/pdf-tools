@@ -226,14 +226,6 @@ regarding display of the region in the later function.")
   ;;TODO: write documentation!
   `(image-mode-window-get 'page ,window))
 
-(defmacro pdf-view-current-overlay (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'overlay ,window))
-
-(defmacro pdf-view-current-image (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'image ,window))
-
 (defmacro pdf-view-current-slice (&optional window)
   ;;TODO: write documentation!
   `(image-mode-window-get 'slice ,window))
