@@ -51,8 +51,8 @@
 (defcustom pdf-links-read-link-convert-commands
   '(;;"-font" "FreeMono"
     "-pointsize" "%P"
-    "-undercolor" "%f"
-    "-fill" "%b"
+    "-undercolor" "%b"
+    "-fill" "%f"
     "-draw" "text %X,%Y '%c'")
 
   "The commands for the convert program, when decorating links for reading.
