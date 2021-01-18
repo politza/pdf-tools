@@ -321,6 +321,7 @@ regarding display of the region in the later function.")
     (define-key map (kbd "C-c C-i") 'pdf-view-extract-region-image)
     ;; Rendering
     (define-key map (kbd "C-c C-r m") 'pdf-view-midnight-minor-mode)
+    (define-key map (kbd "C-c C-r t") 'pdf-view-themed-minor-mode)
     (define-key map (kbd "C-c C-r p") 'pdf-view-printer-minor-mode)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
@@ -1218,6 +1219,43 @@ The colors are determined by the variable
       (pdf-info-setoptions :render/usecolors nil))))
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
+
+(defun pdf-view-refresh-themed-buffer (&optional get-theme)
+	"Refresh the current buffer to activate applied colors.
+
+When GET-THEME is non-nil, also reset the applied colors to the
+current theme's colors."
+	(pdf-tools-assert-pdf-buffer)
+	(pdf-cache-clear-images)
+	(when get-theme
+		(pdf-view-set-theme-background))
+	(pdf-view-redisplay t))
+
+(defun pdf-view-set-theme-background ()
+	"Set the buffer's color filter to correspond to the current Emacs theme."
+  (pdf-tools-assert-pdf-buffer)
+  (pdf-info-setoptions
+   :render/foreground (face-foreground 'default nil)
+   :render/background (face-background 'default nil)
+   :render/usecolors t))
+
+(define-minor-mode pdf-view-themed-minor-mode
+  "Synchronize color filter with the present Emacs theme.
+
+The colors are determined by the `face-foreground' and
+`face-background' of the currently active theme."
+
+  nil " Thm" nil
+	(pdf-util-assert-pdf-buffer)
+    (cond
+     (pdf-view-themed-minor-mode
+      (add-hook 'after-save-hook #'pdf-view-set-theme-background nil t)
+      (add-hook 'after-revert-hook #'pdf-view-set-theme-background nil t))
+     (t
+      (remove-hook 'after-save-hook #'pdf-view-set-theme-background t)
+      (remove-hook 'after-revert-hook #'pdf-view-set-theme-background t)
+      (pdf-info-setoptions :render/usecolors nil)))
+		(pdf-view-refresh-themed-buffer pdf-view-themed-minor-mode))
 
 (when pdf-view-use-unicode-ligther
   ;; This check uses an implementation detail, which hopefully gets the
