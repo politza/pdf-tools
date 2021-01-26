@@ -696,7 +696,9 @@ string."
             ,@tooltip-frame-parameters))
          (tooltip-hide-delay (or timeout 3)))
     (when vscroll
-      (image-set-window-vscroll vscroll))
+      (image-set-window-vscroll (* vscroll
+				   (if pdf-view-have-image-mode-pixel-vscroll
+				       (frame-char-height) 1))))
     (setq dy (max 0 (- dy
                        (cdr (pdf-view-image-offset))
                        (window-vscroll nil t)
