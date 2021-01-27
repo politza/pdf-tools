@@ -467,9 +467,11 @@ Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
 top of the window.  CONTEXT-PIXEL defaults to an equivalent pixel
 value of `next-screen-context-lines'.
 
-Return the required vscroll in lines or nil, if scrolling is not
-needed."
+Return the required vscroll in pixels or nil, if scrolling is not
+needed.
 
+Note: For versions of emacs before 27 this will return lines instead of
+pixels. This is because of a change that occurred to `image-mode' in 27."
   (pdf-util-assert-pdf-window)
   (let* ((win (window-inside-pixel-edges))
          (image-height (cdr (pdf-view-image-size t)))
@@ -483,20 +485,28 @@ needed."
                                    (frame-char-height))))
              ;;Be careful not to modify edges.
              (edges-top (- edges-top context-pixel))
-             (edges-bot (+ edges-bot context-pixel)))
-        (if (< edges-top image-top)
-            (round (/ (max 0 (if eager-p
-                                 (- edges-bot win-height)
-                               edges-top))
-                      (float (frame-char-height))))
-          (if (> (min image-height
-                      edges-bot)
-                 (+ image-top win-height))
-              (round (/ (min (- image-height win-height)
-                             (if eager-p
-                                 edges-top
-                               (- edges-bot win-height)))
-                        (float (frame-char-height))))))))))
+             (edges-bot (+ edges-bot context-pixel))
+             (vscroll
+              (cond ((< edges-top image-top)
+                     (max 0 (if eager-p
+                                (- edges-bot win-height)
+                              edges-top)))
+                    ((> (min image-height
+                             edges-bot)
+                        (+ image-top win-height))
+                     (min (- image-height win-height)
+                          (if eager-p
+                              edges-top
+                            (- edges-bot win-height)))))))
+
+
+        (when vscroll
+          (round
+           ;; `image-set-window-vscroll' changed in version 27 to using
+           ;; pixels, not lines.
+           (if (version< emacs-version "27")
+               (/ vscroll (float (frame-char-height)))
+               vscroll)))))))
 
 (defun pdf-util-scroll-to-edges (edges &optional eager-p)
   "Scroll window such that image EDGES are visible.
