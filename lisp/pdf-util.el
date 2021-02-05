@@ -977,6 +977,16 @@ amount of (temporary) disk space."
   :group 'pdf-tools
   :type '(cons symbol string))
 
+(defcustom pdf-util-convert-font "helvetica"
+  ;; "helvetica" is the default font for ImageMagick
+  "Font for rendering text on images.
+
+This font is used by the convert program for adding text onto
+images. To confirm whether a font is accessible to convert, run
+'convert -list font' in your shell."
+  :group 'pdf-tools
+  :type 'string)
+
 (defun pdf-util-assert-convert-program ()
   (unless (and pdf-util-convert-program
                (file-executable-p pdf-util-convert-program))
@@ -1013,12 +1023,15 @@ SPEC may contain the following keys, respectively values.
 
 `:background' Dito, for the background color.
 
+`:font' Set font name for all following text operations.
+
 `:commands' A list of strings representing arguments to convert
 for image manipulations.  It may contain %-escape characters, as
 follows.
 
 %f -- Expands to the foreground color.
 %b -- Expands to the background color.
+%F -- Expands to the font name.
 %g -- Expands to the geometry of the current rectangle, i.e. WxH+X+Y.
 %x -- Expands to the left edge of rectangle.
 %X -- Expands to the right edge of rectangle.
@@ -1119,6 +1132,7 @@ Return the converted PNG image as a string.  See also
 (defun pdf-util-convert--create-commands (spec)
   (let ((fg "red")
         (bg "red")
+        (font pdf-util-convert-font)
         formats result cmds s)
     (while (setq s (pop spec))
       (unless spec
@@ -1128,6 +1142,8 @@ Return the converted PNG image as a string.  See also
          (setq fg (pop spec)))
         (:background
          (setq bg (pop spec)))
+        (:font
+         (setq font (pop spec)))
         (:commands
          (setq cmds (pop spec)))
         (:formats
@@ -1152,7 +1168,8 @@ Return the converted PNG image as a string.  See also
                              (?w . ,(- m-right m-left))
                              (?h . ,(- m-bot m-top))
                              (?f . ,fg)
-                             (?b . ,bg)))))
+                             (?b . ,bg)
+                             (?F . ,font)))))
                (dolist (fmt cmds)
                  (push (format-spec fmt alist) result))))))))
     (nreverse result)))
