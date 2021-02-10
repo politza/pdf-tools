@@ -273,7 +273,7 @@ It is called with one argument, the PDF file."
   (interactive
    (list (pdf-view-buffer-file-name) t))
   (cl-check-type filename (and string file-readable))
-  (let ((program (pdf-misc-print-program interactive-p))
+  (let ((program (pdf-misc-print-programm interactive-p))
         (args (append pdf-misc-print-programm-args (list filename))))
     (unless program
       (error "No print program available"))
