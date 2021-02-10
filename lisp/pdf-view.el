@@ -626,7 +626,7 @@ windows."
   (save-selected-window
     ;; Select the window for the hooks below.
     (when (window-live-p window)
-      (select-window window))
+      (select-window window 'norecord))
     (let ((changing-p
            (not (eq page (pdf-view-current-page window)))))
       (when changing-p
@@ -1261,7 +1261,7 @@ supersede hotspots in lower ones."
   ;; TODO: write documentation!
   (unless pdf-view-inhibit-hotspots
     (save-selected-window
-      (when window (select-window window))
+      (when window (select-window window 'norecord))
       (apply 'nconc
              (mapcar (lambda (fn)
                        (funcall fn page image-size))

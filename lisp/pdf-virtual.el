@@ -567,7 +567,7 @@ PAGE should be a page-number."
 
 (defun pdf-virtual-view-window-p (&optional window)
   (save-selected-window
-    (when window (select-window window))
+    (when window (select-window window 'norecord))
     (derived-mode-p 'pdf-virtual-view-mode)))
 
 (defun pdf-virtual-filename-p (filename)

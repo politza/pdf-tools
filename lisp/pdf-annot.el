@@ -850,7 +850,7 @@ Return nil, if no annotation was found."
       (setq window (posn-window pos)
             pos (posn-object-x-y pos)))
     (save-selected-window
-      (when window (select-window window))
+      (when window (select-window window 'norecord))
       (let* ((annots (pdf-annot-getannots (pdf-view-current-page)))
              (size (pdf-view-image-size))
              (rx (/ (car pos) (float (car size))))
@@ -968,7 +968,7 @@ If HIGHLIGHT-P is non-nil, visually distinguish annotation A from
 other annotations."
 
   (save-selected-window
-    (when window (select-window window))
+    (when window (select-window window 'norecord))
     (pdf-util-assert-pdf-window)
     (let ((page (pdf-annot-get a 'page))
           (size (pdf-view-image-size)))
