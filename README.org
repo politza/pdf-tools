@@ -328,6 +328,14 @@
 #+BEGIN_SRC emacs-lisp
   (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
 #+END_SRC
+
+*** ~libpoppler~ version mismatch
+    When upgrading your system’s poppler library, Emacs might get a library
+    version mismatch as seen in [[https://github.com/politza/pdf-tools/issues/662][#662]]. In this case, you should rebuild
+    ~pdf-tools~ by executing ~M-x pdf-tools-install~. If it still does not work,
+    try restarting Emacs entirely (if you are using Emacs as a service in
+    systemd, you can run ~systemctl --user restart emacs~).
+
 ** Some keybindings
 
 | Navigation                                 |                       |
