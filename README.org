@@ -59,11 +59,11 @@
      - Apply a color filter for reading in low light conditions.
 
 ** Installation
-   The package may be installed via melpa and it will try to build the
+   The package may be installed via MELPA and it will try to build the
    server part when it is activated the first time.  Though the next
    section regarding build-prerequisites is still relevant, the rest
    of the installation instructions assume a build from within a git
-   repository. (The melpa package has a different directory
+   repository. (The MELPA package has a different directory
    structure.)
 
 *** Server Prerequisites
@@ -113,10 +113,10 @@
 #+begin_src sh
   $ sudo aptitude install imagemagick
 #+end_src
-**** Compiling on OS X
-     Although OS X is not officially supported, it has been reported
+**** Compiling on macOS
+     Although macOS is not officially supported, it has been reported
      to have been successfully compiled.  You will need to install
-     poppler which you can get with homebrew via
+     poppler which you can get with Homebrew via
 #+BEGIN_SRC sh
   $ brew install poppler automake
 #+END_SRC
@@ -139,16 +139,16 @@
      To see the current list of pdf-tools packages for FreeBSD visit
      [[https://repology.org/metapackages/?search=pdf-tools&inrepo=freebsd][the Repology list]].
 
-     To build pdf-tools from either melpa or directly from the source
+     To build pdf-tools from either MELPA or directly from the source
      repository, install the dependencies with
 #+BEGIN_SRC sh
   $ pkg install autotools gmake poppler-glib
 #+END_SRC
 
-     If you choose not to install from melpa, you must substitute
+     If you choose not to install from MELPA, you must substitute
     ~gmake~ for ~make~ in the instructions below.
-**** Compiling on Centos
-     It is possible to compile pdf-tools on Centos. Install poppler the dependencies with:
+**** Compiling on CentOS
+     It is possible to compile pdf-tools on CentOS. Install poppler the dependencies with:
 #+BEGIN_SRC sh
   $ yum install poppler-devel poppler-glib-devel
 #+END_SRC
@@ -168,7 +168,7 @@
      compiler. This will work with native (not cygwin) Windows builds of
      emacs. This includes the standard binaries provided by the GNU
      project, those available as MSYS2 packages and numerous third-party
-     binaries. It has been tested with emacs 25.1. Instructions are
+     binaries. It has been tested with Emacs 25.1. Instructions are
      provided under [[#compilation-and-installation-on-windows][Compilation and installation on Windows]], below.
      PDF Tools will successfully compile using Cygwin, but it will not be 
      able to open PDFs properly due to the way binaries compiled with Cygwin
@@ -249,15 +249,15 @@
       for Windows, may interfere with those needed by PDF Tools.
       ~pdf-info-check-epdinfo~ will succeed, but errors occur when trying
       to view a PDF file. This can be fixed by ensuring that the MSYS
-      libraries are always preferred in emacs:
+      libraries are always preferred in Emacs:
 
  #+BEGIN_SRC emacs-lisp
  (setenv "PATH" (concat "C:\\msys64\\mingw64\\bin;" (getenv "PATH")))
  #+END_SRC
 
-*** ELisp Prerequisites
+*** Elisp Prerequisites
     This package depends on the following Elisp packages, which should
-    be installed before installing the Pdf Tools package.
+    be installed before installing the PDF Tools package.
 
     | Package   | Required version                 |
     |-----------+----------------------------------|
@@ -302,7 +302,7 @@
     this kind of problems, you should delete the old package via
     ~list-packages~, restart Emacs and then reinstall the package.
 
-    This also applies when updating via package and melpa.
+    This also applies when updating via package and MELPA.
 
 ** Known problems
     :PROPERTIES:
@@ -332,8 +332,8 @@
 
 | Navigation                                 |                       |
 |--------------------------------------------+-----------------------|
-| Scroll Up / Down by page-full              | ~space~ / ~backspace~ |
-| Scroll Up / Down by line                   | ~C-n~ / ~C-p~         |
+| Scroll Up / Down by Page-full              | ~space~ / ~backspace~ |
+| Scroll Up / Down by Line                   | ~C-n~ / ~C-p~         |
 | Scroll Right / Left                        | ~C-f~ / ~C-b~         |
 | Top of Page / Bottom of Page               | ~<~ / ~>~             |
 | Next Page / Previous Page                  | ~n~ / ~p~             |
@@ -352,8 +352,8 @@
 |------------------------------------------+-----------------|
 | Zoom in / Zoom out                       | ~+~ / ~-~       |
 | Fit Height / Fit Width / Fit Page        | ~H~ / ~W~ / ~P~ |
-| Trim margins (set slice to bounding box) | ~s b~           |
-| Reset margins                            | ~s r~           |
+| Trim Margins (set slice to bounding box) | ~s b~           |
+| Reset Margins                            | ~s r~           |
 | Reset Zoom                               | 0               |
 
 | Annotations                   |                                                 |
@@ -364,12 +364,12 @@
 | Delete Marked Annotations     | ~x~                                             |
 | Unmark Annotations            | ~u~                                             |
 | Close Annotation List         | ~q~                                             |
-| Add and edit annotations      | via Mouse selection and left-click context menu |
+| Add and Edit Annotations      | via Mouse selection and left-click context menu |
 
 | Syncing with Auctex              |             |
 |----------------------------------+-------------|
-| jump to PDF location from source | ~C-c C-g~   |
-| jump source location from PDF    | ~C-mouse-1~ |
+| Jump to PDF Location from Source | ~C-c C-g~   |
+| Jump Source Location from PDF    | ~C-mouse-1~ |
 
 | Miscellaneous                                 |           |
 |-----------------------------------------------+-----------|
