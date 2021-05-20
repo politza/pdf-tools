@@ -328,6 +328,10 @@
 #+BEGIN_SRC emacs-lisp
   (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
 #+END_SRC
+
+*** sublimity
+    L/R scrolling breaks while zoomed into a pdf, with usage of sublimity smooth scrolling features
+
 ** Some keybindings
 
 | Navigation                                 |                       |
