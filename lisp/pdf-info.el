@@ -230,7 +230,9 @@ Returns nil."
   (let ((executable pdf-info-epdfinfo-program))
     (unless (stringp executable)
       (error "pdf-info-epdfinfo-program is unset or not a string"))
-    (unless (file-executable-p executable)
+    (unless (if (file-name-absolute-p executable)
+                (file-executable-p executable)
+              (executable-find executable))
       (error "pdf-info-epdfinfo-program is not executable"))
     (when pdf-info-epdfinfo-error-filename
       (unless (and (stringp pdf-info-epdfinfo-error-filename)
