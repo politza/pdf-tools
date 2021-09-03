@@ -313,6 +313,10 @@
     PDF Tools does not work well together with ~linum-mode~ and
     activating it in a ~pdf-view-mode~, e.g. via ~global-linum-mode~,
     might make Emacs choke.
+    
+*** display-line-numbers-mode
+
+    This mode is an alternative to linum-mode and is available since Emacs 26, but PDF Tools has some problems with it. For example, it makes horizontal navigation (such as C-f, C-b, C-< or C-> ) in a document impossible. 
 
 *** auto-revert
     Autorevert works by polling the file-system every
