@@ -316,7 +316,7 @@
     
 *** display-line-numbers-mode
 
-    This mode is an alternative to linum-mode and is available since Emacs 26, but PDF Tools has some problems with it. For example, it makes horizontal navigation (such as C-f, C-b, C-< or C-> ) in a document impossible. 
+    This mode is an alternative to linum-mode and is available since Emacs 26, but PDF Tools has some problems with it. For example, it makes horizontal navigation (such as C-f, C-b, C-x < or C-x > ) in a document impossible. 
 
 *** auto-revert
     Autorevert works by polling the file-system every
