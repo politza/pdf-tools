@@ -419,6 +419,29 @@ os_gentoo() {
     return 0
 }
 
+# Void
+os_void() {
+    if [ -f "/etc/os-release" ]; then
+        . /etc/os-release
+        if [ "$NAME" != "void" ]; then
+          return 1
+        fi
+    else
+      return 1
+    fi
+    PACKAGES="autoconf
+              automake
+              libpng-devel
+              poppler-devel
+              poppler-glib-devel
+              zlib-devel
+              make
+              pkgconf"
+    PKGCMD=xbps-install
+    PKGARGS="-Sy"
+    return 0
+}
+
 # By Parameter --os
 os_argument() {
     [ -z "$OS" ] && return 1
@@ -433,6 +456,7 @@ os_argument() {
         gentoo)  os_gentoo  "$@";;
         msys2)   os_msys2   "$@";;
         nixos)   os_nixos   "$@";;
+        void)    os_void    "$@";;
         *)       echo "Invalid --os argument: $OS"
                  exit 1
     esac || {
@@ -458,6 +482,7 @@ os_debian   "$@" || \
 os_gentoo   "$@" || \
 os_msys2    "$@" || \
 os_nixos    "$@" || \
+os_void     "$@" || \
 {
     OS_IS_HANDLED=
     if [ -z "$DRY_RUN" ]; then
