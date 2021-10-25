@@ -21,8 +21,8 @@
 ;;
 ;; The backward search uses a heuristic, which is pretty simple, but
 ;; effective: It extracts the text around the click-position in the
-;; PDF, normalizes it's whitespace, deletes certain notorious
-;; character and translates certain other character into their latex
+;; PDF, normalizes its whitespace, deletes certain notorious
+;; characters and translates certain other characters into their latex
 ;; equivalents.  This transformed text is split into a series of
 ;; token.  A similar operation is performed on the source code around
 ;; the position synctex points at.  These two sequences of token are
@@ -43,7 +43,7 @@
   :group 'pdf-tools)
 
 (defcustom pdf-sync-forward-display-pdf-key "C-c C-g"
-  "Key to jump from a TeX buffer to it's PDF file.
+  "Key to jump from a TeX buffer to its PDF file.
 
 This key is added to `TeX-source-correlate-method', when
 command `pdf-sync-minor-mode' is activated and this map is defined."
@@ -258,8 +258,8 @@ the exact location of the clicked-upon text in the PDF."
     (9830 "diamondsuit"))
   "Alist mapping PDF character to a list of LaTeX macro names.
 
-Adding a character here with it's LaTeX equivalent names allows
-the heuristic backward search to find it's location in the source
+Adding a character here with its LaTeX equivalent names allows
+the heuristic backward search to find its location in the source
 file.  These strings should not match
 `pdf-sync-backward-source-flush-regexp'.
 

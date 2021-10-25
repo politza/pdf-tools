@@ -70,7 +70,7 @@
 (defcustom pdf-outline-display-labels nil
   "Whether the outline should display labels instead of page numbers.
 
-Usually a page's label is it's displayed page number."
+Usually a page's label is its displayed page number."
   :group 'pdf-outline
   :type 'boolean)
 
@@ -155,7 +155,7 @@ buffer.
   "View and traverse the outline of a PDF file.
 
 Press \\[pdf-outline-display-link] to display the PDF document,
-\\[pdf-outline-select-pdf-window] to select it's window,
+\\[pdf-outline-select-pdf-window] to select its window,
 \\[pdf-outline-move-to-current-page] to move to the outline item
 of the current page, \\[pdf-outline-follow-link] to goto the
 corresponding page or \\[pdf-outline-follow-link-and-quit] to
@@ -313,7 +313,7 @@ Open nodes as necessary."
     (pdf-outline-move-to-page page)))
 
 (defun pdf-outline-quit-and-kill ()
-  "Quit browsing the outline and kill it's buffer."
+  "Quit browsing the outline and kill its buffer."
   (interactive)
   (pdf-outline-quit t))
 

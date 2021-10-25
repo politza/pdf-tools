@@ -76,7 +76,7 @@
     not at page boundaries.
 ** View
 *** Navigate by pagelabels
-    M-g l may be used to jump to a page by label, i.e. it's displayed
+    M-g l may be used to jump to a page by label, i.e. its displayed
     number.
 *** Rendering
     Added the ability to display the page as it would be printed
@@ -108,7 +108,7 @@
    by setting pdf-tools-handle-upgrades to nil.
 ** Auto slicing
    A new minor mode which will automatically slice the page according
-   to it's bounding box.
+   to its bounding box.
 * Version 0.40
   I basically reimplemented the whole thing. (Not really, but a lot
   has changed.)

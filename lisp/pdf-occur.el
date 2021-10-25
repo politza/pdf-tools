@@ -78,7 +78,7 @@ the cost of slightly increased search time."
 
 Each element should be either the filename of a PDF document or a
 cons \(FILENAME . PAGES\), where PAGES is the list of pages to
-search.  See `pdf-info-normalize-page-range' for it's format.")
+search.  See `pdf-info-normalize-page-range' for its format.")
 
 (defvar pdf-occur-number-of-matches 0
   "The number of matches in all searched documents.")
@@ -453,7 +453,7 @@ I.e. all marked files look like PDF documents."
 DOCUMENTS should be a list of buffers (objects, not names),
 filenames or conses \(BUFFER-OR-FILENAME . PAGES\), where PAGES
 determines the scope of the search of the respective document.
-See `pdf-info-normalize-page-range' for it's format.
+See `pdf-info-normalize-page-range' for its format.
 
 STRING is either the string to search for or, if REGEXP-P is
 non-nil, a Perl compatible regular expression (PCRE).

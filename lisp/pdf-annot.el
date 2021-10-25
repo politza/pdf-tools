@@ -678,7 +678,7 @@ The DO-SAVE argument is given to
 
 
 (defun pdf-annot-attachment-save (attachment &optional regenerate-p)
-  "Save ATTACHMENT's data to a unique filename and return it's name.
+  "Save ATTACHMENT's data to a unique filename and return its name.
 
 If REGENERATE-P is non-nil, copy attachment's file even if the
 copy already exists.

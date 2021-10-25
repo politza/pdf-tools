@@ -339,7 +339,7 @@ strchomp (char *str)
 }
 
 /**
- * Create a new, temporary file and returns it's name.
+ * Create a new, temporary file and returns its name.
  *
  * @return The filename.
  */
@@ -672,7 +672,7 @@ region_print (cairo_region_t *region, double width, double height)
  *
  * @param type The PopplerActionType.
  *
- * @return It's string representation.
+ * @return Its string representation.
  */
 static const char *
 xpoppler_action_type_string(PopplerActionType type)
@@ -699,7 +699,7 @@ xpoppler_action_type_string(PopplerActionType type)
  *
  * @param type The PopplerAnnotType.
  *
- * @return It's string representation.
+ * @return Its string representation.
  */
 static const char *
 xpoppler_annot_type_string (PopplerAnnotType type)
@@ -741,7 +741,7 @@ xpoppler_annot_type_string (PopplerAnnotType type)
  *
  * @param type The PopplerAnnotTextState.
  *
- * @return It's string representation.
+ * @return Its string representation.
  */
 static const char *
 xpoppler_annot_text_state_string (PopplerAnnotTextState state)

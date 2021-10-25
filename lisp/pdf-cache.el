@@ -89,7 +89,7 @@ be prefetched and their order."
   "Get value of KEY in the cache of PAGE.
 
 Returns a cons \(HIT . VALUE\), where HIT is non-nil if KEY was
-stored previously for PAGE and VALUE it's value.  Otherwise HIT
+stored previously for PAGE and VALUE its value.  Otherwise HIT
 is nil and VALUE undefined."
   (pdf-cache--initialize)
   (let ((elt (assq key (gethash page pdf-cache--data))))
@@ -130,7 +130,7 @@ Both args are unevaluated."
         (ifn (intern (format "pdf-info-%s" command)))
         (doc (format "Cached version of `pdf-info-%s', which see.
 
-Make sure, not to modify it's return value." command)))
+Make sure, not to modify its return value." command)))
     `(defun ,fn ,args
        ,doc
        (let ((hit-value (pdf-cache--data-get ',command ,(if page-arg-p 'page))))
@@ -172,8 +172,8 @@ Make sure, not to modify it's return value." command)))
 
 IMAGE should be a list as created by `pdf-cache--make-image'.
 
-Return non-nil, if IMAGE's page is the same as PAGE, it's width
-is at least MIN-WIDTH and at most MAX-WIDTH and it's stored
+Return non-nil, if IMAGE's page is the same as PAGE, its width
+is at least MIN-WIDTH and at most MAX-WIDTH and its stored
 hash-value is `eql' to HASH."
   (and (= (pdf-cache--image/page image)
           page)
@@ -278,7 +278,7 @@ from the cache."
 (defun pdf-cache-renderpage (page min-width &optional max-width)
   "Render PAGE according to MIN-WIDTH and MAX-WIDTH.
 
-Return the PNG data of an image as a string, such that it's width
+Return the PNG data of an image as a string, such that its width
 is at least MIN-WIDTH and, if non-nil, at most MAX-WIDTH.
 
 If such an image is not available in the cache, call
@@ -344,7 +344,7 @@ See also `pdf-info-renderpage-highlight' and
    (pdf-cache-prefetch-minor-mode
     (pdf-util-assert-pdf-buffer)
     (add-hook 'pre-command-hook 'pdf-cache--prefetch-stop nil t)
-    ;; FIXME: Disable the time when the buffer is killed or it's
+    ;; FIXME: Disable the time when the buffer is killed or its
     ;; major-mode changes.
     (setq pdf-cache--prefetch-timer
           (run-with-idle-timer (or pdf-cache-prefetch-delay 1)
