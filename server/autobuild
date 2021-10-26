@@ -364,6 +364,22 @@ os_msys2() {
 os_macos() {
     if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "Darwin" ]; then
         return 1
+    elif which nix-env >/dev/null 2>&1; then
+        # Already in the nix-shell.
+        if [ -n "$AUTOBUILD_NIX_SHELL" ]; then
+            return 0
+        fi
+        if ! which nix-shell >/dev/null 2>&1; then
+            return 1
+        fi
+        if [ -n "$DRY_RUN" ]; then
+            return 0
+        fi
+        command="AUTOBUILD_NIX_SHELL=true"
+        command="$command;export AUTOBUILD_NIX_SHELL"
+        command="$command;$(quote "$0" "$@")"
+        exec nix-shell --pure --command "$command" \
+           -p pkg-config popplar automake
     elif which brew >/dev/null 2>&1; then
         PKGCMD=brew
         PKGARGS=install
