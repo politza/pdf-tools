@@ -713,9 +713,12 @@ string."
                     'face `(:foreground
                             "orange red"
                             :background
-                            ,(if (bound-and-true-p pdf-view-midnight-minor-mode)
-                                 (cdr pdf-view-midnight-colors)
-                               "white"))))
+                            ,(cond
+                              ((bound-and-true-p pdf-view-midnight-minor-mode)
+                               (cdr pdf-view-midnight-colors))
+                              ((bound-and-true-p pdf-view-themed-minor-mode)
+                               (face-background 'default nil))
+                              (t "white")))))
      dx dy)))
 
 (defvar pdf-util--face-colors-cache (make-hash-table))
