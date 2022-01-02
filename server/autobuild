@@ -260,7 +260,7 @@ os_openbsd() {
     fi
     PKGCMD=pkg_add
     PKGARGS="-uU"
-    PACKAGES="autoconf-2.69p2 automake-1.15.1 poppler poppler-utils png"
+    PACKAGES="autoconf%2.69 automake%1.15 poppler poppler-utils png"
     export AUTOCONF_VERSION=2.69
     export AUTOMAKE_VERSION=1.15
     if whereis clang++ ;then
