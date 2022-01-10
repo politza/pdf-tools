@@ -120,6 +120,20 @@ This should be a cons \(FOREGROUND . BACKGROUND\) of colors."
   :type '(cons (color :tag "Foreground")
                (color :tag "Background")))
 
+(defcustom pdf-view-midnight-invert nil
+  "In midnight mode invert the image color lightness maintaining hue.
+
+This is particularly useful if you are viewing documents with
+color coded data in plots.  This will maintain the colors such
+that 'blue' and 'red' will remain these colors in the inverted
+rendering.  This inversion is non-trivial.  This makes use of the
+OKLab color space which is well calibrated to have equal
+perceptual brightness across hue, but not all colors are within
+the RGB gamut after inversion, causing some colors to saturate.
+Nevertheless, this seems to work well in most cases."
+  :group 'pdf-view
+  :type 'boolean)
+
 (defcustom pdf-view-change-page-hook nil
   "Hook run after changing to another page, but before displaying it.
 
@@ -1206,7 +1220,7 @@ The colors are determined by the variable
                   (pdf-info-setoptions
                    :render/foreground (or (car pdf-view-midnight-colors) "black")
                    :render/background (or (cdr pdf-view-midnight-colors) "white")
-                   :render/usecolors t))))
+                   :render/usecolors (if pdf-view-midnight-invert 2 1)))))
     (cond
      (pdf-view-midnight-minor-mode
       (add-hook 'after-save-hook enable nil t)
@@ -1215,7 +1229,7 @@ The colors are determined by the variable
      (t
       (remove-hook 'after-save-hook enable t)
       (remove-hook 'after-revert-hook enable t)
-      (pdf-info-setoptions :render/usecolors nil))))
+      (pdf-info-setoptions :render/usecolors 0))))
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
