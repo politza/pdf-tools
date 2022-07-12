@@ -375,7 +375,7 @@ os_macos() {
     elif which port >/dev/null 2>&1; then
         PKGCMD=port
         PKGARGS=install
-        PACKAGES="pkgconfig poppler automake libpng"
+        PACKAGES="pkgconfig poppler autoconf automake libpng"
     else
         return 1
     fi
