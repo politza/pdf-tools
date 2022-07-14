@@ -253,6 +253,17 @@ os_freebsd() {
     return 0
 }
 
+# NetBSD
+os_netbsd() {
+    if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "NetBSD" ]; then
+        return 1
+    fi
+    PKGCMD=pkgin
+    PKGARGS=install
+    PACKAGES="autoconf automake poppler-glib png pkgconf"
+    return 0
+}
+
 # OpenBSD
 os_openbsd() {
     if ! which uname >/dev/null 2>&1 || [ "$(uname -s)" != "OpenBSD" ]; then
@@ -427,6 +438,7 @@ os_argument() {
         freebsd) os_freebsd "$@";;
         arch)    os_arch    "$@";;
         centos)  os_centos  "$@";;
+        netbsd)  os_netbsd  "$@";;
         openbsd) os_openbsd "$@";;
         fedora)  os_fedora  "$@";;
         debian)  os_debian  "$@";;
@@ -452,6 +464,7 @@ os_macos    "$@" || \
 os_freebsd  "$@" || \
 os_arch     "$@" || \
 os_centos   "$@" || \
+os_netbsd   "$@" || \
 os_openbsd  "$@" || \
 os_fedora   "$@" || \
 os_debian   "$@" || \
